@@ -14,7 +14,8 @@
     "lucide-react": "^0.501.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "tailwindcss": "^4.1.4"
+    "tailwindcss": "^4.1.4",
+    "recharts": "^2.15.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",
