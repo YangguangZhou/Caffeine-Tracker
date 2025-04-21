@@ -253,21 +253,21 @@ const DrinkSelector = ({ drinks, selectedDrinkId, onSelectDrink, onClearSelectio
 
     // Sort items within each group: custom first, then preset, then alphabetically
     Object.values(groups).forEach(items => {
-        items.sort((a, b) => {
-            if (!a.isPreset && b.isPreset) return -1; // Custom before preset
-            if (a.isPreset && !b.isPreset) return 1;  // Preset after custom
-            return a.name.localeCompare(b.name);      // Alphabetical otherwise
-        });
+      items.sort((a, b) => {
+        if (!a.isPreset && b.isPreset) return -1; // Custom before preset
+        if (a.isPreset && !b.isPreset) return 1;  // Preset after custom
+        return a.name.localeCompare(b.name);      // Alphabetical otherwise
+      });
     });
 
     // Order categories based on DRINK_CATEGORIES, then alphabetically for others
     const orderedCategories = Object.keys(groups).sort((a, b) => {
-        const aIndex = DRINK_CATEGORIES.indexOf(a);
-        const bIndex = DRINK_CATEGORIES.indexOf(b);
-        if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-        if (aIndex !== -1) return -1;
-        if (bIndex !== -1) return 1;
-        return a.localeCompare(b);
+      const aIndex = DRINK_CATEGORIES.indexOf(a);
+      const bIndex = DRINK_CATEGORIES.indexOf(b);
+      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+      if (aIndex !== -1) return -1;
+      if (bIndex !== -1) return 1;
+      return a.localeCompare(b);
     });
 
     return orderedCategories.map(category => ({ category, items: groups[category] }));
@@ -325,10 +325,10 @@ const DrinkSelector = ({ drinks, selectedDrinkId, onSelectDrink, onClearSelectio
                   key={drink.id}
                   onClick={() => onSelectDrink(drink.id)}
                   className={`p-2 border rounded-lg text-center text-xs font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-amber-500 flex flex-col items-center justify-center h-20 shadow-sm hover:shadow-md ${selectedDrinkId === drink.id
-                      ? `bg-amber-200 ${COFFEE_COLORS.borderStrong} ring-2 ring-amber-500 ring-offset-1` // Selected style
-                      : drink.isPreset
-                        ? `bg-white ${COFFEE_COLORS.textPrimary} border-amber-200 hover:bg-amber-100 hover:border-amber-300` // Preset style
-                        : `${COFFEE_COLORS.customDrinkBg} ${COFFEE_COLORS.customDrinkText} border-green-200 hover:bg-green-100 hover:border-green-300` // Custom drink style
+                    ? `bg-amber-200 ${COFFEE_COLORS.borderStrong} ring-2 ring-amber-500 ring-offset-1` // Selected style
+                    : drink.isPreset
+                      ? `bg-white ${COFFEE_COLORS.textPrimary} border-amber-200 hover:bg-amber-100 hover:border-amber-300` // Preset style
+                      : `${COFFEE_COLORS.customDrinkBg} ${COFFEE_COLORS.customDrinkText} border-green-200 hover:bg-green-100 hover:border-green-300` // Custom drink style
                     }`}
                   title={`${drink.name} (${drink.caffeineContent}mg/100ml${drink.defaultVolume ? `, ${drink.defaultVolume}ml` : ''})`}
                 >
@@ -491,7 +491,7 @@ const CaffeineTracker = () => {
       // Set Name: Only when selectedDrinkId changes and we are ADDING a new record.
       // The editRecord function handles setting the initial name when editing.
       if (!editingId) {
-           setEntryName(selectedDrinkData.name);
+        setEntryName(selectedDrinkData.name);
       }
 
     } else if (!editingId) {
@@ -502,9 +502,9 @@ const CaffeineTracker = () => {
 
     // Clear custom amount when drink selection changes unless editing a custom entry
     if (!editingId || (editingRecord && editingRecord.volume !== null)) {
-        setCustomAmount('');
+      setCustomAmount('');
     }
-  // *** REMOVED entryName from dependencies ***
+    // *** REMOVED entryName from dependencies ***
   }, [selectedDrinkId, drinks, editingId, records]);
 
 
@@ -535,7 +535,7 @@ const CaffeineTracker = () => {
       try {
         // Store only necessary fields, isPreset is important
         const drinksToSave = drinks.map(({ id, name, caffeineContent, defaultVolume, category, isPreset }) => ({
-            id, name, caffeineContent, defaultVolume, category, isPreset
+          id, name, caffeineContent, defaultVolume, category, isPreset
         }));
         localStorage.setItem('caffeineDrinks', JSON.stringify(drinksToSave));
       } catch (error) {
@@ -691,48 +691,48 @@ const CaffeineTracker = () => {
 
     // Prioritize custom amount if entered
     if (customAmount) {
-        const parsedAmount = parseFloat(customAmount);
-        if (!isNaN(parsedAmount) && parsedAmount >= 0) {
-            caffeineAmount = Math.round(parsedAmount);
-            const baseDrink = selectedDrinkId ? drinks.find(d => d.id === selectedDrinkId) : null;
-            nameForRecord = finalEntryName || (baseDrink ? `${baseDrink.name} (手动)` : '自定义摄入');
-            drinkIdForRecord = selectedDrinkId || null; // Keep track of base drink if selected
-            volume = null; // Volume is irrelevant
-            // If a drink was selected but custom amount used, and name differs, store custom name
-            if (baseDrink && finalEntryName && finalEntryName !== baseDrink.name) {
-                customNameValue = finalEntryName;
-            } else if (!baseDrink && finalEntryName) {
-                customNameValue = finalEntryName; // Store name if it's purely custom
-            }
-        } else {
-            alert("请输入有效的自定义咖啡因摄入量 (必须大于或等于 0)。");
-            return;
+      const parsedAmount = parseFloat(customAmount);
+      if (!isNaN(parsedAmount) && parsedAmount >= 0) {
+        caffeineAmount = Math.round(parsedAmount);
+        const baseDrink = selectedDrinkId ? drinks.find(d => d.id === selectedDrinkId) : null;
+        nameForRecord = finalEntryName || (baseDrink ? `${baseDrink.name} (手动)` : '自定义摄入');
+        drinkIdForRecord = selectedDrinkId || null; // Keep track of base drink if selected
+        volume = null; // Volume is irrelevant
+        // If a drink was selected but custom amount used, and name differs, store custom name
+        if (baseDrink && finalEntryName && finalEntryName !== baseDrink.name) {
+          customNameValue = finalEntryName;
+        } else if (!baseDrink && finalEntryName) {
+          customNameValue = finalEntryName; // Store name if it's purely custom
         }
+      } else {
+        alert("请输入有效的自定义咖啡因摄入量 (必须大于或等于 0)。");
+        return;
+      }
     }
     // If no custom amount, and a drink is selected, calculate based on volume
     else if (selectedDrinkId && drinkVolume) {
-        const drink = drinks.find(d => d.id === selectedDrinkId);
-        if (!drink) { alert("选择的饮品无效。"); return; }
-        const caffeineContent = drink.caffeineContent;
-        const parsedVolume = parseFloat(drinkVolume);
-        if (!isNaN(parsedVolume) && parsedVolume > 0 && caffeineContent >= 0) {
-            caffeineAmount = Math.round((caffeineContent * parsedVolume) / 100);
-            volume = parsedVolume;
-            drinkIdForRecord = drink.id;
-            nameForRecord = finalEntryName || drink.name; // Use custom name if provided, else default
-            // Store custom name only if it differs from the base drink name
-            if (finalEntryName && finalEntryName !== drink.name) {
-                customNameValue = finalEntryName;
-            }
-        } else {
-            alert("请输入有效的容量 (必须大于 0)。");
-            return;
+      const drink = drinks.find(d => d.id === selectedDrinkId);
+      if (!drink) { alert("选择的饮品无效。"); return; }
+      const caffeineContent = drink.caffeineContent;
+      const parsedVolume = parseFloat(drinkVolume);
+      if (!isNaN(parsedVolume) && parsedVolume > 0 && caffeineContent >= 0) {
+        caffeineAmount = Math.round((caffeineContent * parsedVolume) / 100);
+        volume = parsedVolume;
+        drinkIdForRecord = drink.id;
+        nameForRecord = finalEntryName || drink.name; // Use custom name if provided, else default
+        // Store custom name only if it differs from the base drink name
+        if (finalEntryName && finalEntryName !== drink.name) {
+          customNameValue = finalEntryName;
         }
+      } else {
+        alert("请输入有效的容量 (必须大于 0)。");
+        return;
+      }
     }
     // If no custom amount, no drink selected, or drink selected but no volume
     else {
-        alert("请选择饮品并输入容量，或清除选择并输入自定义摄入量和名称。");
-        return;
+      alert("请选择饮品并输入容量，或清除选择并输入自定义摄入量和名称。");
+      return;
     }
 
     // Validate timestamp
@@ -770,23 +770,23 @@ const CaffeineTracker = () => {
   const editRecord = useCallback((record) => {
     setEditingId(record.id);
     if (record.drinkId && record.volume !== null) { // Based on drink + volume
-        setSelectedDrinkId(record.drinkId);
-        setDrinkVolume(record.volume.toString());
-        // Use customName if it exists, otherwise the record name (which might be custom or default)
-        setEntryName(record.customName || record.name || '');
-        setCustomAmount(''); // Clear custom amount
+      setSelectedDrinkId(record.drinkId);
+      setDrinkVolume(record.volume.toString());
+      // Use customName if it exists, otherwise the record name (which might be custom or default)
+      setEntryName(record.customName || record.name || '');
+      setCustomAmount(''); // Clear custom amount
     } else { // Custom amount entry (or old format)
-        setSelectedDrinkId(record.drinkId || ''); // Keep link if original drink was known
-        setDrinkVolume(''); // Clear volume
-        setCustomAmount(record.amount.toString());
-        setEntryName(record.name); // Use the stored name
+      setSelectedDrinkId(record.drinkId || ''); // Keep link if original drink was known
+      setDrinkVolume(''); // Clear volume
+      setCustomAmount(record.amount.toString());
+      setEntryName(record.name); // Use the stored name
     }
     try {
-        const recordDate = new Date(record.timestamp);
-        setIntakeTime(formatDatetimeLocal(recordDate));
+      const recordDate = new Date(record.timestamp);
+      setIntakeTime(formatDatetimeLocal(recordDate));
     } catch (e) {
-        console.error("Error formatting record date for editing:", record.timestamp, e);
-        setIntakeTime(formatDatetimeLocal(new Date()));
+      console.error("Error formatting record date for editing:", record.timestamp, e);
+      setIntakeTime(formatDatetimeLocal(new Date()));
     }
     setShowForm(true);
   }, [drinks]); // Removed records dependency as it's accessed via closure
@@ -813,8 +813,8 @@ const CaffeineTracker = () => {
 
     // Check for duplicate name (case-insensitive) among all drinks, excluding the one being edited
     const existingDrink = drinks.find(drink =>
-        drink.name.toLowerCase() === name.toLowerCase() &&
-        drink.id !== editingDrink?.id
+      drink.name.toLowerCase() === name.toLowerCase() &&
+      drink.id !== editingDrink?.id
     );
     if (existingDrink) { alert(`名称为 "${name}" 的饮品已存在。请使用不同的名称。`); return; }
 
@@ -843,8 +843,8 @@ const CaffeineTracker = () => {
 
     // Prevent deleting original preset drinks
     if (originalPresetDrinkIds.has(id)) {
-        alert("无法删除原始预设饮品。您可以编辑它或添加新的自定义饮品。");
-        return;
+      alert("无法删除原始预设饮品。您可以编辑它或添加新的自定义饮品。");
+      return;
     }
 
     // Allow deleting custom drinks or presets added/modified by user (which won't have original IDs)
@@ -941,53 +941,53 @@ const CaffeineTracker = () => {
 
   // UPDATED: Group by original preset ID if available, otherwise by custom name/ID
   const caffeineDistribution = useMemo(() => {
-      const sourceData = {};
-      let totalIntake = 0;
+    const sourceData = {};
+    let totalIntake = 0;
 
-      // Create a map of original preset IDs to their names for easy lookup
-      const originalPresetNames = initialPresetDrinks.reduce((acc, drink) => {
-          acc[drink.id] = drink.name;
-          return acc;
-      }, {});
+    // Create a map of original preset IDs to their names for easy lookup
+    const originalPresetNames = initialPresetDrinks.reduce((acc, drink) => {
+      acc[drink.id] = drink.name;
+      return acc;
+    }, {});
 
-      records.forEach(record => {
-          if (!record || typeof record.amount !== 'number' || record.amount <= 0) return;
+    records.forEach(record => {
+      if (!record || typeof record.amount !== 'number' || record.amount <= 0) return;
 
-          let groupKey = '';
-          let groupName = '';
+      let groupKey = '';
+      let groupName = '';
 
-          // Check if the record is linked to an *original* preset
-          if (record.drinkId && originalPresetNames[record.drinkId]) {
-              groupKey = record.drinkId; // Group by the original preset ID
-              groupName = originalPresetNames[record.drinkId]; // Use the original preset name
-          }
-          // Check if linked to a *custom* drink (or a modified preset no longer matching original ID)
-          else if (record.drinkId) {
-              const customDrink = drinks.find(d => d.id === record.drinkId);
-              groupKey = record.drinkId; // Group by the custom drink ID
-              groupName = customDrink ? customDrink.name : (record.customName || record.name || '未知饮品');
-          }
-          // Handle purely custom entries (no drinkId)
-          else {
-              groupKey = record.customName || record.name || 'custom-manual-entry'; // Group manual entries
-              groupName = record.customName || record.name || '自定义摄入';
-          }
+      // Check if the record is linked to an *original* preset
+      if (record.drinkId && originalPresetNames[record.drinkId]) {
+        groupKey = record.drinkId; // Group by the original preset ID
+        groupName = originalPresetNames[record.drinkId]; // Use the original preset name
+      }
+      // Check if linked to a *custom* drink (or a modified preset no longer matching original ID)
+      else if (record.drinkId) {
+        const customDrink = drinks.find(d => d.id === record.drinkId);
+        groupKey = record.drinkId; // Group by the custom drink ID
+        groupName = customDrink ? customDrink.name : (record.customName || record.name || '未知饮品');
+      }
+      // Handle purely custom entries (no drinkId)
+      else {
+        groupKey = record.customName || record.name || 'custom-manual-entry'; // Group manual entries
+        groupName = record.customName || record.name || '自定义摄入';
+      }
 
-          if (!sourceData[groupKey]) {
-              sourceData[groupKey] = { amount: 0, count: 0, name: groupName };
-          }
-          sourceData[groupKey].amount += record.amount;
-          sourceData[groupKey].count += 1;
-          totalIntake += record.amount;
-      });
+      if (!sourceData[groupKey]) {
+        sourceData[groupKey] = { amount: 0, count: 0, name: groupName };
+      }
+      sourceData[groupKey].amount += record.amount;
+      sourceData[groupKey].count += 1;
+      totalIntake += record.amount;
+    });
 
-      if (totalIntake === 0) return [];
+    if (totalIntake === 0) return [];
 
-      const distributionArray = Object.entries(sourceData).map(([key, data]) => {
-          return { id: key, name: data.name, amount: Math.round(data.amount), percentage: Math.round((data.amount / totalIntake) * 100) };
-      });
+    const distributionArray = Object.entries(sourceData).map(([key, data]) => {
+      return { id: key, name: data.name, amount: Math.round(data.amount), percentage: Math.round((data.amount / totalIntake) * 100) };
+    });
 
-      return distributionArray.sort((a, b) => b.amount - a.amount);
+    return distributionArray.sort((a, b) => b.amount - a.amount);
   }, [records, drinks]); // Added drinks dependency
 
 
@@ -1102,25 +1102,25 @@ const CaffeineTracker = () => {
               {/* Semi-Circle Progress Gauge */}
               <div className="relative w-full flex justify-center my-6">
                 <svg width="240" height="160" viewBox="0 0 240 160">
-                    {/* Background track */}
-                    <path d="M20,130 A100,100 0 0,1 220,130" fill="none" stroke="#e5e7eb" strokeWidth="20" strokeLinecap="round" />
-                    {/* Foreground progress */}
-                    <path d="M20,130 A100,100 0 0,1 220,130" fill="none" stroke="url(#caffeine-gauge-gradient-optimized)" strokeWidth="20" strokeLinecap="round" strokeDasharray="314.16" strokeDashoffset={314.16 - (314.16 * percentFilled / 100)} style={{ transition: 'stroke-dashoffset 0.5s ease-out' }} />
-                    {/* Gradient Definition */}
-                    <defs>
-                        <linearGradient id="caffeine-gauge-gradient-optimized" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" stopColor={COFFEE_COLORS.safe} />
-                            <stop offset="75%" stopColor={COFFEE_COLORS.warning} />
-                            <stop offset="100%" stopColor={COFFEE_COLORS.danger} />
-                        </linearGradient>
-                    </defs>
-                    {/* Labels */}
-                    <text x="20" y="155" fontSize="12" fill={COFFEE_COLORS.textMuted} textAnchor="start">0</text>
-                    <text x="120" y="155" fontSize="12" fill={COFFEE_COLORS.textMuted} textAnchor="middle">{Math.round((userSettings.maxDailyCaffeine > 0 ? userSettings.maxDailyCaffeine : 400) / 2)}</text>
-                    <text x="220" y="155" fontSize="12" fill={COFFEE_COLORS.textMuted} textAnchor="end">{userSettings.maxDailyCaffeine > 0 ? userSettings.maxDailyCaffeine : 400}+</text>
-                    {/* Center Text */}
-                    <text x="120" y="100" fontSize="32" fontWeight="bold" fill={COFFEE_COLORS.espresso} textAnchor="middle">{Math.round(currentCaffeine)}</text>
-                    <text x="120" y="120" fontSize="14" fill={COFFEE_COLORS.textMuted} textAnchor="middle">mg 当前</text>
+                  {/* Background track */}
+                  <path d="M20,130 A100,100 0 0,1 220,130" fill="none" stroke="#e5e7eb" strokeWidth="20" strokeLinecap="round" />
+                  {/* Foreground progress */}
+                  <path d="M20,130 A100,100 0 0,1 220,130" fill="none" stroke="url(#caffeine-gauge-gradient-optimized)" strokeWidth="20" strokeLinecap="round" strokeDasharray="314.16" strokeDashoffset={314.16 - (314.16 * percentFilled / 100)} style={{ transition: 'stroke-dashoffset 0.5s ease-out' }} />
+                  {/* Gradient Definition */}
+                  <defs>
+                    <linearGradient id="caffeine-gauge-gradient-optimized" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor={COFFEE_COLORS.safe} />
+                      <stop offset="75%" stopColor={COFFEE_COLORS.warning} />
+                      <stop offset="100%" stopColor={COFFEE_COLORS.danger} />
+                    </linearGradient>
+                  </defs>
+                  {/* Labels */}
+                  <text x="20" y="155" fontSize="12" fill={COFFEE_COLORS.textMuted} textAnchor="start">0</text>
+                  <text x="120" y="155" fontSize="12" fill={COFFEE_COLORS.textMuted} textAnchor="middle">{Math.round((userSettings.maxDailyCaffeine > 0 ? userSettings.maxDailyCaffeine : 400) / 2)}</text>
+                  <text x="220" y="155" fontSize="12" fill={COFFEE_COLORS.textMuted} textAnchor="end">{userSettings.maxDailyCaffeine > 0 ? userSettings.maxDailyCaffeine : 400}+</text>
+                  {/* Center Text */}
+                  <text x="120" y="100" fontSize="32" fontWeight="bold" fill={COFFEE_COLORS.espresso} textAnchor="middle">{Math.round(currentCaffeine)}</text>
+                  <text x="120" y="120" fontSize="14" fill={COFFEE_COLORS.textMuted} textAnchor="middle">mg 当前</text>
                 </svg>
               </div>
               {/* Status Text */}
@@ -1128,7 +1128,7 @@ const CaffeineTracker = () => {
                 <h3 className={`text-lg font-semibold ${userStatus.color}`}>{userStatus.status}</h3>
                 <p className="mt-1" style={{ color: COFFEE_COLORS.textSecondary }}>{userStatus.recommendation}</p>
                 {/* Health Advice */}
-                <div className={`mt-3 text-sm p-3 rounded-lg ${healthAdvice.bgColor} ${healthAdvice.color} border border-opacity-50`} style={{ borderColor: healthAdvice.color.replace('text','border') }}>
+                <div className={`mt-3 text-sm p-3 rounded-lg ${healthAdvice.bgColor} ${healthAdvice.color} border border-opacity-50`} style={{ borderColor: healthAdvice.color.replace('text', 'border') }}>
                   <div className="flex items-center justify-center"><AlertCircle size={16} className="inline-block mr-1.5 flex-shrink-0" /><span>{healthAdvice.advice}</span></div>
                 </div>
               </div>
@@ -1188,19 +1188,19 @@ const CaffeineTracker = () => {
                       {drinkVolume && !isNaN(parseFloat(drinkVolume)) && parseFloat(drinkVolume) > 0 && selectedDrink?.caffeineContent >= 0 && (
                         <div className="mt-1 text-xs" style={{ color: COFFEE_COLORS.textMuted }}>预计咖啡因摄入量: {Math.round((selectedDrink.caffeineContent * parseFloat(drinkVolume)) / 100)} mg</div>
                       )}
-                       <p className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>输入容量以计算咖啡因。如需直接输入含量，请清除饮品选择。</p>
+                      <p className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>输入容量以计算咖啡因。如需直接输入含量，请清除饮品选择。</p>
                     </div>
                   )}
 
                   {/* Custom Amount Input */}
                   <div className="mb-4">
-                      <label htmlFor="customAmount" className="block mb-1 font-medium text-sm" style={{ color: COFFEE_COLORS.textSecondary }}>摄入量 (mg):</label>
-                      <input id="customAmount" type="number" className={`w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm ${COFFEE_COLORS.borderStrong} focus:ring-amber-500 bg-amber-50`} value={customAmount} onChange={(e) => setCustomAmount(e.target.value)} placeholder="直接输入咖啡因毫克数" min="0" />
-                      <p className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>
-                        {selectedDrinkId
-                          ? "如果在此输入，将覆盖上方按容量计算的值。"
-                          : "如果您不选择饮品，请在此直接输入咖啡因总量。"}
-                      </p>
+                    <label htmlFor="customAmount" className="block mb-1 font-medium text-sm" style={{ color: COFFEE_COLORS.textSecondary }}>摄入量 (mg):</label>
+                    <input id="customAmount" type="number" className={`w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm ${COFFEE_COLORS.borderStrong} focus:ring-amber-500 bg-amber-50`} value={customAmount} onChange={(e) => setCustomAmount(e.target.value)} placeholder="直接输入咖啡因毫克数" min="0" />
+                    <p className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>
+                      {selectedDrinkId
+                        ? "如果在此输入，将覆盖上方按容量计算的值。"
+                        : "如果您不选择饮品，请在此直接输入咖啡因总量。"}
+                    </p>
                   </div>
 
                   {/* Form Buttons */}
@@ -1286,15 +1286,15 @@ const CaffeineTracker = () => {
               <h2 className="text-xl font-semibold mb-4 flex items-center" style={{ color: COFFEE_COLORS.espresso }}><PieChart size={20} className="mr-2" /> 摄入来源分析 (所有记录)</h2>
               <div className="space-y-3">
                 {caffeineDistribution.length > 0 ? (caffeineDistribution.slice(0, 7).map((item, index) => (
-                    <div key={item.id} className="flex items-center text-sm">
-                        <div className="w-28 truncate pr-2" title={item.name} style={{ color: COFFEE_COLORS.textSecondary }}>{item.name}</div>
-                        <div className="flex-1 mx-2">
-                            <div className="h-4 bg-gray-200 rounded-full overflow-hidden shadow-inner">
-                                <div className="h-full rounded-full transition-all duration-500 ease-out" style={{ width: `${item.percentage}%`, backgroundColor: [COFFEE_COLORS.espresso, COFFEE_COLORS.latte, COFFEE_COLORS.cappuccino, COFFEE_COLORS.accent, COFFEE_COLORS.grid, COFFEE_COLORS.warning, COFFEE_COLORS.danger][index % 7] }}></div>
-                            </div>
-                        </div>
-                        <div className="w-24 text-right font-medium" style={{ color: COFFEE_COLORS.espresso }}>{item.percentage}% <span className="text-xs" style={{ color: COFFEE_COLORS.textMuted }}>({item.amount}mg)</span></div>
+                  <div key={item.id} className="flex items-center text-sm">
+                    <div className="w-28 truncate pr-2" title={item.name} style={{ color: COFFEE_COLORS.textSecondary }}>{item.name}</div>
+                    <div className="flex-1 mx-2">
+                      <div className="h-4 bg-gray-200 rounded-full overflow-hidden shadow-inner">
+                        <div className="h-full rounded-full transition-all duration-500 ease-out" style={{ width: `${item.percentage}%`, backgroundColor: [COFFEE_COLORS.espresso, COFFEE_COLORS.latte, COFFEE_COLORS.cappuccino, COFFEE_COLORS.accent, COFFEE_COLORS.grid, COFFEE_COLORS.warning, COFFEE_COLORS.danger][index % 7] }}></div>
+                      </div>
                     </div>
+                    <div className="w-24 text-right font-medium" style={{ color: COFFEE_COLORS.espresso }}>{item.percentage}% <span className="text-xs" style={{ color: COFFEE_COLORS.textMuted }}>({item.amount}mg)</span></div>
+                  </div>
                 ))) : (<p className="text-center py-3" style={{ color: COFFEE_COLORS.textMuted }}>没有足够的记录进行分析。</p>)}
               </div>
             </div>
@@ -1402,29 +1402,29 @@ const CaffeineTracker = () => {
                       return a.name.localeCompare(b.name);
                     })
                     .map(drink => {
-                        const isOriginalPreset = originalPresetDrinkIds.has(drink.id);
-                        return (
-                            <li key={drink.id} className={`flex justify-between items-center p-3 rounded-lg border ${!drink.isPreset ? COFFEE_COLORS.customDrinkBg : COFFEE_COLORS.bgBase}`} style={{ borderColor: !drink.isPreset ? COFFEE_COLORS.customDrinkBorder : COFFEE_COLORS.borderSubtle }}>
-                                <div className="flex-1 overflow-hidden mr-2">
-                                    <div className="font-medium truncate" title={drink.name} style={{ color: !drink.isPreset ? COFFEE_COLORS.customDrinkText : COFFEE_COLORS.espresso }}>{drink.name}</div>
-                                    <div className="text-xs mt-0.5" style={{ color: !drink.isPreset ? COFFEE_COLORS.customDrinkText : COFFEE_COLORS.textMuted }}>
-                                        <span className="inline-flex items-center mr-2"><Tag size={12} className="mr-0.5"/>{drink.category || DEFAULT_CATEGORY}</span>
-                                        <span>{drink.caffeineContent}mg/100ml</span>
-                                        {drink.defaultVolume && <span className="ml-1">({drink.defaultVolume}ml)</span>}
-                                    </div>
-                                </div>
-                                <div className="flex items-center flex-shrink-0 space-x-1 ml-2">
-                                    {/* Allow editing all drinks */}
-                                    <button onClick={() => editDrink(drink)} className="p-1.5 rounded-full hover:bg-amber-100 transition-colors duration-150" style={{ color: COFFEE_COLORS.textSecondary }} aria-label="Edit drink"><Edit size={14} /></button>
-                                    {/* Only allow deleting non-original presets (custom or user-added) */}
-                                    {!isOriginalPreset ? (
-                                        <button onClick={() => deleteDrink(drink.id)} className="p-1.5 text-red-600 rounded-full hover:bg-red-100 transition-colors duration-150" aria-label="Delete drink"><Trash2 size={14} /></button>
-                                    ) : (
-                                        <span className="p-1.5 text-gray-400 cursor-not-allowed" title="原始预设饮品不可删除"><Trash2 size={14} /></span>
-                                    )}
-                                </div>
-                            </li>
-                        );
+                      const isOriginalPreset = originalPresetDrinkIds.has(drink.id);
+                      return (
+                        <li key={drink.id} className={`flex justify-between items-center p-3 rounded-lg border ${!drink.isPreset ? COFFEE_COLORS.customDrinkBg : COFFEE_COLORS.bgBase}`} style={{ borderColor: !drink.isPreset ? COFFEE_COLORS.customDrinkBorder : COFFEE_COLORS.borderSubtle }}>
+                          <div className="flex-1 overflow-hidden mr-2">
+                            <div className="font-medium truncate" title={drink.name} style={{ color: !drink.isPreset ? COFFEE_COLORS.customDrinkText : COFFEE_COLORS.espresso }}>{drink.name}</div>
+                            <div className="text-xs mt-0.5" style={{ color: !drink.isPreset ? COFFEE_COLORS.customDrinkText : COFFEE_COLORS.textMuted }}>
+                              <span className="inline-flex items-center mr-2"><Tag size={12} className="mr-0.5" />{drink.category || DEFAULT_CATEGORY}</span>
+                              <span>{drink.caffeineContent}mg/100ml</span>
+                              {drink.defaultVolume && <span className="ml-1">({drink.defaultVolume}ml)</span>}
+                            </div>
+                          </div>
+                          <div className="flex items-center flex-shrink-0 space-x-1 ml-2">
+                            {/* Allow editing all drinks */}
+                            <button onClick={() => editDrink(drink)} className="p-1.5 rounded-full hover:bg-amber-100 transition-colors duration-150" style={{ color: COFFEE_COLORS.textSecondary }} aria-label="Edit drink"><Edit size={14} /></button>
+                            {/* Only allow deleting non-original presets (custom or user-added) */}
+                            {!isOriginalPreset ? (
+                              <button onClick={() => deleteDrink(drink.id)} className="p-1.5 text-red-600 rounded-full hover:bg-red-100 transition-colors duration-150" aria-label="Delete drink"><Trash2 size={14} /></button>
+                            ) : (
+                              <span className="p-1.5 text-gray-400 cursor-not-allowed" title="原始预设饮品不可删除"><Trash2 size={14} /></span>
+                            )}
+                          </div>
+                        </li>
+                      );
                     })}
                 </ul>
               </div>
@@ -1435,62 +1435,68 @@ const CaffeineTracker = () => {
               <h2 className="text-xl font-semibold mb-4 flex items-center" style={{ color: COFFEE_COLORS.espresso }}><Sliders size={20} className="mr-2" /> 数据管理</h2>
               <div className="space-y-4">
                 <div><h3 className="font-medium mb-1 text-sm" style={{ color: COFFEE_COLORS.textSecondary }}>导出数据:</h3><button onClick={() => { try { const exportData = { records, userSettings, drinks, exportTimestamp: new Date().toISOString(), version: '2.3' }; const dataStr = JSON.stringify(exportData, null, 2); const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`; const exportFileDefaultName = `caffeine-tracker-data-${new Date().toISOString().slice(0, 10)}.json`; const linkElement = document.createElement('a'); linkElement.setAttribute('href', dataUri); linkElement.setAttribute('download', exportFileDefaultName); document.body.appendChild(linkElement); linkElement.click(); document.body.removeChild(linkElement); } catch (error) { console.error("导出数据失败:", error); alert("导出数据时发生错误。"); } }} className="w-full py-2.5 px-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center shadow text-sm font-medium"><Download size={16} className="mr-1.5" /> 导出所有数据 (.json)</button><p className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>将所有记录、设置和饮品列表导出为 JSON 文件备份。</p></div>
-                <div><h3 className="font-medium mb-1 text-sm" style={{ color: COFFEE_COLORS.textSecondary }}>导入数据:</h3><label className="w-full py-2.5 px-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center cursor-pointer shadow text-sm font-medium"><Upload size={16} className="mr-1.5" /> 选择文件导入数据<input type="file" accept=".json" className="hidden" onChange={(e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => { try { const data = JSON.parse(event.target.result); // Check for V2.2/2.3 format
-                        if (data && Array.isArray(data.records) && typeof data.userSettings === 'object' && data.userSettings !== null && Array.isArray(data.drinks)) {
-                            const firstDrink = data.drinks[0];
-                            // Basic validation of drink structure
-                            if (data.drinks.length > 0 && (!firstDrink || typeof firstDrink.id === 'undefined' || typeof firstDrink.name === 'undefined' || typeof firstDrink.caffeineContent === 'undefined')) {
-                                throw new Error("饮品列表格式不正确。");
-                            }
-                            if (window.confirm('导入数据将覆盖当前所有记录、设置和饮品列表。确定要继续吗？')) {
-                                const mergedSettings = { ...defaultSettings, ...data.userSettings };
-                                delete mergedSettings.defaultCupSize; // Clean legacy key
-                                // Validate and sanitize imported drinks
-                                const validatedDrinks = data.drinks.map(d => ({
-                                    id: d.id || `imported-${Date.now()}`,
-                                    name: d.name || '未知饮品',
-                                    caffeineContent: typeof d.caffeineContent === 'number' ? d.caffeineContent : 0,
-                                    defaultVolume: typeof d.defaultVolume === 'number' ? d.defaultVolume : null,
-                                    category: DRINK_CATEGORIES.includes(d.category) ? d.category : DEFAULT_CATEGORY,
-                                    isPreset: d.isPreset === true, // Keep isPreset flag from import
-                                }));
-                                setRecords(data.records.sort((a, b) => b.timestamp - a.timestamp));
-                                setUserSettings(mergedSettings);
-                                setDrinks(validatedDrinks);
-                                alert('数据导入成功！');
-                                setViewMode('current');
-                            }
+                <div><h3 className="font-medium mb-1 text-sm" style={{ color: COFFEE_COLORS.textSecondary }}>导入数据:</h3><label className="w-full py-2.5 px-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center cursor-pointer shadow text-sm font-medium"><Upload size={16} className="mr-1.5" /> 选择文件导入数据<input type="file" accept=".json" className="hidden" onChange={(e) => {
+                  const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (event) => {
+                    try {
+                      const data = JSON.parse(event.target.result); // Check for V2.2/2.3 format
+                      if (data && Array.isArray(data.records) && typeof data.userSettings === 'object' && data.userSettings !== null && Array.isArray(data.drinks)) {
+                        const firstDrink = data.drinks[0];
+                        // Basic validation of drink structure
+                        if (data.drinks.length > 0 && (!firstDrink || typeof firstDrink.id === 'undefined' || typeof firstDrink.name === 'undefined' || typeof firstDrink.caffeineContent === 'undefined')) {
+                          throw new Error("饮品列表格式不正确。");
                         }
-                        // Check for older V2.0/V2.1 format (with customDrinks)
-                        else if (data && Array.isArray(data.records) && typeof data.userSettings === 'object' && data.userSettings !== null && Array.isArray(data.customDrinks)) {
-                            if (window.confirm('检测到旧版数据格式。导入将覆盖当前记录和设置，并将旧的自定义饮品添加到当前饮品列表。确定要继续吗？')) {
-                                const mergedSettings = { ...defaultSettings, ...data.userSettings };
-                                delete mergedSettings.defaultCupSize;
-                                // Convert old customDrinks to new format
-                                const convertedCustomDrinks = data.customDrinks.map(cd => ({
-                                    id: cd.id, name: cd.name, caffeineContent: cd.caffeineContent, defaultVolume: cd.defaultVolume || null, category: DEFAULT_CATEGORY, isPreset: false,
-                                }));
-                                // Merge with initial presets, avoiding ID conflicts
-                                const finalDrinks = [...initialPresetDrinks];
-                                const presetIds = new Set(initialPresetDrinks.map(p => p.id));
-                                convertedCustomDrinks.forEach(cd => {
-                                    if (!presetIds.has(cd.id)) {
-                                        finalDrinks.push(cd);
-                                    } else {
-                                        const newId = `imported-${cd.id}-${Date.now()}`;
-                                        finalDrinks.push({ ...cd, id: newId });
-                                        console.warn(`Imported custom drink ID conflict resolved for: ${cd.name}. New ID: ${newId}`);
-                                    }
-                                });
-                                setRecords(data.records.sort((a, b) => b.timestamp - a.timestamp));
-                                setUserSettings(mergedSettings);
-                                setDrinks(finalDrinks);
-                                alert('旧版数据导入成功！自定义饮品已合并。');
-                                setViewMode('current');
+                        if (window.confirm('导入数据将覆盖当前所有记录、设置和饮品列表。确定要继续吗？')) {
+                          const mergedSettings = { ...defaultSettings, ...data.userSettings };
+                          delete mergedSettings.defaultCupSize; // Clean legacy key
+                          // Validate and sanitize imported drinks
+                          const validatedDrinks = data.drinks.map(d => ({
+                            id: d.id || `imported-${Date.now()}`,
+                            name: d.name || '未知饮品',
+                            caffeineContent: typeof d.caffeineContent === 'number' ? d.caffeineContent : 0,
+                            defaultVolume: typeof d.defaultVolume === 'number' ? d.defaultVolume : null,
+                            category: DRINK_CATEGORIES.includes(d.category) ? d.category : DEFAULT_CATEGORY,
+                            isPreset: d.isPreset === true, // Keep isPreset flag from import
+                          }));
+                          setRecords(data.records.sort((a, b) => b.timestamp - a.timestamp));
+                          setUserSettings(mergedSettings);
+                          setDrinks(validatedDrinks);
+                          alert('数据导入成功！');
+                          setViewMode('current');
+                        }
+                      }
+                      // Check for older V2.0/V2.1 format (with customDrinks)
+                      else if (data && Array.isArray(data.records) && typeof data.userSettings === 'object' && data.userSettings !== null && Array.isArray(data.customDrinks)) {
+                        if (window.confirm('检测到旧版数据格式。导入将覆盖当前记录和设置，并将旧的自定义饮品添加到当前饮品列表。确定要继续吗？')) {
+                          const mergedSettings = { ...defaultSettings, ...data.userSettings };
+                          delete mergedSettings.defaultCupSize;
+                          // Convert old customDrinks to new format
+                          const convertedCustomDrinks = data.customDrinks.map(cd => ({
+                            id: cd.id, name: cd.name, caffeineContent: cd.caffeineContent, defaultVolume: cd.defaultVolume || null, category: DEFAULT_CATEGORY, isPreset: false,
+                          }));
+                          // Merge with initial presets, avoiding ID conflicts
+                          const finalDrinks = [...initialPresetDrinks];
+                          const presetIds = new Set(initialPresetDrinks.map(p => p.id));
+                          convertedCustomDrinks.forEach(cd => {
+                            if (!presetIds.has(cd.id)) {
+                              finalDrinks.push(cd);
+                            } else {
+                              const newId = `imported-${cd.id}-${Date.now()}`;
+                              finalDrinks.push({ ...cd, id: newId });
+                              console.warn(`Imported custom drink ID conflict resolved for: ${cd.name}. New ID: ${newId}`);
                             }
-                        } else {
-                            alert('导入失败：数据格式不正确或缺少必要部分 (需要 records, userSettings, drinks 或 customDrinks)。');
-                        } } catch (error) { alert(`导入失败：无法解析文件或文件格式错误。错误: ${error.message}`); console.error('导入错误:', error); } finally { e.target.value = null; } }; reader.onerror = () => { alert('读取文件时出错。'); console.error('File reading error:', reader.error); e.target.value = null; }; reader.readAsText(file); }} /></label><p className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>从之前导出的 JSON 文件恢复数据。注意：这将覆盖当前所有数据。</p></div>
+                          });
+                          setRecords(data.records.sort((a, b) => b.timestamp - a.timestamp));
+                          setUserSettings(mergedSettings);
+                          setDrinks(finalDrinks);
+                          alert('旧版数据导入成功！自定义饮品已合并。');
+                          setViewMode('current');
+                        }
+                      } else {
+                        alert('导入失败：数据格式不正确或缺少必要部分 (需要 records, userSettings, drinks 或 customDrinks)。');
+                      }
+                    } catch (error) { alert(`导入失败：无法解析文件或文件格式错误。错误: ${error.message}`); console.error('导入错误:', error); } finally { e.target.value = null; }
+                  }; reader.onerror = () => { alert('读取文件时出错。'); console.error('File reading error:', reader.error); e.target.value = null; }; reader.readAsText(file);
+                }} /></label><p className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>从之前导出的 JSON 文件恢复数据。注意：这将覆盖当前所有数据。</p></div>
                 <div><h3 className="font-medium mb-1 text-sm" style={{ color: COFFEE_COLORS.textSecondary }}>清除数据:</h3><button onClick={() => { if (window.confirm('警告：确定要清除所有本地存储的数据吗？此操作无法撤销！')) { setRecords([]); setUserSettings(defaultSettings); setDrinks([...initialPresetDrinks]); setCurrentCaffeine(0); setOptimalSleepTime(''); localStorage.removeItem('caffeineRecords'); localStorage.removeItem('caffeineSettings'); localStorage.removeItem('caffeineDrinks'); alert('所有本地数据已清除！'); } }} className="w-full py-2.5 px-3 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors duration-200 flex items-center justify-center shadow text-sm font-medium"><RotateCcw size={16} className="mr-1.5" /> 清除所有本地数据</button><p className="text-xs text-red-500 mt-1">警告：此操作将永久删除所有记录、设置和自定义饮品，并重置为初始预设。</p></div>
               </div>
             </div>
