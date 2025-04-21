@@ -50,7 +50,8 @@ const initialPresetDrinks = [
   // --- 茶饮 (Tea) ---
   { id: 'preset-black-tea', name: '红茶', category: '茶饮', caffeineContent: 47, defaultVolume: 240, isPreset: true, isDeletable: false, isEditable: true },
   { id: 'preset-green-tea', name: '绿茶', category: '茶饮', caffeineContent: 28, defaultVolume: 240, isPreset: true, isDeletable: false, isEditable: true },
-  { id: 'preset-chagee', name: '霸王茶姬 (标准杯)', category: '茶饮', caffeineContent: 35, defaultVolume: 500, isPreset: true, isDeletable: false, isEditable: true },
+  { id: 'preset-chagee', name: '霸王茶姬 (中杯)', category: '茶饮', caffeineContent: 35, defaultVolume: 470, isPreset: true, isDeletable: false, isEditable: true },
+  { id: 'preset-chagee-large', name: '霸王茶姬 (大杯)', category: '茶饮', caffeineContent: 35, defaultVolume: 580, isPreset: true, isDeletable: false, isEditable: true },
 
   // --- 速溶 (Instant) ---
   { id: 'preset-instant', name: '速溶咖啡', category: '速溶', caffeineContent: 62, defaultVolume: 240, isPreset: true, isDeletable: false, isEditable: true },
