@@ -9,11 +9,11 @@ const defaultSettings = {
   weight: 60, // 默认体重（kg）
   gender: 'male', // 默认性别 (Currently unused in calculations, but kept for potential future use)
   maxDailyCaffeine: 400, // 默认每日最大咖啡因摄入量（mg） - FDA/Mayo Clinic general guideline
-  recommendedDosePerKg: 4, // 推荐剂量 (mg/kg) - Used for personalized recommendation (range 3-6 suggested)
-  safeSleepThresholdConcentration: 1.0, // 睡前安全咖啡因浓度阈值 (mg/L) - Example value, adjust based on sensitivity
+  recommendedDosePerKg: 5, // 推荐剂量 (mg/kg) - Used for personalized recommendation (range 3-6 suggested)
+  safeSleepThresholdConcentration: 2.0, // 睡前安全咖啡因浓度阈值 (mg/L) - Example value, adjust based on sensitivity
   volumeOfDistribution: 0.6, // 分布容积 (L/kg) - Typical value for caffeine
   plannedSleepTime: '22:00', // 默认计划睡眠时间
-  caffeineHalfLifeHours: 5, // 默认咖啡因半衰期（小时） - Average, user adjustable
+  caffeineHalfLifeHours: 4, // 默认咖啡因半衰期（小时） - Average, user adjustable
 };
 
 // Define standard categories
