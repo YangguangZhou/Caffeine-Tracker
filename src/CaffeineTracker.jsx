@@ -1184,6 +1184,7 @@ const CaffeineTracker = () => {
 
   const formatYAxisTick = (value) => Math.round(value);
 
+  // *** MODIFIED FUNCTION ***
   const renderStatsChart = () => {
     if (!hasStatsChartData) {
       return <div key="chart-no-data" className={`flex items-center justify-center h-64 ${COFFEE_COLORS.textMuted} text-sm`}>{statsView === 'week' ? '本周没有数据' : statsView === 'month' ? '本月没有数据' : '本年没有数据'}</div>;
@@ -1193,7 +1194,14 @@ const CaffeineTracker = () => {
     if (statsView === 'month') title = '每日摄入量 (mg)';
     if (statsView === 'year') title = '每月摄入量 (mg)';
     const maxDaily = effectiveMaxDaily; // Use effective limit for reference
-    const yMax = Math.ceil(Math.max(statsChartMaxValue, maxDaily) * 1.1 / 50) * 50;
+
+    // Determine Y-axis max value based on view
+    let yMax;
+    if (statsView === 'week' || statsView === 'month') {
+      yMax = Math.ceil(Math.max(statsChartMaxValue, maxDaily) * 1.1 / 50) * 50; // Include daily max for week/month
+    } else { // Year view
+      yMax = Math.ceil(statsChartMaxValue * 1.1 / 100) * 100; // Scale based on monthly totals
+    }
     const yAxisDomain = [0, yMax];
 
     return (
@@ -1214,22 +1222,23 @@ const CaffeineTracker = () => {
                 return label;
               }}
             />
-            {/* Add ReferenceLine for max daily intake */}
-            <ReferenceLine y={maxDaily} label={{ value: `上限 (${maxDaily}mg)`, position: 'insideTopRight', fill: COFFEE_COLORS.danger, fontSize: 10 }} stroke={COFFEE_COLORS.danger} strokeDasharray="3 3" />
+            {/* *** MODIFICATION: Conditionally render ReferenceLine only for week/month view *** */}
+            {(statsView === 'week' || statsView === 'month') && (
+              <ReferenceLine y={maxDaily} label={{ value: `上限 (${maxDaily}mg)`, position: 'insideTopRight', fill: COFFEE_COLORS.danger, fontSize: 10 }} stroke={COFFEE_COLORS.danger} strokeDasharray="3 3" />
+            )}
             <Bar dataKey="value" name="摄入量" barSize={statsView === 'month' ? 10 : (statsView === 'year' ? 15 : 20)}>
               {statsChartData.map((entry, index) => {
                 let fillColor = COFFEE_COLORS.cappuccino; // Default bar color
-                if ((statsView === 'week' || statsView === 'month')) {
+                // *** MODIFICATION: Adjusted color logic ***
+                if (statsView === 'week' || statsView === 'month') {
+                  // Color based on daily max for week/month view
                   if (entry.value > maxDaily) fillColor = COFFEE_COLORS.danger;
                   else if (entry.value > maxDaily * 0.75) fillColor = COFFEE_COLORS.warning;
-                  else if (entry.value > 0) fillColor = COFFEE_COLORS.safe; // Use safe color for non-warning/danger
+                  else if (entry.value > 0) fillColor = COFFEE_COLORS.safe;
                   else fillColor = '#e5e7eb'; // Light gray for zero values
                 } else if (statsView === 'year') {
-                  const daysInMonth = new Date(statsDate.getFullYear(), entry.monthIndex + 1, 0).getDate();
-                  const avgDaily = daysInMonth > 0 ? entry.value / daysInMonth : 0;
-                  if (avgDaily > maxDaily) fillColor = COFFEE_COLORS.danger;
-                  else if (avgDaily > maxDaily * 0.75) fillColor = COFFEE_COLORS.warning;
-                  else if (entry.value > 0) fillColor = COFFEE_COLORS.espresso; // Darker color for year average
+                  // Use consistent color for year view, no comparison to daily max
+                  if (entry.value > 0) fillColor = COFFEE_COLORS.espresso; // Darker color for months with data
                   else fillColor = '#e5e7eb'; // Light gray for zero values
                 }
                 return <Cell key={`cell-${index}`} fill={fillColor} radius={[4, 4, 0, 0]} />;
@@ -1240,6 +1249,7 @@ const CaffeineTracker = () => {
       </>
     );
   };
+
 
   // Line Chart (Metabolism View)
   const renderMetabolismChart = () => {
@@ -1802,7 +1812,7 @@ const CaffeineTracker = () => {
         {/* Footer */}
         <footer className="mt-8 text-center text-xs" style={{ color: COFFEE_COLORS.textMuted }}>
           <p>负责任地跟踪您的咖啡因摄入量。本应用提供的数据和建议基于科学模型估算，仅供参考，不能替代专业医疗意见。</p>
-          <p className="mt-1">&copy; {new Date().getFullYear()} Caffeine Tracker App v2.4.0</p> {/* Version bump */}
+          <p className="mt-1">&copy; {new Date().getFullYear()} Caffeine Tracker App v2.4.1</p> {/* Version bump */}
         </footer>
       </div>
     </div>
