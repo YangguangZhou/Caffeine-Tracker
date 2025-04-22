@@ -10,7 +10,7 @@ const defaultSettings = {
   gender: 'male', // 默认性别 (Currently unused in calculations, but kept for potential future use)
   maxDailyCaffeine: 400, // 默认每日最大咖啡因摄入量（mg） - FDA/Mayo Clinic general guideline
   recommendedDosePerKg: 5, // 推荐剂量 (mg/kg) - Used for personalized recommendation (range 3-6 suggested)
-  safeSleepThresholdConcentration: 2.0, // 睡前安全咖啡因浓度阈值 (mg/L) - Example value, adjust based on sensitivity
+  safeSleepThresholdConcentration: 1.5, // 睡前安全咖啡因浓度阈值 (mg/L) - Example value, adjust based on sensitivity
   volumeOfDistribution: 0.6, // 分布容积 (L/kg) - Typical value for caffeine
   plannedSleepTime: '22:00', // 默认计划睡眠时间
   caffeineHalfLifeHours: 4, // 默认咖啡因半衰期（小时） - Average, user adjustable
@@ -282,11 +282,11 @@ const calculateHoursToReachTarget = (currentAmount, targetAmount, halfLifeHours)
  * @returns {number|null} Estimated concentration (mg/L) or null if inputs are invalid.
  */
 const estimateConcentration = (totalAmountMg, weightKg, volumeOfDistribution) => {
-    if (totalAmountMg < 0 || weightKg <= 0 || volumeOfDistribution <= 0) {
-        return null;
-    }
-    const totalVolumeL = volumeOfDistribution * weightKg;
-    return totalAmountMg / totalVolumeL;
+  if (totalAmountMg < 0 || weightKg <= 0 || volumeOfDistribution <= 0) {
+    return null;
+  }
+  const totalVolumeL = volumeOfDistribution * weightKg;
+  return totalAmountMg / totalVolumeL;
 };
 
 /**
@@ -298,11 +298,11 @@ const estimateConcentration = (totalAmountMg, weightKg, volumeOfDistribution) =>
  * @returns {number|null} Estimated amount (mg) or null if inputs are invalid.
  */
 const estimateAmountFromConcentration = (targetConcentrationMgL, weightKg, volumeOfDistribution) => {
-    if (targetConcentrationMgL < 0 || weightKg <= 0 || volumeOfDistribution <= 0) {
-        return null;
-    }
-    const totalVolumeL = volumeOfDistribution * weightKg;
-    return targetConcentrationMgL * totalVolumeL;
+  if (targetConcentrationMgL < 0 || weightKg <= 0 || volumeOfDistribution <= 0) {
+    return null;
+  }
+  const totalVolumeL = volumeOfDistribution * weightKg;
+  return targetConcentrationMgL * totalVolumeL;
 };
 
 
@@ -419,10 +419,10 @@ const DrinkSelector = ({ drinks, selectedDrinkId, onSelectDrink, onClearSelectio
                   key={drink.id}
                   onClick={() => onSelectDrink(drink.id)}
                   className={`p-2 border rounded-lg text-center text-xs font-medium transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-amber-500 flex flex-col items-center justify-center h-20 shadow-sm hover:shadow-md ${selectedDrinkId === drink.id
-                      ? `bg-amber-200 ${COFFEE_COLORS.borderStrong} ring-2 ring-amber-500 ring-offset-1` // Selected style
-                      : drink.isPreset
-                        ? `bg-white ${COFFEE_COLORS.textPrimary} border-amber-200 hover:bg-amber-100 hover:border-amber-300` // Preset style
-                        : `${COFFEE_COLORS.customDrinkBg} ${COFFEE_COLORS.customDrinkText} border-green-200 hover:bg-green-100 hover:border-green-300` // Custom drink style
+                    ? `bg-amber-200 ${COFFEE_COLORS.borderStrong} ring-2 ring-amber-500 ring-offset-1` // Selected style
+                    : drink.isPreset
+                      ? `bg-white ${COFFEE_COLORS.textPrimary} border-amber-200 hover:bg-amber-100 hover:border-amber-300` // Preset style
+                      : `${COFFEE_COLORS.customDrinkBg} ${COFFEE_COLORS.customDrinkText} border-green-200 hover:bg-green-100 hover:border-green-300` // Custom drink style
                     }`}
                   title={`${drink.name} (${drink.caffeineContent}mg/100ml${drink.defaultVolume ? `, ${drink.defaultVolume}ml` : ''})`}
                 >
@@ -684,7 +684,7 @@ const CaffeineTracker = () => {
           const sleepTime = new Date(now + hoursNeeded * 60 * 60 * 1000);
           setOptimalSleepTime(sleepTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }));
         } else if (hoursNeeded === 0) {
-           setOptimalSleepTime('现在'); // Safe to sleep now
+          setOptimalSleepTime('现在'); // Safe to sleep now
         } else {
           setOptimalSleepTime('N/A'); // Calculation failed or not applicable
         }
@@ -1061,20 +1061,20 @@ const CaffeineTracker = () => {
 
   // Personalized daily recommendation based on weight
   const personalizedRecommendation = useMemo(() => {
-      const { weight, recommendedDosePerKg } = userSettings;
-      if (weight > 0 && recommendedDosePerKg > 0) {
-          return Math.round(weight * recommendedDosePerKg);
-      }
-      return null;
+    const { weight, recommendedDosePerKg } = userSettings;
+    if (weight > 0 && recommendedDosePerKg > 0) {
+      return Math.round(weight * recommendedDosePerKg);
+    }
+    return null;
   }, [userSettings.weight, userSettings.recommendedDosePerKg]);
 
   // Use the general 400mg limit OR the personalized one, whichever is lower, as the primary daily limit for status checks
   const effectiveMaxDaily = useMemo(() => {
-      const generalMax = userSettings.maxDailyCaffeine > 0 ? userSettings.maxDailyCaffeine : 400;
-      if (personalizedRecommendation !== null) {
-          return Math.min(generalMax, personalizedRecommendation);
-      }
-      return generalMax;
+    const generalMax = userSettings.maxDailyCaffeine > 0 ? userSettings.maxDailyCaffeine : 400;
+    if (personalizedRecommendation !== null) {
+      return Math.min(generalMax, personalizedRecommendation);
+    }
+    return generalMax;
   }, [userSettings.maxDailyCaffeine, personalizedRecommendation]);
 
   const userStatus = useMemo(() => {
@@ -1241,89 +1241,89 @@ const CaffeineTracker = () => {
     );
   };
 
-   // Line Chart (Metabolism View)
-   const renderMetabolismChart = () => {
+  // Line Chart (Metabolism View)
+  const renderMetabolismChart = () => {
     const now = Date.now();
     const { safeSleepThresholdConcentration, weight, volumeOfDistribution } = userSettings;
     const safeTargetAmount = estimateAmountFromConcentration(safeSleepThresholdConcentration, weight, volumeOfDistribution);
 
     // Find max value for Y-axis scaling
     const maxCaffeineValue = metabolismChartData.length > 0
-        ? Math.max(...metabolismChartData.map(d => d.caffeine))
-        : 50; // Default max if no data
+      ? Math.max(...metabolismChartData.map(d => d.caffeine))
+      : 50; // Default max if no data
     const yMax = Math.ceil(Math.max(maxCaffeineValue, safeTargetAmount ?? 0) * 1.1 / 10) * 10; // Scale nicely
 
     return (
-        <div ref={metabolismChartRef} className="mt-4 min-h-[280px] p-4 rounded-lg" style={{ backgroundColor: COFFEE_COLORS.bgBase }}>
-            <h3 className="text-center text-sm font-medium mb-3" style={{ color: COFFEE_COLORS.textSecondary }}>
-                咖啡因代谢曲线 (mg)
-            </h3>
-            {metabolismChartData.length > 1 ? (
-                <ResponsiveContainer width="100%" height={250}>
-                    <LineChart
-                        data={metabolismChartData}
-                        // *** INCREASED MARGINS HERE ***
-                        margin={{ top: 5, right: 30, left: 15, bottom: 30 }} // Increased left, right, bottom
-                    >
-                        <CartesianGrid strokeDasharray="3 3" stroke={COFFEE_COLORS.grid} />
-                        <XAxis
-                            dataKey="time"
-                            type="number"
-                            domain={['dataMin', 'dataMax']}
-                            tickFormatter={(unixTime) => formatTime(unixTime)}
-                            tick={{ fontSize: 10, fill: COFFEE_COLORS.textMuted }}
-                            // Adjusted label position slightly
-                            label={{ value: "时间", position: "insideBottom", dy: 20, fill: COFFEE_COLORS.textMuted, fontSize: 11 }}
-                        />
-                        <YAxis
-                            domain={[0, yMax]}
-                            tick={{ fontSize: 10, fill: COFFEE_COLORS.textMuted }}
-                            // Adjusted label position slightly
-                            label={{ value: "咖啡因 (mg)", angle: -90, position: "insideLeft", dx: -10, fill: COFFEE_COLORS.textMuted, fontSize: 11 }}
-                        />
-                        <Tooltip
-                            contentStyle={{ backgroundColor: COFFEE_COLORS.tooltipBg, border: `1px solid ${COFFEE_COLORS.borderStrong}`, borderRadius: '8px', color: COFFEE_COLORS.tooltipText, boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}
-                            labelFormatter={(unixTime) => formatTime(unixTime)}
-                            formatter={(value) => [`${value.toFixed(1)} mg`, '体内含量']}
-                        />
-                        {/* Line for caffeine level */}
-                        <Line
-                            type="monotone"
-                            dataKey="caffeine"
-                            stroke={COFFEE_COLORS.chartLine}
-                            strokeWidth={2.5}
-                            dot={false}
-                            activeDot={{ r: 6, fill: COFFEE_COLORS.chartLine, stroke: COFFEE_COLORS.bgCard, strokeWidth: 2 }}
-                            name="体内含量"
-                        />
-                        {/* Reference Line for 'Now' */}
-                        <ReferenceLine
-                            x={now}
-                            stroke={COFFEE_COLORS.chartNowLine}
-                            strokeWidth={1.5}
-                            strokeDasharray="4 2"
-                            label={{ value: "现在", position: "insideTopLeft", fill: COFFEE_COLORS.chartNowLine, fontSize: 10, dy: -5 }}
-                        />
-                        {/* Reference Line for Safe Sleep Threshold Amount */}
-                        {safeTargetAmount !== null && safeTargetAmount >= 0 && (
-                             <ReferenceLine
-                                 y={safeTargetAmount}
-                                 stroke={COFFEE_COLORS.chartSleepLine}
-                                 strokeWidth={1.5}
-                                 strokeDasharray="4 2"
-                                 label={{ value: `睡眠阈值 (~${safeTargetAmount.toFixed(0)}mg)`, position: "insideBottomRight", fill: COFFEE_COLORS.chartSleepLine, fontSize: 10, dy: 10, dx: -5 }} // Adjusted dx slightly
-                             />
-                        )}
-                    </LineChart>
-                </ResponsiveContainer>
-            ) : (
-                <div className="flex items-center justify-center h-60 text-sm" style={{ color: COFFEE_COLORS.textMuted }}>
-                    {records.length > 0 ? "正在生成图表..." : "添加摄入记录以查看代谢曲线。"}
-                </div>
-            )}
-        </div>
+      <div ref={metabolismChartRef} className="mt-4 min-h-[280px] p-4 rounded-lg" style={{ backgroundColor: COFFEE_COLORS.bgBase }}>
+        <h3 className="text-center text-sm font-medium mb-3" style={{ color: COFFEE_COLORS.textSecondary }}>
+          咖啡因代谢曲线 (mg)
+        </h3>
+        {metabolismChartData.length > 1 ? (
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart
+              data={metabolismChartData}
+              // *** INCREASED MARGINS HERE ***
+              margin={{ top: 5, right: 30, left: 15, bottom: 30 }} // Increased left, right, bottom
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke={COFFEE_COLORS.grid} />
+              <XAxis
+                dataKey="time"
+                type="number"
+                domain={['dataMin', 'dataMax']}
+                tickFormatter={(unixTime) => formatTime(unixTime)}
+                tick={{ fontSize: 10, fill: COFFEE_COLORS.textMuted }}
+                // Adjusted label position slightly
+                label={{ value: "时间", position: "insideBottom", dy: 20, fill: COFFEE_COLORS.textMuted, fontSize: 11 }}
+              />
+              <YAxis
+                domain={[0, yMax]}
+                tick={{ fontSize: 10, fill: COFFEE_COLORS.textMuted }}
+                // Adjusted label position slightly
+                label={{ value: "咖啡因 (mg)", angle: -90, position: "insideLeft", dx: -10, fill: COFFEE_COLORS.textMuted, fontSize: 11 }}
+              />
+              <Tooltip
+                contentStyle={{ backgroundColor: COFFEE_COLORS.tooltipBg, border: `1px solid ${COFFEE_COLORS.borderStrong}`, borderRadius: '8px', color: COFFEE_COLORS.tooltipText, boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}
+                labelFormatter={(unixTime) => formatTime(unixTime)}
+                formatter={(value) => [`${value.toFixed(1)} mg`, '体内含量']}
+              />
+              {/* Line for caffeine level */}
+              <Line
+                type="monotone"
+                dataKey="caffeine"
+                stroke={COFFEE_COLORS.chartLine}
+                strokeWidth={2.5}
+                dot={false}
+                activeDot={{ r: 6, fill: COFFEE_COLORS.chartLine, stroke: COFFEE_COLORS.bgCard, strokeWidth: 2 }}
+                name="体内含量"
+              />
+              {/* Reference Line for 'Now' */}
+              <ReferenceLine
+                x={now}
+                stroke={COFFEE_COLORS.chartNowLine}
+                strokeWidth={1.5}
+                strokeDasharray="4 2"
+                label={{ value: "现在", position: "insideTopLeft", fill: COFFEE_COLORS.chartNowLine, fontSize: 10, dy: -5 }}
+              />
+              {/* Reference Line for Safe Sleep Threshold Amount */}
+              {safeTargetAmount !== null && safeTargetAmount >= 0 && (
+                <ReferenceLine
+                  y={safeTargetAmount}
+                  stroke={COFFEE_COLORS.chartSleepLine}
+                  strokeWidth={1.5}
+                  strokeDasharray="4 2"
+                  label={{ value: `睡眠阈值 (~${safeTargetAmount.toFixed(0)}mg)`, position: "insideBottomRight", fill: COFFEE_COLORS.chartSleepLine, fontSize: 10, dy: 10, dx: -5 }} // Adjusted dx slightly
+                />
+              )}
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex items-center justify-center h-60 text-sm" style={{ color: COFFEE_COLORS.textMuted }}>
+            {records.length > 0 ? "正在生成图表..." : "添加摄入记录以查看代谢曲线。"}
+          </div>
+        )}
+      </div>
     );
-};
+  };
 
 
   // --- JSX ---
@@ -1375,11 +1375,11 @@ const CaffeineTracker = () => {
                   <text x="120" y="100" fontSize="32" fontWeight="bold" fill={COFFEE_COLORS.espresso} textAnchor="middle">{Math.round(currentCaffeineAmount)}</text>
                   <text x="120" y="120" fontSize="14" fill={COFFEE_COLORS.textMuted} textAnchor="middle">mg 当前含量</text>
                   {/* Concentration display */}
-                   {currentCaffeineConcentration > 0 && (
-                     <text x="120" y="135" fontSize="10" fill={COFFEE_COLORS.textMuted} textAnchor="middle">
-                       (约 {currentCaffeineConcentration.toFixed(1)} mg/L)
-                     </text>
-                   )}
+                  {currentCaffeineConcentration > 0 && (
+                    <text x="120" y="135" fontSize="10" fill={COFFEE_COLORS.textMuted} textAnchor="middle">
+                      (约 {currentCaffeineConcentration.toFixed(1)} mg/L)
+                    </text>
+                  )}
                 </svg>
               </div>
               {/* Status Text */}
@@ -1393,39 +1393,39 @@ const CaffeineTracker = () => {
               </div>
               {/* Summary Stats */}
               <div className="grid grid-cols-2 gap-3 text-sm mt-4 pt-4 border-t" style={{ color: COFFEE_COLORS.textSecondary, borderColor: COFFEE_COLORS.borderSubtle }}>
-                   <div className="text-center p-2 rounded" style={{backgroundColor: COFFEE_COLORS.bgBase}}>
-                     今日总摄入: <br/><span className="font-semibold text-base" style={{ color: COFFEE_COLORS.espresso }}>{todayTotal} mg</span>
-                   </div>
-                   <div className="text-center p-2 rounded" style={{backgroundColor: COFFEE_COLORS.bgBase}}>
-                     每日推荐上限: <br/><span className="font-semibold text-base" style={{ color: COFFEE_COLORS.espresso }}>{effectiveMaxDaily} mg</span>
-                     {personalizedRecommendation && effectiveMaxDaily !== personalizedRecommendation && <span className="text-xs block">({personalizedRecommendation}mg 基于体重)</span>}
-                   </div>
+                <div className="text-center p-2 rounded" style={{ backgroundColor: COFFEE_COLORS.bgBase }}>
+                  今日总摄入: <br /><span className="font-semibold text-base" style={{ color: COFFEE_COLORS.espresso }}>{todayTotal} mg</span>
+                </div>
+                <div className="text-center p-2 rounded" style={{ backgroundColor: COFFEE_COLORS.bgBase }}>
+                  每日推荐上限: <br /><span className="font-semibold text-base" style={{ color: COFFEE_COLORS.espresso }}>{effectiveMaxDaily} mg</span>
+                  {personalizedRecommendation && effectiveMaxDaily !== personalizedRecommendation && <span className="text-xs block">({personalizedRecommendation}mg 基于体重)</span>}
+                </div>
               </div>
               {/* Optimal Sleep Time */}
-               <div className="mt-3 text-sm text-center p-3 rounded-lg bg-blue-50 text-blue-700 border border-blue-200">
-                   <div className="flex items-center justify-center"><Moon size={16} className="inline-block mr-1.5" />
-                       {optimalSleepTime === 'N/A'
-                           ? `无法计算建议睡眠时间 (检查设置)`
-                           : optimalSleepTime === '现在'
-                               ? `根据阈值 (<${userSettings.safeSleepThresholdConcentration.toFixed(1)}mg/L)，现在可以入睡`
-                               : `建议最早睡眠时间: ${optimalSleepTime}`
-                       }
-                   </div>
-                   {hoursUntilSafeSleep !== null && hoursUntilSafeSleep > 0 && (
-                       <div className="text-xs mt-1"> (约 {hoursUntilSafeSleep.toFixed(1)} 小时后达到安全阈值)</div>
-                   )}
-               </div>
+              <div className="mt-3 text-sm text-center p-3 rounded-lg bg-blue-50 text-blue-700 border border-blue-200">
+                <div className="flex items-center justify-center"><Moon size={16} className="inline-block mr-1.5" />
+                  {optimalSleepTime === 'N/A'
+                    ? `无法计算建议睡眠时间 (检查设置)`
+                    : optimalSleepTime === '现在'
+                      ? `根据阈值 (<${userSettings.safeSleepThresholdConcentration.toFixed(1)}mg/L)，现在可以入睡`
+                      : `建议最早睡眠时间: ${optimalSleepTime}`
+                  }
+                </div>
+                {hoursUntilSafeSleep !== null && hoursUntilSafeSleep > 0 && (
+                  <div className="text-xs mt-1"> (约 {hoursUntilSafeSleep.toFixed(1)} 小时后达到安全阈值)</div>
+                )}
+              </div>
             </div>
 
-             {/* Metabolism Chart Card */}
+            {/* Metabolism Chart Card */}
             <div className="mb-5 rounded-xl p-6 shadow-lg border" style={{ backgroundColor: COFFEE_COLORS.bgCard, borderColor: COFFEE_COLORS.borderSubtle }}>
-                <h2 className="text-xl font-semibold mb-2 flex items-center" style={{ color: COFFEE_COLORS.espresso }}>
-                    <TrendingUp size={20} className="mr-2" /> 咖啡因代谢曲线
-                </h2>
-                {renderMetabolismChart()}
-                 <p className="text-xs mt-3 text-center" style={{ color: COFFEE_COLORS.textMuted }}>
-                    图表显示基于您记录的摄入量和半衰期 ({userSettings.caffeineHalfLifeHours}小时) 的估算体内咖啡因含量 (mg) 变化。
-                 </p>
+              <h2 className="text-xl font-semibold mb-2 flex items-center" style={{ color: COFFEE_COLORS.espresso }}>
+                <TrendingUp size={20} className="mr-2" /> 咖啡因代谢曲线
+              </h2>
+              {renderMetabolismChart()}
+              <p className="text-xs mt-3 text-center" style={{ color: COFFEE_COLORS.textMuted }}>
+                图表显示基于您记录的摄入量和半衰期 ({userSettings.caffeineHalfLifeHours}小时) 的估算体内咖啡因含量 (mg) 变化。
+              </p>
             </div>
 
 
@@ -1611,7 +1611,7 @@ const CaffeineTracker = () => {
                 <li><strong>代谢模型:</strong> 本应用使用一级消除动力学模型 (<strong style={{ color: COFFEE_COLORS.espresso }}>C(t) = C₀ * e^(-kt)</strong>, 其中 k = ln(2)/t½) 来估算体内咖啡因残留量。</li>
                 <li><strong>睡眠阈值:</strong> 多数研究建议睡前 <strong style={{ color: COFFEE_COLORS.espresso }}>6 小时</strong> 避免摄入。本应用通过计算当前咖啡因含量降至设定的安全浓度阈值 (<strong style={{ color: COFFEE_COLORS.espresso }}>{userSettings.safeSleepThresholdConcentration.toFixed(1)} mg/L</strong>) 所需时间来提供建议睡眠时间。此阈值可在设置中调整。</li>
                 <li><strong>浓度估算:</strong> 体内浓度 (mg/L) 可通过 <strong style={{ color: COFFEE_COLORS.espresso }}>剂量(mg) / (分布容积(L/kg) * 体重(kg))</strong> 估算。典型分布容积 (Vd) 约为 <strong style={{ color: COFFEE_COLORS.espresso }}>0.6 L/kg</strong> (可在设置调整)。</li>
-                <li><strong>清除时间:</strong> 大约需要 <strong style={{ color: COFFEE_COLORS.espresso }}>5 个半衰期</strong> (约 { (5 * userSettings.caffeineHalfLifeHours).toFixed(1)} 小时) 才能将体内咖啡因基本清除 (降至初始量的约 3%)。</li>
+                <li><strong>清除时间:</strong> 大约需要 <strong style={{ color: COFFEE_COLORS.espresso }}>5 个半衰期</strong> (约 {(5 * userSettings.caffeineHalfLifeHours).toFixed(1)} 小时) 才能将体内咖啡因基本清除 (降至初始量的约 3%)。</li>
               </ul>
             </div>
           </>
@@ -1624,22 +1624,22 @@ const CaffeineTracker = () => {
             <div className="mb-5 rounded-xl p-6 shadow-lg border" style={{ backgroundColor: COFFEE_COLORS.bgCard, borderColor: COFFEE_COLORS.borderSubtle }}>
               <h2 className="text-xl font-semibold mb-4 flex items-center" style={{ color: COFFEE_COLORS.espresso }}><User size={20} className="mr-2" /> 个人参数</h2>
               <div className="space-y-4">
-                <div><label htmlFor="userWeight" className="block mb-1 font-medium text-sm" style={{ color: COFFEE_COLORS.textSecondary }}><Weight size={14} className="inline mr-1"/>体重 (kg):</label><input id="userWeight" type="number" className={`w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm ${COFFEE_COLORS.borderStrong} focus:ring-amber-500 bg-amber-50`} value={userSettings.weight} onChange={(e) => setUserSettings({ ...userSettings, weight: e.target.value === '' ? '' : parseInt(e.target.value) })} onBlur={(e) => { const value = parseInt(e.target.value); if (isNaN(value) || value < 20 || value > 300) setUserSettings({ ...userSettings, weight: defaultSettings.weight }); }} min="20" max="300" placeholder={defaultSettings.weight.toString()} /><p className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>用于计算个性化推荐摄入量和估算浓度。</p></div>
+                <div><label htmlFor="userWeight" className="block mb-1 font-medium text-sm" style={{ color: COFFEE_COLORS.textSecondary }}><Weight size={14} className="inline mr-1" />体重 (kg):</label><input id="userWeight" type="number" className={`w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm ${COFFEE_COLORS.borderStrong} focus:ring-amber-500 bg-amber-50`} value={userSettings.weight} onChange={(e) => setUserSettings({ ...userSettings, weight: e.target.value === '' ? '' : parseInt(e.target.value) })} onBlur={(e) => { const value = parseInt(e.target.value); if (isNaN(value) || value < 20 || value > 300) setUserSettings({ ...userSettings, weight: defaultSettings.weight }); }} min="20" max="300" placeholder={defaultSettings.weight.toString()} /><p className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>用于计算个性化推荐摄入量和估算浓度。</p></div>
                 {/* Gender field kept for potential future use, but not actively used in calculations */}
                 {/* <div><label htmlFor="userGender" className="block mb-1 font-medium text-sm" style={{ color: COFFEE_COLORS.textSecondary }}>性别:</label><select id="userGender" className={`w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm appearance-none ${COFFEE_COLORS.borderStrong} focus:ring-amber-500 bg-amber-50`} value={userSettings.gender} onChange={(e) => setUserSettings({ ...userSettings, gender: e.target.value })}><option value="male">男</option><option value="female">女</option><option value="other">其他</option></select><p className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>性别可能影响咖啡因代谢速率（当前未用于计算）。</p></div> */}
-                <div><label htmlFor="maxDailyCaffeine" className="block mb-1 font-medium text-sm" style={{ color: COFFEE_COLORS.textSecondary }}><Target size={14} className="inline mr-1"/>通用每日最大摄入量 (mg):</label><input id="maxDailyCaffeine" type="number" className={`w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm ${COFFEE_COLORS.borderStrong} focus:ring-amber-500 bg-amber-50`} value={userSettings.maxDailyCaffeine} onChange={(e) => setUserSettings({ ...userSettings, maxDailyCaffeine: e.target.value === '' ? '' : parseInt(e.target.value) })} onBlur={(e) => { const value = parseInt(e.target.value); if (isNaN(value) || value < 0 || value > 2000) setUserSettings({ ...userSettings, maxDailyCaffeine: defaultSettings.maxDailyCaffeine }); }} min="0" max="2000" placeholder={defaultSettings.maxDailyCaffeine.toString()} /><div className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>通用指南上限 (如 400mg)。设为 0 将使用默认值 400。</div></div>
-                <div><label htmlFor="recommendedDosePerKg" className="block mb-1 font-medium text-sm" style={{ color: COFFEE_COLORS.textSecondary }}><Target size={14} className="inline mr-1"/>个性化推荐剂量 (mg/kg):</label><input id="recommendedDosePerKg" type="number" className={`w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm ${COFFEE_COLORS.borderStrong} focus:ring-amber-500 bg-amber-50`} value={userSettings.recommendedDosePerKg} onChange={(e) => setUserSettings({ ...userSettings, recommendedDosePerKg: e.target.value === '' ? '' : parseFloat(e.target.value) })} onBlur={(e) => { const value = parseFloat(e.target.value); if (isNaN(value) || value < 1 || value > 10) setUserSettings({ ...userSettings, recommendedDosePerKg: defaultSettings.recommendedDosePerKg }); }} min="1" max="10" step="0.5" placeholder={defaultSettings.recommendedDosePerKg.toString()} /><p className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>建议范围 3-6 mg/kg。应用将取此计算值与通用上限中的较低者作为您的有效上限。</p></div>
+                <div><label htmlFor="maxDailyCaffeine" className="block mb-1 font-medium text-sm" style={{ color: COFFEE_COLORS.textSecondary }}><Target size={14} className="inline mr-1" />通用每日最大摄入量 (mg):</label><input id="maxDailyCaffeine" type="number" className={`w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm ${COFFEE_COLORS.borderStrong} focus:ring-amber-500 bg-amber-50`} value={userSettings.maxDailyCaffeine} onChange={(e) => setUserSettings({ ...userSettings, maxDailyCaffeine: e.target.value === '' ? '' : parseInt(e.target.value) })} onBlur={(e) => { const value = parseInt(e.target.value); if (isNaN(value) || value < 0 || value > 2000) setUserSettings({ ...userSettings, maxDailyCaffeine: defaultSettings.maxDailyCaffeine }); }} min="0" max="2000" placeholder={defaultSettings.maxDailyCaffeine.toString()} /><div className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>通用指南上限 (如 400mg)。设为 0 将使用默认值 400。</div></div>
+                <div><label htmlFor="recommendedDosePerKg" className="block mb-1 font-medium text-sm" style={{ color: COFFEE_COLORS.textSecondary }}><Target size={14} className="inline mr-1" />个性化推荐剂量 (mg/kg):</label><input id="recommendedDosePerKg" type="number" className={`w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm ${COFFEE_COLORS.borderStrong} focus:ring-amber-500 bg-amber-50`} value={userSettings.recommendedDosePerKg} onChange={(e) => setUserSettings({ ...userSettings, recommendedDosePerKg: e.target.value === '' ? '' : parseFloat(e.target.value) })} onBlur={(e) => { const value = parseFloat(e.target.value); if (isNaN(value) || value < 1 || value > 10) setUserSettings({ ...userSettings, recommendedDosePerKg: defaultSettings.recommendedDosePerKg }); }} min="1" max="10" step="0.5" placeholder={defaultSettings.recommendedDosePerKg.toString()} /><p className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>建议范围 3-6 mg/kg。应用将取此计算值与通用上限中的较低者作为您的有效上限。</p></div>
               </div>
             </div>
 
-             {/* Metabolism Settings Card */}
+            {/* Metabolism Settings Card */}
             <div className="mb-5 rounded-xl p-6 shadow-lg border" style={{ backgroundColor: COFFEE_COLORS.bgCard, borderColor: COFFEE_COLORS.borderSubtle }}>
               <h2 className="text-xl font-semibold mb-4 flex items-center" style={{ color: COFFEE_COLORS.espresso }}><Sliders size={20} className="mr-2" /> 代谢与睡眠设置</h2>
               <div className="space-y-4">
-                <div><label htmlFor="caffeineHalfLife" className="block mb-1 font-medium text-sm" style={{ color: COFFEE_COLORS.textSecondary }}><Clock size={14} className="inline mr-1"/>咖啡因半衰期 (小时):</label><input id="caffeineHalfLife" type="number" className={`w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm ${COFFEE_COLORS.borderStrong} focus:ring-amber-500 bg-amber-50`} value={userSettings.caffeineHalfLifeHours} onChange={(e) => setUserSettings({ ...userSettings, caffeineHalfLifeHours: e.target.value === '' ? '' : parseFloat(e.target.value) })} onBlur={(e) => { const value = parseFloat(e.target.value); if (isNaN(value) || value < 1 || value > 24) setUserSettings({ ...userSettings, caffeineHalfLifeHours: defaultSettings.caffeineHalfLifeHours }); }} min="1" max="24" step="0.5" placeholder={defaultSettings.caffeineHalfLifeHours.toString()} /><p className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>影响体内咖啡因代谢速度估算，平均为 5 小时，个体差异大 (1.5-9.5h)。</p></div>
-                 <div><label htmlFor="volumeOfDistribution" className="block mb-1 font-medium text-sm" style={{ color: COFFEE_COLORS.textSecondary }}><Droplet size={14} className="inline mr-1"/>分布容积 (L/kg):</label><input id="volumeOfDistribution" type="number" className={`w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm ${COFFEE_COLORS.borderStrong} focus:ring-amber-500 bg-amber-50`} value={userSettings.volumeOfDistribution} onChange={(e) => setUserSettings({ ...userSettings, volumeOfDistribution: e.target.value === '' ? '' : parseFloat(e.target.value) })} onBlur={(e) => { const value = parseFloat(e.target.value); if (isNaN(value) || value < 0.1 || value > 1.5) setUserSettings({ ...userSettings, volumeOfDistribution: defaultSettings.volumeOfDistribution }); }} min="0.1" max="1.5" step="0.1" placeholder={defaultSettings.volumeOfDistribution.toString()} /><p className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>用于估算浓度，典型值约为 0.6 L/kg。</p></div>
-                <div><label htmlFor="safeSleepThresholdConcentration" className="block mb-1 font-medium text-sm" style={{ color: COFFEE_COLORS.textSecondary }}><Moon size={14} className="inline mr-1"/>睡前安全浓度阈值 (mg/L):</label><input id="safeSleepThresholdConcentration" type="number" className={`w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm ${COFFEE_COLORS.borderStrong} focus:ring-amber-500 bg-amber-50`} value={userSettings.safeSleepThresholdConcentration} onChange={(e) => setUserSettings({ ...userSettings, safeSleepThresholdConcentration: e.target.value === '' ? '' : parseFloat(e.target.value) })} onBlur={(e) => { const value = parseFloat(e.target.value); if (isNaN(value) || value < 0 || value > 10) setUserSettings({ ...userSettings, safeSleepThresholdConcentration: defaultSettings.safeSleepThresholdConcentration }); }} min="0" max="10" step="0.1" placeholder={defaultSettings.safeSleepThresholdConcentration.toString()} /><p className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>当体内咖啡因浓度低于此值时，对睡眠影响较小（估算）。建议 1 mg/L 左右，敏感者可降低。</p></div>
-                <div><label htmlFor="plannedSleepTime" className="block mb-1 font-medium text-sm" style={{ color: COFFEE_COLORS.textSecondary }}><Moon size={14} className="inline mr-1"/>计划睡眠时间:</label><input id="plannedSleepTime" type="time" className={`w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm ${COFFEE_COLORS.borderStrong} focus:ring-amber-500 bg-amber-50`} value={userSettings.plannedSleepTime} onChange={(e) => setUserSettings({ ...userSettings, plannedSleepTime: e.target.value || defaultSettings.plannedSleepTime })} /><p className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>用于提供更个性化的睡眠建议。</p></div>
+                <div><label htmlFor="caffeineHalfLife" className="block mb-1 font-medium text-sm" style={{ color: COFFEE_COLORS.textSecondary }}><Clock size={14} className="inline mr-1" />咖啡因半衰期 (小时):</label><input id="caffeineHalfLife" type="number" className={`w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm ${COFFEE_COLORS.borderStrong} focus:ring-amber-500 bg-amber-50`} value={userSettings.caffeineHalfLifeHours} onChange={(e) => setUserSettings({ ...userSettings, caffeineHalfLifeHours: e.target.value === '' ? '' : parseFloat(e.target.value) })} onBlur={(e) => { const value = parseFloat(e.target.value); if (isNaN(value) || value < 1 || value > 24) setUserSettings({ ...userSettings, caffeineHalfLifeHours: defaultSettings.caffeineHalfLifeHours }); }} min="1" max="24" step="0.5" placeholder={defaultSettings.caffeineHalfLifeHours.toString()} /><p className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>影响体内咖啡因代谢速度估算，平均为 4 小时，个体差异大 (1.5-9.5h)。</p></div>
+                <div><label htmlFor="volumeOfDistribution" className="block mb-1 font-medium text-sm" style={{ color: COFFEE_COLORS.textSecondary }}><Droplet size={14} className="inline mr-1" />分布容积 (L/kg):</label><input id="volumeOfDistribution" type="number" className={`w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm ${COFFEE_COLORS.borderStrong} focus:ring-amber-500 bg-amber-50`} value={userSettings.volumeOfDistribution} onChange={(e) => setUserSettings({ ...userSettings, volumeOfDistribution: e.target.value === '' ? '' : parseFloat(e.target.value) })} onBlur={(e) => { const value = parseFloat(e.target.value); if (isNaN(value) || value < 0.1 || value > 1.5) setUserSettings({ ...userSettings, volumeOfDistribution: defaultSettings.volumeOfDistribution }); }} min="0.1" max="1.5" step="0.1" placeholder={defaultSettings.volumeOfDistribution.toString()} /><p className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>用于估算浓度，典型值约为 0.6 L/kg。</p></div>
+                <div><label htmlFor="safeSleepThresholdConcentration" className="block mb-1 font-medium text-sm" style={{ color: COFFEE_COLORS.textSecondary }}><Moon size={14} className="inline mr-1" />睡前安全浓度阈值 (mg/L):</label><input id="safeSleepThresholdConcentration" type="number" className={`w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm ${COFFEE_COLORS.borderStrong} focus:ring-amber-500 bg-amber-50`} value={userSettings.safeSleepThresholdConcentration} onChange={(e) => setUserSettings({ ...userSettings, safeSleepThresholdConcentration: e.target.value === '' ? '' : parseFloat(e.target.value) })} onBlur={(e) => { const value = parseFloat(e.target.value); if (isNaN(value) || value < 0 || value > 10) setUserSettings({ ...userSettings, safeSleepThresholdConcentration: defaultSettings.safeSleepThresholdConcentration }); }} min="0" max="10" step="0.1" placeholder={defaultSettings.safeSleepThresholdConcentration.toString()} /><p className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>当体内咖啡因浓度低于此值时，对睡眠影响较小（估算）。建议 1.5 mg/L 左右，敏感者可降低。</p></div>
+                <div><label htmlFor="plannedSleepTime" className="block mb-1 font-medium text-sm" style={{ color: COFFEE_COLORS.textSecondary }}><Moon size={14} className="inline mr-1" />计划睡眠时间:</label><input id="plannedSleepTime" type="time" className={`w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm ${COFFEE_COLORS.borderStrong} focus:ring-amber-500 bg-amber-50`} value={userSettings.plannedSleepTime} onChange={(e) => setUserSettings({ ...userSettings, plannedSleepTime: e.target.value || defaultSettings.plannedSleepTime })} /><p className="text-xs mt-1" style={{ color: COFFEE_COLORS.textMuted }}>用于提供更个性化的睡眠建议。</p></div>
               </div>
             </div>
 
@@ -1743,24 +1743,24 @@ const CaffeineTracker = () => {
                         if (data.drinks.length > 0 && (!firstDrink || typeof firstDrink.id === 'undefined' || typeof firstDrink.name === 'undefined' || typeof firstDrink.caffeineContent === 'undefined')) {
                           throw new Error("饮品列表格式不正确。");
                         }
-                          // Check settings structure more thoroughly
+                        // Check settings structure more thoroughly
                         let validSettings = true;
                         for (const key in defaultSettings) {
-                            if (!data.userSettings.hasOwnProperty(key) || typeof data.userSettings[key] !== typeof defaultSettings[key]) {
-                                console.warn(`Imported settings missing or incorrect type for key: ${key}. Using default.`);
-                                // Allow import but use default for this key
-                                // validSettings = false; break; // Or reject entirely
-                            }
+                          if (!data.userSettings.hasOwnProperty(key) || typeof data.userSettings[key] !== typeof defaultSettings[key]) {
+                            console.warn(`Imported settings missing or incorrect type for key: ${key}. Using default.`);
+                            // Allow import but use default for this key
+                            // validSettings = false; break; // Or reject entirely
+                          }
                         }
 
                         if (window.confirm('导入数据将覆盖当前所有记录、设置和饮品列表。确定要继续吗？')) {
                           // Merge settings carefully, applying defaults for missing/invalid ones
                           const importedSettings = { ...defaultSettings };
-                            for (const key in defaultSettings) {
-                                if (data.userSettings.hasOwnProperty(key) && typeof data.userSettings[key] === typeof defaultSettings[key]) {
-                                    importedSettings[key] = data.userSettings[key];
-                                }
+                          for (const key in defaultSettings) {
+                            if (data.userSettings.hasOwnProperty(key) && typeof data.userSettings[key] === typeof defaultSettings[key]) {
+                              importedSettings[key] = data.userSettings[key];
                             }
+                          }
                           // Validate numeric ranges after merging
                           if (importedSettings.weight < 20 || importedSettings.weight > 300) importedSettings.weight = defaultSettings.weight;
                           if (importedSettings.maxDailyCaffeine < 0 || importedSettings.maxDailyCaffeine > 2000) importedSettings.maxDailyCaffeine = defaultSettings.maxDailyCaffeine;
