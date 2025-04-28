@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">咖啡因追踪</string>
+    <string name="title_activity_main">咖啡因追踪</string>
+    <string name="package_name">com.jerryz.caffeine</string>
+    <string name="custom_url_scheme">com.jerryz.caffeine</string>
+</resources>

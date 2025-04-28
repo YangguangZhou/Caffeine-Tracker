@@ -14,7 +14,7 @@ export const defaultSettings = {
   volumeOfDistribution: 0.6, // 分布容积 (L/kg) - 咖啡因的典型值
   plannedSleepTime: '22:00', // 默认计划睡眠时间
   caffeineHalfLifeHours: 4, // 默认咖啡因半衰期（小时） - 平均值，用户可调整
-  nightMode: false, // 默认使用日间模式
+  themeMode: 'auto', // 'auto', 'light', 'dark'
   // WebDAV 同步设置
   webdavEnabled: false, // 默认禁用 WebDAV 同步
   webdavServer: '', // WebDAV 服务器地址
