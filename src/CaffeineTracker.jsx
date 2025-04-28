@@ -401,7 +401,7 @@ const CaffeineTracker = () => {
         records: currentRecords,
         drinks: currentDrinks,
         userSettings: settings,
-        version: "3.0.0"
+        version: "1.0.0"
       };
 
       // 执行同步
