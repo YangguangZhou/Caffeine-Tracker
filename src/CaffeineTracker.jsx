@@ -678,7 +678,7 @@ const CaffeineTracker = () => {
         {/* 页脚 */}
         <footer className="mt-8 text-center text-xs transition-colors" style={{ color: colors.textMuted }}>
           <p>负责任地跟踪您的咖啡因摄入量。本应用提供的数据和建议基于科学模型估算，仅供参考，不能替代专业医疗意见。</p>
-          <p className="mt-1">&copy; {new Date().getFullYear()} Caffeine Tracker App v3.0.0</p>
+          <p className="mt-1">&copy; {new Date().getFullYear()} Caffeine Tracker App v1.0.0</p>
         </footer>
       </div>
     </div>
