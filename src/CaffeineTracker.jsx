@@ -58,7 +58,7 @@ const schemaData = {
   "applicationCategory": "HealthApplication",
   "operatingSystem": "Web Browser",
   "browserRequirements": "Requires JavaScript. Modern browsers recommended.",
-  // "url": "YOUR_APPLICATION_URL" // TODO: 替换为你的应用实际 URL
+  "url": "https://ct.jerryz.com.cn"
 };
 
 
