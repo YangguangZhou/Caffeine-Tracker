@@ -594,6 +594,12 @@ const CaffeineTracker = () => {
         {/* 页眉 */}
         <header className="mb-6 text-center relative">
           {/* Title */}
+          {/* Android */}
+          {/* <h1 
+            className="text-3xl font-bold flex justify-center items-center transition-colors" 
+            style={{ color: colors.espresso, marginTop: '4%' }}
+          > */}
+          {/* Web */}
           <h1 
             className="text-3xl font-bold flex justify-center items-center transition-colors" 
             style={{ color: colors.espresso }}

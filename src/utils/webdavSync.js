@@ -432,13 +432,14 @@ export default class WebDAVClient {
                     break;
 
                 case 'remote_newer': // 远程较新
-                case 'only_remote': // 只有远程存在 (使用远程)
-                    action = "download";
-                    console.log("操作：使用远程数据。");
-                    // 直接使用下载的远程数据
-                    finalData = remoteData; 
-                    message = "同步成功：已从服务器获取最新数据。";
-                    // 此处无需上传
+                case 'only_remote':     // 只有远程存在
+                    action = "merge";
+                    console.log("操作：合并本地和远程数据（远程较新）。");
+                    // 合并本地和远程数据，保留两边新增内容
+                    finalData = this.mergeData(currentLocalData, remoteData);
+                    // 将合并结果上传到服务器
+                    await this.uploadData(finalData);
+                    message = "同步成功：已合并本地和远程数据，保留本地和远程新增记录。";
                     break;
 
                 case 'equal': // 时间戳匹配 (无需更改)
