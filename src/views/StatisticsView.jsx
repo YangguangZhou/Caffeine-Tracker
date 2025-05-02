@@ -1,31 +1,22 @@
 import React, { useCallback, useMemo } from 'react';
-import { 
-  BarChart2, ChevronLeft, ChevronRight, 
-  PieChart, Heart, Award, Clock, Info, Calendar 
+// 导入 Helmet 用于设置页面头部信息
+import { Helmet } from 'react-helmet-async';
+import {
+  BarChart2, ChevronLeft, ChevronRight,
+  PieChart, Heart, Award, Clock, Info, Calendar
 } from 'lucide-react';
 import StatsChart from '../components/StatsChart';
 import {
   getStartOfWeek, getEndOfWeek,
   getStartOfMonth, getEndOfMonth,
-  getStartOfYear, getEndOfYear, 
+  getStartOfYear, getEndOfYear,
   getStartOfDay, getEndOfDay,
-  formatDate
+  formatDate // formatDate is now imported directly
 } from '../utils/timeUtils';
 
 /**
  * 统计数据视图组件
  * 显示咖啡因摄入的统计数据和分析
- * 
- * @param {Object} props
- * @param {Array} props.records - 咖啡因摄入记录
- * @param {string} props.statsView - 当前统计视图类型 ('week', 'month', 'year')
- * @param {Function} props.setStatsView - 设置统计视图类型的函数
- * @param {Date} props.statsDate - 当前统计日期
- * @param {Function} props.setStatsDate - 设置统计日期的函数
- * @param {number} props.effectiveMaxDaily - 有效每日最大摄入量
- * @param {Object} props.userSettings - 用户设置
- * @param {Array} props.drinks - 饮品列表
- * @param {Object} props.colors - 颜色主题
  */
 const StatisticsView = ({
   records,
@@ -38,7 +29,7 @@ const StatisticsView = ({
   drinks,
   colors
 }) => {
-  // 获取特定日期的当日总摄入量
+  // 获取特定日期的当日总摄入量 (保持不变)
   const getDayTotal = useCallback((date) => {
     const dayStart = getStartOfDay(date);
     const dayEnd = getEndOfDay(date);
@@ -47,7 +38,7 @@ const StatisticsView = ({
       .reduce((sum, record) => sum + record.amount, 0));
   }, [records]);
 
-  // 获取特定日期所在周的总摄入量
+  // 获取特定日期所在周的总摄入量 (保持不变)
   const getWeekTotal = useCallback((date) => {
     const weekStart = getStartOfWeek(date);
     const weekEnd = getEndOfWeek(date);
@@ -56,7 +47,7 @@ const StatisticsView = ({
       .reduce((sum, record) => sum + record.amount, 0));
   }, [records]);
 
-  // 获取特定日期所在月的总摄入量
+  // 获取特定日期所在月的总摄入量 (保持不变)
   const getMonthTotal = useCallback((date) => {
     const monthStart = getStartOfMonth(date);
     const monthEnd = getEndOfMonth(date);
@@ -65,7 +56,7 @@ const StatisticsView = ({
       .reduce((sum, record) => sum + record.amount, 0));
   }, [records]);
 
-  // 获取特定日期所在年的总摄入量
+  // 获取特定日期所在年的总摄入量 (保持不变)
   const getYearTotal = useCallback((date) => {
     const yearStart = getStartOfYear(date);
     const yearEnd = getEndOfYear(date);
@@ -74,7 +65,7 @@ const StatisticsView = ({
       .reduce((sum, record) => sum + record.amount, 0));
   }, [records]);
 
-  // 获取每周每日总量
+  // 获取每周每日总量 (保持不变)
   const getWeekDailyTotals = useCallback(() => {
     const weekStart = getStartOfWeek(statsDate);
     const totals = [];
@@ -91,7 +82,7 @@ const StatisticsView = ({
     return totals;
   }, [statsDate, getDayTotal]);
 
-  // 获取每月每日总量
+  // 获取每月每日总量 (保持不变)
   const getMonthDailyTotals = useCallback(() => {
     const monthStart = getStartOfMonth(statsDate);
     const monthEnd = getEndOfMonth(statsDate);
@@ -111,7 +102,7 @@ const StatisticsView = ({
     return totals;
   }, [statsDate, getDayTotal]);
 
-  // 获取每年每月总量
+  // 获取每年每月总量 (保持不变)
   const getYearMonthlyTotals = useCallback(() => {
     const year = statsDate.getFullYear();
     const totals = [];
@@ -124,7 +115,7 @@ const StatisticsView = ({
     return totals;
   }, [statsDate, getMonthTotal]);
 
-  // 统计导航：切换到上一个/下一个时间段
+  // 统计导航 (保持不变)
   const navigateStats = useCallback((direction) => {
     const newDate = new Date(statsDate);
     let isFutureDate = false;
@@ -138,19 +129,17 @@ const StatisticsView = ({
       newDate.setFullYear(newDate.getFullYear() + direction);
       isFutureDate = getEndOfYear(newDate) > Date.now();
     }
-    // 防止完全导航到未来
     if (direction > 0 && isFutureDate) {
       let startOfPeriod;
       if (statsView === 'week') startOfPeriod = getStartOfWeek(newDate);
       else if (statsView === 'month') startOfPeriod = getStartOfMonth(newDate);
       else startOfPeriod = getStartOfYear(newDate);
-      // 允许导航*到*当前时间段，但不能超过
       if (startOfPeriod > Date.now()) return;
     }
     setStatsDate(newDate);
   }, [statsDate, statsView, setStatsDate]);
 
-  // 格式化统计时间段
+  // 格式化统计时间段 (保持不变)
   const formatStatsPeriod = useCallback(() => {
     try {
       if (statsView === 'week') {
@@ -169,7 +158,7 @@ const StatisticsView = ({
     return '';
   }, [statsDate, statsView]);
 
-  // 图表数据
+  // 图表数据 (保持不变)
   const statsChartData = useMemo(() => {
     try {
       if (statsView === 'week') return getWeekDailyTotals();
@@ -179,29 +168,22 @@ const StatisticsView = ({
     return [];
   }, [statsView, getWeekDailyTotals, getMonthDailyTotals, getYearMonthlyTotals]);
 
-  // 咖啡因分布
+  // 咖啡因分布 (保持不变)
   const caffeineDistribution = useMemo(() => {
     const sourceData = {};
     let totalIntake = 0;
-
     records.forEach(record => {
       if (!record || typeof record.amount !== 'number' || record.amount <= 0) return;
-
       let groupKey = '';
       let groupName = '';
-
-      // 检查记录是否链接到饮品
       if (record.drinkId) {
         const linkedDrink = drinks.find(d => d.id === record.drinkId);
-        groupKey = record.drinkId; // 按饮品ID分组
+        groupKey = record.drinkId;
         groupName = linkedDrink ? linkedDrink.name : (record.customName || record.name || '未知饮品');
-      }
-      // 处理纯自定义条目（无drinkId）
-      else {
-        groupKey = record.customName || record.name || 'custom-manual-entry'; // 分组手动条目
+      } else {
+        groupKey = record.customName || record.name || 'custom-manual-entry';
         groupName = record.customName || record.name || '自定义摄入';
       }
-
       if (!sourceData[groupKey]) {
         sourceData[groupKey] = { amount: 0, count: 0, name: groupName };
       }
@@ -209,398 +191,421 @@ const StatisticsView = ({
       sourceData[groupKey].count += 1;
       totalIntake += record.amount;
     });
-
     if (totalIntake === 0) return [];
-
     const distributionArray = Object.entries(sourceData).map(([key, data]) => {
-      return { 
-        id: key, 
-        name: data.name, 
-        amount: Math.round(data.amount), 
-        percentage: Math.round((data.amount / totalIntake) * 100) 
+      return {
+        id: key,
+        name: data.name,
+        amount: Math.round(data.amount),
+        percentage: Math.round((data.amount / totalIntake) * 100)
       };
     });
-
     return distributionArray.sort((a, b) => b.amount - a.amount);
   }, [records, drinks]);
 
-  // 格式化Y轴刻度
+  // 格式化Y轴刻度 (保持不变)
   const formatYAxisTick = (value) => Math.round(value);
+
+  // 计算当前时间段是否是未来
+  const isNextPeriodDisabled = useMemo(() => {
+      const nextDate = new Date(statsDate);
+      if (statsView === 'week') nextDate.setDate(nextDate.getDate() + 7);
+      else if (statsView === 'month') nextDate.setMonth(nextDate.getMonth() + 1, 1);
+      else nextDate.setFullYear(nextDate.getFullYear() + 1);
+
+      let startOfNextPeriod;
+      if (statsView === 'week') startOfNextPeriod = getStartOfWeek(nextDate);
+      else if (statsView === 'month') startOfPeriod = getStartOfMonth(nextDate);
+      else startOfNextPeriod = getStartOfYear(nextDate);
+
+      return startOfNextPeriod > Date.now();
+  }, [statsDate, statsView]);
 
   return (
     <>
-      {/* 时间范围选择器 */}
-      <div 
-        className="mb-5 rounded-xl p-4 shadow-lg border transition-colors" 
-        style={{ 
-          backgroundColor: colors.bgCard, 
-          borderColor: colors.borderSubtle 
+      {/* SEO: 设置此视图特定的 Title 和 Description */}
+      <Helmet>
+        <title>数据统计 ({formatStatsPeriod()}) - 咖啡因追踪器</title>
+        <meta name="description" content={`查看 ${formatStatsPeriod()} 期间的咖啡因摄入总量、日均摄入、摄入来源分布和健康分析。`} />
+      </Helmet>
+
+      {/* 时间范围选择器 - 使用 section 或 nav */}
+      <section
+        aria-labelledby="stats-period-heading"
+        className="mb-5 rounded-xl p-4 shadow-lg border transition-colors"
+        style={{
+          backgroundColor: colors.bgCard,
+          borderColor: colors.borderSubtle
         }}
       >
         <div className="flex justify-between items-center mb-2">
-          <button 
-            onClick={() => navigateStats(-1)} 
-            className="p-2 rounded-md transition-colors duration-150" 
-            style={{ color: colors.textSecondary }} 
-            aria-label="Previous period"
+          <button
+            onClick={() => navigateStats(-1)}
+            className="p-2 rounded-md transition-colors duration-150 hover:bg-gray-100" // 添加 hover 效果
+            style={{ color: colors.textSecondary }}
+            aria-label="上一个时间段"
           >
             <ChevronLeft size={18} />
           </button>
-          <h2 
-            className="text-lg font-semibold text-center transition-colors" 
+          {/* 使用 h2 作为主要标题 */}
+          <h2
+            id="stats-period-heading"
+            className="text-lg font-semibold text-center transition-colors"
             style={{ color: colors.espresso }}
           >
             {formatStatsPeriod()}
           </h2>
-          <button 
-            onClick={() => navigateStats(1)} 
-            className="p-2 rounded-md transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed" 
-            style={{ color: colors.textSecondary }} 
-            disabled={(() => { 
-              const nextDate = new Date(statsDate); 
-              if (statsView === 'week') nextDate.setDate(nextDate.getDate() + 7); 
-              else if (statsView === 'month') nextDate.setMonth(nextDate.getMonth() + 1, 1); 
-              else nextDate.setFullYear(nextDate.getFullYear() + 1); 
-              
-              let startOfNextPeriod; 
-              if (statsView === 'week') startOfNextPeriod = getStartOfWeek(nextDate); 
-              else if (statsView === 'month') startOfNextPeriod = getStartOfMonth(nextDate); 
-              else startOfNextPeriod = getStartOfYear(nextDate); 
-              
-              return startOfNextPeriod > Date.now(); 
-            })()} 
-            aria-label="Next period"
+          <button
+            onClick={() => navigateStats(1)}
+            className="p-2 rounded-md transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100" // 添加 hover 效果
+            style={{ color: colors.textSecondary }}
+            disabled={isNextPeriodDisabled}
+            aria-label="下一个时间段"
           >
             <ChevronRight size={18} />
           </button>
         </div>
-        <div className="flex justify-center gap-2 mt-3">
-          <button 
-            onClick={() => { setStatsView('week'); setStatsDate(new Date()); }} 
-            className={`px-4 py-1.5 rounded-md text-sm transition-colors duration-200 font-medium ${statsView === 'week' ? 'text-white shadow-sm' : 'hover:bg-amber-100'}`} 
-            style={statsView === 'week' 
-              ? { backgroundColor: colors.accent } 
+        {/* 使用 nav 包裹视图切换按钮 */}
+        <nav className="flex justify-center gap-2 mt-3" aria-label="统计视图切换">
+          <button
+            onClick={() => { setStatsView('week'); setStatsDate(new Date()); }}
+            className={`px-4 py-1.5 rounded-md text-sm transition-colors duration-200 font-medium ${statsView === 'week' ? 'text-white shadow-sm' : 'hover:bg-amber-100'}`}
+            style={statsView === 'week'
+              ? { backgroundColor: colors.accent }
               : { backgroundColor: colors.bgBase, color: colors.accent }
             }
+            aria-current={statsView === 'week' ? 'true' : 'false'} // A11y: 指示当前视图
           >
             周
           </button>
-          <button 
-            onClick={() => { setStatsView('month'); setStatsDate(new Date()); }} 
-            className={`px-4 py-1.5 rounded-md text-sm transition-colors duration-200 font-medium ${statsView === 'month' ? 'text-white shadow-sm' : 'hover:bg-amber-100'}`} 
-            style={statsView === 'month' 
-              ? { backgroundColor: colors.accent } 
+          <button
+            onClick={() => { setStatsView('month'); setStatsDate(new Date()); }}
+            className={`px-4 py-1.5 rounded-md text-sm transition-colors duration-200 font-medium ${statsView === 'month' ? 'text-white shadow-sm' : 'hover:bg-amber-100'}`}
+            style={statsView === 'month'
+              ? { backgroundColor: colors.accent }
               : { backgroundColor: colors.bgBase, color: colors.accent }
             }
+             aria-current={statsView === 'month' ? 'true' : 'false'} // A11y: 指示当前视图
           >
             月
           </button>
-          <button 
-            onClick={() => { setStatsView('year'); setStatsDate(new Date()); }} 
-            className={`px-4 py-1.5 rounded-md text-sm transition-colors duration-200 font-medium ${statsView === 'year' ? 'text-white shadow-sm' : 'hover:bg-amber-100'}`} 
-            style={statsView === 'year' 
-              ? { backgroundColor: colors.accent } 
+          <button
+            onClick={() => { setStatsView('year'); setStatsDate(new Date()); }}
+            className={`px-4 py-1.5 rounded-md text-sm transition-colors duration-200 font-medium ${statsView === 'year' ? 'text-white shadow-sm' : 'hover:bg-amber-100'}`}
+            style={statsView === 'year'
+              ? { backgroundColor: colors.accent }
               : { backgroundColor: colors.bgBase, color: colors.accent }
             }
+             aria-current={statsView === 'year' ? 'true' : 'false'} // A11y: 指示当前视图
           >
             年
           </button>
-        </div>
-      </div>
+        </nav>
+      </section>
 
       {/* 摄入概览卡片 */}
-      <div 
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors" 
-        style={{ 
-          backgroundColor: colors.bgCard, 
-          borderColor: colors.borderSubtle 
+      <section
+        aria-labelledby="intake-overview-heading"
+        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        style={{
+          backgroundColor: colors.bgCard,
+          borderColor: colors.borderSubtle
         }}
       >
-        <h2 
-          className="text-xl font-semibold mb-4 flex items-center transition-colors" 
+        <h3 // 使用 h3，因为 h2 是时间段标题
+          id="intake-overview-heading"
+          className="text-xl font-semibold mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <BarChart2 size={20} className="mr-2" /> 摄入总览
-        </h2>
+          <BarChart2 size={20} className="mr-2" aria-hidden="true" /> 摄入总览
+        </h3>
         <div className="grid grid-cols-2 gap-4 mb-5">
-          <div 
-            className="p-4 rounded-lg text-center shadow-inner transition-colors" 
+          {/* 总摄入量 */}
+          <div
+            className="p-4 rounded-lg text-center shadow-inner transition-colors"
             style={{ backgroundColor: colors.bgBase }}
           >
-            <div 
-              className="text-sm transition-colors" 
+            <p // 使用 p 标签描述
+              className="text-sm transition-colors"
               style={{ color: colors.textSecondary }}
             >
-              {statsView === 'week' 
-                ? '本周总摄入' 
-                : statsView === 'month' 
-                  ? '本月总摄入' 
+              {statsView === 'week'
+                ? '本周总摄入'
+                : statsView === 'month'
+                  ? '本月总摄入'
                   : '本年总摄入'
               }
-            </div>
-            <div 
-              className="text-2xl font-bold mt-1 transition-colors" 
+            </p>
+            <p // 使用 p 标签显示数值
+              className="text-2xl font-bold mt-1 transition-colors"
               style={{ color: colors.espresso }}
             >
-              {statsView === 'week' 
-                ? getWeekTotal(statsDate) 
-                : statsView === 'month' 
-                  ? getMonthTotal(statsDate) 
+              {statsView === 'week'
+                ? getWeekTotal(statsDate)
+                : statsView === 'month'
+                  ? getMonthTotal(statsDate)
                   : getYearTotal(statsDate)
               } mg
-            </div>
+            </p>
           </div>
-          <div 
-            className="p-4 rounded-lg text-center shadow-inner transition-colors" 
+          {/* 日均摄入量 */}
+          <div
+            className="p-4 rounded-lg text-center shadow-inner transition-colors"
             style={{ backgroundColor: colors.bgBase }}
           >
-            <div 
-              className="text-sm transition-colors" 
+            <p // 使用 p 标签描述
+              className="text-sm transition-colors"
               style={{ color: colors.textSecondary }}
             >
-              {statsView === 'week' 
-                ? '日均 (本周)' 
-                : statsView === 'month' 
-                  ? '日均 (本月)' 
+              {statsView === 'week'
+                ? '日均 (本周)'
+                : statsView === 'month'
+                  ? '日均 (本月)'
                   : '日均 (本年)'
               }
-            </div>
-            <div 
-              className="text-2xl font-bold mt-1 transition-colors" 
+            </p>
+            <p // 使用 p 标签显示数值
+              className="text-2xl font-bold mt-1 transition-colors"
               style={{ color: colors.espresso }}
             >
-              {(() => { 
-                let total = 0; 
+              {(() => {
+                let total = 0;
                 let days = 0;
-                
-                if (statsView === 'week') { 
-                  total = getWeekTotal(statsDate); 
-                  days = 7; 
-                } else if (statsView === 'month') { 
-                  total = getMonthTotal(statsDate); 
-                  days = new Date(statsDate.getFullYear(), statsDate.getMonth() + 1, 0).getDate(); 
-                } else { 
-                  total = getYearTotal(statsDate); 
-                  const year = statsDate.getFullYear(); 
-                  days = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365; 
-                } 
-                
-                return days > 0 && total > 0 ? Math.round(total / days) : 0; 
+                if (statsView === 'week') { total = getWeekTotal(statsDate); days = 7; }
+                else if (statsView === 'month') { total = getMonthTotal(statsDate); days = new Date(statsDate.getFullYear(), statsDate.getMonth() + 1, 0).getDate(); }
+                else { total = getYearTotal(statsDate); const year = statsDate.getFullYear(); days = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365; }
+                return days > 0 && total > 0 ? Math.round(total / days) : 0;
               })()} mg
-            </div>
+            </p>
           </div>
         </div>
-        <div 
-          className="p-4 rounded-lg mt-4 min-h-[300px] transition-colors" 
+        {/* 图表容器 */}
+        <div
+          className="p-4 rounded-lg mt-4 min-h-[300px] transition-colors"
           style={{ backgroundColor: colors.bgBase }}
         >
-          <StatsChart 
-            data={statsChartData} 
-            view={statsView} 
-            effectiveMaxDaily={effectiveMaxDaily} 
+          <StatsChart
+            data={statsChartData}
+            view={statsView}
+            effectiveMaxDaily={effectiveMaxDaily}
             formatYAxisTick={formatYAxisTick}
             colors={colors}
           />
         </div>
-      </div>
+      </section>
 
       {/* 摄入来源分析卡片 */}
-      <div 
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors" 
-        style={{ 
-          backgroundColor: colors.bgCard, 
-          borderColor: colors.borderSubtle 
+      <section
+        aria-labelledby="source-analysis-heading"
+        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        style={{
+          backgroundColor: colors.bgCard,
+          borderColor: colors.borderSubtle
         }}
       >
-        <h2 
-          className="text-xl font-semibold mb-4 flex items-center transition-colors" 
+        <h3 // 使用 h3
+          id="source-analysis-heading"
+          className="text-xl font-semibold mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <PieChart size={20} className="mr-2" /> 摄入来源分析 (所有记录)
-        </h2>
-        <div className="space-y-3">
+          <PieChart size={20} className="mr-2" aria-hidden="true" /> 摄入来源分析 (所有记录)
+        </h3>
+        {/* 使用 ul/li 结构展示列表 */}
+        <ul className="space-y-3">
           {caffeineDistribution.length > 0 ? (
             caffeineDistribution.slice(0, 7).map((item, index) => (
-              <div key={item.id} className="flex items-center text-sm">
-                <div 
-                  className="w-28 truncate pr-2 transition-colors" 
-                  style={{ color: colors.textSecondary }} 
+              <li key={item.id} className="flex items-center text-sm">
+                <span // 使用 span 标签
+                  className="w-28 truncate pr-2 transition-colors"
+                  style={{ color: colors.textSecondary }}
                   title={item.name}
                 >
                   {item.name}
-                </div>
-                <div className="flex-1 mx-2">
+                </span>
+                <div className="flex-1 mx-2" aria-label={`${item.name} 摄入量占比`}>
                   <div className="h-4 bg-gray-200 rounded-full overflow-hidden shadow-inner">
-                    <div 
-                      className="h-full rounded-full transition-all duration-500 ease-out" 
-                      style={{ 
-                        width: `${item.percentage}%`, 
+                    <div
+                      className="h-full rounded-full transition-all duration-500 ease-out"
+                      style={{
+                        width: `${item.percentage}%`,
                         backgroundColor: [
-                          colors.espresso, 
-                          colors.latte, 
-                          colors.cappuccino, 
-                          colors.accent, 
-                          colors.grid, 
-                          colors.warning, 
-                          colors.danger
-                        ][index % 7] 
+                          colors.espresso, colors.latte, colors.cappuccino, colors.accent,
+                          colors.grid, colors.warning, colors.danger
+                        ][index % 7]
                       }}
+                      role="progressbar" // A11y: 指示这是一个进度条
+                      aria-valuenow={item.percentage}
+                      aria-valuemin="0"
+                      aria-valuemax="100"
+                      aria-label={`${item.percentage}%`}
                     ></div>
                   </div>
                 </div>
                 <div className="w-24 text-right">
-                  <span 
-                    className="font-medium transition-colors" 
+                  <span
+                    className="font-medium transition-colors"
                     style={{ color: colors.espresso }}
                   >
                     {item.percentage}%
                   </span>
-                  <span 
-                    className="text-xs transition-colors" 
+                  <span
+                    className="text-xs transition-colors"
                     style={{ color: colors.textMuted }}
                   >
                     ({item.amount}mg)
                   </span>
                 </div>
-              </div>
+              </li>
             ))
           ) : (
-            <p 
-              className="text-center py-3 transition-colors" 
-              style={{ color: colors.textMuted }}
-            >
-              没有足够的记录进行分析。
-            </p>
+             // 使用 li 标签包裹提示信息
+            <li>
+                <p
+                className="text-center py-3 transition-colors"
+                style={{ color: colors.textMuted }}
+                >
+                没有足够的记录进行分析。
+                </p>
+            </li>
           )}
-        </div>
-      </div>
+        </ul>
+      </section>
 
       {/* 健康分析报告卡片 */}
-      <div 
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors" 
-        style={{ 
-          backgroundColor: colors.bgCard, 
-          borderColor: colors.borderSubtle 
+      <section
+        aria-labelledby="health-analysis-heading"
+        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        style={{
+          backgroundColor: colors.bgCard,
+          borderColor: colors.borderSubtle
         }}
       >
-        <h2 
-          className="text-xl font-semibold mb-4 flex items-center transition-colors" 
+        <h3 // 使用 h3
+          id="health-analysis-heading"
+          className="text-xl font-semibold mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <Heart size={20} className="mr-2" /> 健康分析与洞察
-        </h2>
-        <div 
-          className="space-y-4 text-sm transition-colors" 
+          <Heart size={20} className="mr-2" aria-hidden="true" /> 健康分析与洞察
+        </h3>
+        <div
+          className="space-y-4 text-sm transition-colors"
           style={{ color: colors.textSecondary }}
         >
-          <div 
-            className="p-4 rounded-lg shadow-inner transition-colors" 
+          {/* 使用 article 标签表示独立的分析内容 */}
+          <article
+            aria-labelledby="pattern-assessment-heading"
+            className="p-4 rounded-lg shadow-inner transition-colors"
             style={{ backgroundColor: colors.bgBase }}
           >
-            <h3 
-              className="font-semibold mb-1 flex items-center transition-colors" 
+            <h4 // 使用 h4
+              id="pattern-assessment-heading"
+              className="font-semibold mb-1 flex items-center transition-colors"
               style={{ color: colors.espresso }}
             >
-              <Award size={16} className="mr-1.5" /> 摄入模式评估
-            </h3>
+              <Award size={16} className="mr-1.5" aria-hidden="true" /> 摄入模式评估
+            </h4>
             <p>
-              {records.length > 0 
+              {records.length > 0
                 ? `根据您的历史记录，${
-                    caffeineDistribution[0]?.name 
-                      ? `您的主要咖啡因来源似乎是 ${caffeineDistribution[0].name} (${caffeineDistribution[0].percentage}%)。` 
+                    caffeineDistribution[0]?.name
+                      ? `您的主要咖啡因来源似乎是 ${caffeineDistribution[0].name} (${caffeineDistribution[0].percentage}%)。`
                       : '您的咖啡因来源较为多样。'
-                  }` 
+                  }`
                 : "您还没有添加任何摄入记录。"
               }
               {records.length > 0 && ` 您设定的每日推荐上限为 ${effectiveMaxDaily}mg (综合通用指南${
-                userSettings.recommendedDosePerKg 
-                  ? `和体重推荐 ${Math.round(userSettings.weight * userSettings.recommendedDosePerKg)}mg` 
+                userSettings.recommendedDosePerKg
+                  ? `和体重推荐 ${Math.round(userSettings.weight * userSettings.recommendedDosePerKg)}mg`
                   : ''
               })。本周您的日均摄入量约为 ${
                 Math.round(getWeekTotal(new Date()) / 7)
               }mg。请关注统计图表，了解您是否经常超过推荐量。`}
             </p>
-          </div>
-          <div 
-            className="p-4 rounded-lg shadow-inner transition-colors" 
+          </article>
+          <article
+            aria-labelledby="sleep-impact-heading"
+            className="p-4 rounded-lg shadow-inner transition-colors"
             style={{ backgroundColor: colors.bgBase }}
           >
-            <h3 
-              className="font-semibold mb-1 flex items-center transition-colors" 
+            <h4 // 使用 h4
+              id="sleep-impact-heading"
+              className="font-semibold mb-1 flex items-center transition-colors"
               style={{ color: colors.espresso }}
             >
-              <Clock size={16} className="mr-1.5" /> 睡眠影响考量
-            </h3>
+              <Clock size={16} className="mr-1.5" aria-hidden="true" /> 睡眠影响考量
+            </h4>
             <p>
-              咖啡因的半衰期设定为 
+              咖啡因的半衰期设定为
               <strong style={{ color: colors.espresso }}> {userSettings.caffeineHalfLifeHours} 小时</strong>。
-              当前计算的建议最早睡眠时间依赖于体内咖啡因浓度降至 
+              当前计算的建议最早睡眠时间依赖于体内咖啡因浓度降至
               <strong style={{ color: colors.espresso }}> {userSettings.safeSleepThresholdConcentration.toFixed(1)} mg/L </strong>
-              所需的时间估算。如果您计划在 
+              所需的时间估算。如果您计划在
               <strong className="text-blue-700"> {userSettings.plannedSleepTime} </strong>
               左右入睡，请留意当前体内咖啡因含量是否过高。通常建议睡前 6 小时避免摄入咖啡因。
             </p>
-          </div>
+          </article>
         </div>
-      </div>
+      </section>
 
       {/* 咖啡因知识卡片 */}
-      <div 
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors" 
-        style={{ 
-          backgroundColor: colors.bgCard, 
-          borderColor: colors.borderSubtle 
+      <section
+        aria-labelledby="caffeine-knowledge-heading"
+        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        style={{
+          backgroundColor: colors.bgCard,
+          borderColor: colors.borderSubtle
         }}
       >
-        <h2 
-          className="text-xl font-semibold mb-4 flex items-center transition-colors" 
+        <h3 // 使用 h3
+          id="caffeine-knowledge-heading"
+          className="text-xl font-semibold mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <Info size={20} className="mr-2" /> 咖啡因知识库 (科学依据)
-        </h2>
-        <ul 
-          className="space-y-2 text-sm list-disc list-inside transition-colors" 
+          <Info size={20} className="mr-2" aria-hidden="true" /> 咖啡因知识库 (科学依据)
+        </h3>
+        <ul
+          className="space-y-2 text-sm list-disc list-inside transition-colors"
           style={{ color: colors.textSecondary }}
         >
           <li>
-            <strong>推荐摄入量:</strong> FDA/Mayo Clinic 建议健康成人每日不超过 
+            <strong>推荐摄入量:</strong> FDA/Mayo Clinic 建议健康成人每日不超过
             <strong style={{ color: colors.espresso }}> 400mg</strong>。
-            个性化推荐可按 <strong style={{ color: colors.espresso }}>3-6 mg/kg</strong> 
-            体重计算 (本应用默认使用 
+            个性化推荐可按 <strong style={{ color: colors.espresso }}>3-6 mg/kg</strong>
+            体重计算 (本应用默认使用
             <strong style={{ color: colors.espresso }}> {userSettings.recommendedDosePerKg} mg/kg</strong>，
             可在设置中调整)。
           </li>
           <li>
-            <strong>半衰期 (t½):</strong> 健康成人血浆半衰期平均约为 
+            <strong>半衰期 (t½):</strong> 健康成人血浆半衰期平均约为
             <strong style={{ color: colors.espresso }}> 5 小时</strong> (范围 1.5-9.5 小时)。
             这是体内咖啡因量减少一半所需时间。您可以在设置中调整此值以匹配个人情况。
           </li>
           <li>
             <strong>代谢模型:</strong> 本应用使用一级消除动力学模型 (
-            <strong style={{ color: colors.espresso }}>C(t) = C₀ * (0.5)^(t / t_half)</strong>, 
+            <strong style={{ color: colors.espresso }}>C(t) = C₀ * (0.5)^(t / t_half)</strong>,
             其中 k = ln(2)/t½) 来估算体内咖啡因残留量。
           </li>
           <li>
-            <strong>睡眠阈值:</strong> 多数研究建议睡前 
+            <strong>睡眠阈值:</strong> 多数研究建议睡前
             <strong style={{ color: colors.espresso }}> 6 小时</strong> 避免摄入。
             本应用通过计算当前咖啡因含量降至设定的安全浓度阈值 (
-            <strong style={{ color: colors.espresso }}>{userSettings.safeSleepThresholdConcentration.toFixed(1)} mg/L</strong>) 
+            <strong style={{ color: colors.espresso }}>{userSettings.safeSleepThresholdConcentration.toFixed(1)} mg/L</strong>)
             所需时间来提供建议睡眠时间。此阈值可在设置中调整。
           </li>
           <li>
-            <strong>浓度估算:</strong> 体内浓度 (mg/L) 可通过 
+            <strong>浓度估算:</strong> 体内浓度 (mg/L) 可通过
             <strong style={{ color: colors.espresso }}> 剂量(mg) / (分布容积(L/kg) * 体重(kg))</strong> 估算。
-            典型分布容积 (Vd) 约为 
+            典型分布容积 (Vd) 约为
             <strong style={{ color: colors.espresso }}> 0.6 L/kg</strong> (可在设置调整)。
           </li>
           <li>
-            <strong>清除时间:</strong> 大约需要 
-            <strong style={{ color: colors.espresso }}> 5 个半衰期</strong> 
-            (约 {(5 * userSettings.caffeineHalfLifeHours).toFixed(1)} 小时) 
+            <strong>清除时间:</strong> 大约需要
+            <strong style={{ color: colors.espresso }}> 5 个半衰期</strong>
+            (约 {(5 * userSettings.caffeineHalfLifeHours).toFixed(1)} 小时)
             才能将体内咖啡因基本清除 (降至初始量的约 3%)。
           </li>
         </ul>
-      </div>
+      </section>
     </>
   );
 };
