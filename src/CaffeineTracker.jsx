@@ -477,7 +477,7 @@ const CaffeineTracker = () => {
       <header className="max-w-md mx-auto px-4 pt-6 pb-2 text-center relative">
         <h1
           className="text-3xl font-bold flex justify-center items-center transition-colors"
-          style={{ color: colors.espresso }}
+          style={{ color: colors.espresso, marginTop: '4%' }}
         >
           <Coffee className="mr-2" size={30} aria-hidden="true" /> {/* 图标通常是装饰性的 */}
           咖啡因追踪器
@@ -490,7 +490,7 @@ const CaffeineTracker = () => {
         </p>
 
         {/* Header Buttons Container */}
-        <div className="absolute top-4 right-4 flex items-center space-x-2">
+        <div className="absolute top-4 right-4 flex items-center space-x-2" style={{ marginTop: '5%' }}>
           {/* Sync Button */}
           {userSettings.webdavEnabled && (
             <button
