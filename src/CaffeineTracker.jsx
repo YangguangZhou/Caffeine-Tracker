@@ -470,7 +470,7 @@ const CaffeineTracker = () => {
           {JSON.stringify(schemaData)}
         </script>
         {/* 可以添加其他全局 meta 标签，如 keywords (虽然其重要性已降低) */}
-        {/* <meta name="keywords" content="咖啡因, 追踪器, 计算器, 代谢, 睡眠, 健康, 咖啡, 茶" /> */}
+        <meta name="keywords" content="咖啡因, 追踪器, 计算器, 代谢, 睡眠, 健康, 咖啡, 茶" />
       </Helmet>
 
       {/* 使用 header 语义标签 */}
@@ -527,6 +527,7 @@ const CaffeineTracker = () => {
                syncStatus.lastSyncResult?.message === "WebDAV未配置" ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
                'bg-red-100 text-red-700 border border-red-200'
              } flex items-center shadow-sm`}
+             style={{ marginTop: '5%' }}
            >
               {syncStatus.inProgress ? '同步中...' : syncStatus.lastSyncResult?.success ? '同步成功' : syncStatus.lastSyncResult?.message || '同步失败'}
            </div>
