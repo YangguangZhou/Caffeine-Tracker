@@ -185,7 +185,7 @@ const SettingsView = ({
                 userSettings,
                 drinks,
                 exportTimestamp: Date.now(),
-                version: '1.0.0'
+                version: '1.0.1'
             };
 
             const dataStr = JSON.stringify(exportData, null, 2);

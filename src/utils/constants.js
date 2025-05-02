@@ -22,6 +22,7 @@ export const defaultSettings = {
   webdavPassword: '', // WebDAV 密码
   webdavSyncFrequency: 'manual', // 同步频率，可选: 'manual'(手动), 'startup'(启动时), 'hourly'(每小时), 'daily'(每天)
   lastSyncTimestamp: null, // 上次同步时间戳
+  develop: false,
 };
 
 // 咖啡主题颜色方案（日间模式）
