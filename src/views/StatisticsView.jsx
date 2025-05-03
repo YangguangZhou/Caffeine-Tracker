@@ -561,7 +561,7 @@ const StatisticsView = ({
           className="text-xl font-semibold mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <Info size={20} className="mr-2" aria-hidden="true" /> 咖啡因知识库 (科学依据)
+          <Info size={20} className="mr-2" aria-hidden="true" /> 咖啡因知识库
         </h3>
         <ul
           className="space-y-2 text-sm list-disc list-inside transition-colors"

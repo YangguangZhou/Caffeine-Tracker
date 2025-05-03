@@ -50,6 +50,9 @@ export const COFFEE_COLORS = {
   chartLine: '#8b4513', // 代谢线的马鞍棕色
   chartNowLine: '#dc2626', // 当前时间的红线
   chartSleepLine: '#3b82f6', // 睡眠阈值的蓝线
+  customDrinkBg: '#FFF6E9',
+  customDrinkBorder: '#FFE2B8',
+  customDrinkText: '#8B5A2B',
 };
 
 // 夜间模式颜色方案
@@ -77,6 +80,9 @@ export const NIGHT_COLORS = {
   chartLine: '#c39065', // 代谢线的浅棕色
   chartNowLine: '#ef4444', // 当前时间的红线
   chartSleepLine: '#3b82f6', // 睡眠阈值的蓝线
+  customDrinkBg: '#3D3222',
+  customDrinkBorder: '#5E4C32',
+  customDrinkText: '#D4A76A',
 };
 
 // 预设饮品定义

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from
 // 导入 react-helmet-async 用于管理 head 标签
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import {
-  Coffee, Moon, Sun, TrendingUp, BarChart2, Settings, RefreshCw, Laptop, Code, Loader2 // 添加 Loader2 用于 Suspense fallback
+  Coffee, Moon, Sun, TrendingUp, BarChart2, Settings, RefreshCw, Laptop, Code, Loader2, Info
 } from 'lucide-react';
 
 // 导入工具函数
@@ -40,6 +40,7 @@ import WebDAVClient from './utils/webdavSync';
 const CurrentStatusView = lazy(() => import('./views/CurrentStatusView'));
 const StatisticsView = lazy(() => import('./views/StatisticsView'));
 const SettingsView = lazy(() => import('./views/SettingsView'));
+const AboutView = lazy(() => import('./views/AboutView'));
 
 // 脚本加载相关常量 (保持不变)
 const UMAMI_SCRIPT_ID = 'umami-analytics-script';
@@ -49,7 +50,6 @@ const UMAMI_WEBSITE_ID = "81f97aba-b11b-44f1-890a-9dc588a0d34d";
 const ADSENSE_SRC = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2597042766299857";
 const ADSENSE_CLIENT = "ca-pub-2597042766299857";
 
-// --- 新增: JSON-LD 结构化数据 ---
 const schemaData = {
   "@context": "https://schema.org",
   "@type": "WebApplication",
@@ -58,7 +58,18 @@ const schemaData = {
   "applicationCategory": "HealthApplication",
   "operatingSystem": "Web Browser",
   "browserRequirements": "Requires JavaScript. Modern browsers recommended.",
-  "url": "https://ct.jerryz.com.cn"
+  "url": "https://ct.jerryz.com.cn",
+  "image": "https://ct.jerryz.com.cn/og-image.png",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "CNY"
+  },
+  "author": {
+    "@type": "Person",
+    "name": "Jerry Zhou",
+    "url": "https://jerryz.com.cn"
+  }
 };
 
 
@@ -469,8 +480,22 @@ const CaffeineTracker = () => {
         <script type="application/ld+json">
           {JSON.stringify(schemaData)}
         </script>
-        {/* 可以添加其他全局 meta 标签，如 keywords (虽然其重要性已降低) */}
         <meta name="keywords" content="咖啡因, 追踪器, 计算器, 代谢, 睡眠, 健康, 咖啡, 茶" />
+        <meta name="robots" content="index, follow" />
+        <link rel="canonical" href="https://ct.jerryz.com.cn" />
+        <meta name="author" content="Jerry Zhou" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta property="og:title" content="咖啡因追踪器 - 科学管理您的咖啡因摄入" />
+        <meta property="og:description" content="使用咖啡因追踪器科学管理您的每日咖啡因摄入量，获取代谢预测、健康建议和睡眠时间优化。" />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://ct.jerryz.com.cn" />
+        <meta property="og:image" content="https://ct.jerryz.com.cn/og-image.png" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="咖啡因追踪器 - 科学管理您的咖啡因摄入" />
+        <meta name="twitter:description" content="使用咖啡因追踪器科学管理您的每日咖啡因摄入量，获取代谢预测、健康建议和睡眠时间优化。" />
+        <meta name="twitter:image" content="https://ct.jerryz.com.cn/og-image.png" />
       </Helmet>
 
       {/* 使用 header 语义标签 */}
@@ -573,16 +598,29 @@ const CaffeineTracker = () => {
           </button>
           <button
             onClick={() => setViewMode('settings')}
-            className={`flex-1 py-3 flex justify-center items-center transition-colors duration-200 text-sm font-medium ${
+            className={`flex-1 py-3 flex justify-center items-center transition-colors duration-200 text-sm font-medium border-l border-r ${
               viewMode === 'settings' ? 'text-white shadow-inner' : 'hover:bg-opacity-10'
             }`}
             style={viewMode === 'settings'
-              ? { backgroundColor: colors.accent }
-              : { color: colors.accent, ':hover': { backgroundColor: colors.accentHover } }
+              ? { backgroundColor: colors.accent, borderColor: colors.borderSubtle }
+              : { color: colors.accent, borderColor: colors.borderSubtle, ':hover': { backgroundColor: colors.accentHover } }
             }
              aria-current={viewMode === 'settings' ? 'page' : undefined} // A11y: 指示当前页面
           >
             <Settings size={16} className="mr-1.5" aria-hidden="true" /> 设置
+          </button>
+          <button
+            onClick={() => setViewMode('about')}
+            className={`flex-1 py-3 flex justify-center items-center transition-colors duration-200 text-sm font-medium ${
+              viewMode === 'about' ? 'text-white shadow-inner' : 'hover:bg-opacity-10'
+            }`}
+            style={viewMode === 'about'
+              ? { backgroundColor: colors.accent }
+              : { color: colors.accent, ':hover': { backgroundColor: colors.accentHover } }
+            }
+             aria-current={viewMode === 'about' ? 'page' : undefined} // A11y: 指示当前页面
+          >
+            <Info size={16} className="mr-1.5" aria-hidden="true" /> 关于
           </button>
         </nav>
 
@@ -596,7 +634,6 @@ const CaffeineTracker = () => {
           {/* 当前状态视图 */}
           {viewMode === 'current' && (
             <CurrentStatusView
-              // TODO: 在 CurrentStatusView.jsx 内部添加 <Helmet> 来设置此视图特定的 title 和 description
               currentCaffeineAmount={currentCaffeineAmount}
               currentCaffeineConcentration={currentCaffeineConcentration}
               optimalSleepTime={optimalSleepTime}
@@ -624,7 +661,6 @@ const CaffeineTracker = () => {
           {/* 统计视图 */}
           {viewMode === 'stats' && (
             <StatisticsView
-              // TODO: 在 StatisticsView.jsx 内部添加 <Helmet> 来设置此视图特定的 title 和 description
               records={records}
               statsView={statsView}
               setStatsView={setStatsView}
@@ -640,7 +676,22 @@ const CaffeineTracker = () => {
           {/* 设置视图 */}
           {viewMode === 'settings' && (
             <SettingsView
-              // TODO: 在 SettingsView.jsx 内部添加 <Helmet> 来设置此视图特定的 title 和 description
+              userSettings={userSettings}
+              onUpdateSettings={handleUpdateSettings}
+              drinks={drinks}
+              setDrinks={setDrinks}
+              originalPresetDrinkIds={originalPresetDrinkIds}
+              onManualSync={handleManualSync}
+              syncStatus={syncStatus}
+              records={records}
+              setRecords={setRecords}
+              colors={colors}
+            />
+          )}
+
+          {/* About view component */}
+          {viewMode === 'about' && (
+            <AboutView
               userSettings={userSettings}
               onUpdateSettings={handleUpdateSettings}
               drinks={drinks}
@@ -664,7 +715,7 @@ const CaffeineTracker = () => {
             </p>
           )}
           <p>负责任地跟踪您的咖啡因摄入量。本应用提供的数据和建议基于科学模型估算，仅供参考，不能替代专业医疗意见。</p>
-          <p className="mt-1">&copy; {new Date().getFullYear()} 咖啡因追踪器 App v1.0.1</p>
+          <p className="mt-1">&copy; {new Date().getFullYear()} 咖啡因追踪器 App v1.0.2</p>
         </footer>
       </main> {/* 结束 main 标签 */}
     </div>
