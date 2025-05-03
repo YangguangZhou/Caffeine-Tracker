@@ -47,7 +47,7 @@ const AboutView = ({ colors }) => {
           {/* 开发者头像 */}
           <div className="w-24 h-24 rounded-full overflow-hidden border-2 shadow-md" style={{ borderColor: colors.accent }}>
             <img
-              src="https://ct.jerryz.com.cn/avatar.png"
+              src="/public/avatar.jpg"
               alt="Jerry Zhou"
               className="w-full h-full object-cover"
               loading="lazy"
@@ -88,7 +88,7 @@ const AboutView = ({ colors }) => {
               </a>
               
               <a
-                href="https://github.com/jerryzhou196"
+                href="https://github.com/YangguangZhou"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 px-3 py-1.5 rounded-full transition-colors"
