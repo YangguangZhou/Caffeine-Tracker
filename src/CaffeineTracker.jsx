@@ -45,7 +45,7 @@ const SettingsView = lazy(() => import('./views/SettingsView'));
 const UMAMI_SCRIPT_ID = 'umami-analytics-script';
 const ADSENSE_SCRIPT_ID = 'google-adsense-script';
 const UMAMI_SRC = "https://umami.jerryz.com.cn/script.js";
-const UMAMI_WEBSITE_ID = "e2b198b9-ec7e-436d-b6d0-925e7f5f96f3";
+const UMAMI_WEBSITE_ID = "81f97aba-b11b-44f1-890a-9dc588a0d34d";
 const ADSENSE_SRC = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2597042766299857";
 const ADSENSE_CLIENT = "ca-pub-2597042766299857";
 
