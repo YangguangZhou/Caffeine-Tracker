@@ -164,11 +164,11 @@ const CaffeineTracker = () => {
           // Validate numerical ranges
           if (mergedSettings.weight < 20 || mergedSettings.weight > 300) mergedSettings.weight = defaultSettings.weight;
           // ... (其他数值验证)
-           if (mergedSettings.maxDailyCaffeine < 0 || mergedSettings.maxDailyCaffeine > 2000) mergedSettings.maxDailyCaffeine = defaultSettings.maxDailyCaffeine;
-           if (mergedSettings.recommendedDosePerKg < 1 || mergedSettings.recommendedDosePerKg > 10) mergedSettings.recommendedDosePerKg = defaultSettings.recommendedDosePerKg;
-           if (mergedSettings.safeSleepThresholdConcentration < 0 || mergedSettings.safeSleepThresholdConcentration > 10) mergedSettings.safeSleepThresholdConcentration = defaultSettings.safeSleepThresholdConcentration;
-           if (mergedSettings.volumeOfDistribution < 0.1 || mergedSettings.volumeOfDistribution > 1.5) mergedSettings.volumeOfDistribution = defaultSettings.volumeOfDistribution;
-           if (mergedSettings.caffeineHalfLifeHours < 1 || mergedSettings.caffeineHalfLifeHours > 24) mergedSettings.caffeineHalfLifeHours = defaultSettings.caffeineHalfLifeHours;
+          if (mergedSettings.maxDailyCaffeine < 0 || mergedSettings.maxDailyCaffeine > 2000) mergedSettings.maxDailyCaffeine = defaultSettings.maxDailyCaffeine;
+          if (mergedSettings.recommendedDosePerKg < 1 || mergedSettings.recommendedDosePerKg > 10) mergedSettings.recommendedDosePerKg = defaultSettings.recommendedDosePerKg;
+          if (mergedSettings.safeSleepThresholdConcentration < 0 || mergedSettings.safeSleepThresholdConcentration > 10) mergedSettings.safeSleepThresholdConcentration = defaultSettings.safeSleepThresholdConcentration;
+          if (mergedSettings.volumeOfDistribution < 0.1 || mergedSettings.volumeOfDistribution > 1.5) mergedSettings.volumeOfDistribution = defaultSettings.volumeOfDistribution;
+          if (mergedSettings.caffeineHalfLifeHours < 1 || mergedSettings.caffeineHalfLifeHours > 24) mergedSettings.caffeineHalfLifeHours = defaultSettings.caffeineHalfLifeHours;
 
           loadedSettings = mergedSettings;
         } else {
@@ -218,147 +218,155 @@ const CaffeineTracker = () => {
   // 计算当前状态 (保持不变)
   useEffect(() => {
     // ... (计算逻辑不变) ...
-     const calculateCurrentStatus = () => {
-       const now = Date.now();
-       const { caffeineHalfLifeHours, safeSleepThresholdConcentration, weight, volumeOfDistribution } = userSettings;
-       const totalAmount = getTotalCaffeineAtTime(records, now, caffeineHalfLifeHours);
-       setCurrentCaffeineAmount(totalAmount);
-       const concentration = estimateConcentration(totalAmount, weight, volumeOfDistribution);
-       setCurrentCaffeineConcentration(concentration ?? 0);
-       const safeTargetAmount = estimateAmountFromConcentration(safeSleepThresholdConcentration, weight, volumeOfDistribution);
-       if (safeTargetAmount !== null && safeTargetAmount >= 0) {
-         const hoursNeeded = calculateHoursToReachTarget(totalAmount, safeTargetAmount, caffeineHalfLifeHours);
-         setHoursUntilSafeSleep(hoursNeeded);
-         if (hoursNeeded !== null && hoursNeeded > 0) {
-           const sleepTime = new Date(now + hoursNeeded * 60 * 60 * 1000);
-           setOptimalSleepTime(sleepTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }));
-         } else if (hoursNeeded === 0) {
-           setOptimalSleepTime('现在');
-         } else {
-           setOptimalSleepTime('N/A');
-         }
-       } else {
-         setHoursUntilSafeSleep(null);
-         setOptimalSleepTime('N/A');
-       }
-     };
-     calculateCurrentStatus();
-     const timer = setInterval(calculateCurrentStatus, 60000);
-     return () => clearInterval(timer);
+    const calculateCurrentStatus = () => {
+      const now = Date.now();
+      const { caffeineHalfLifeHours, safeSleepThresholdConcentration, weight, volumeOfDistribution } = userSettings;
+      const totalAmount = getTotalCaffeineAtTime(records, now, caffeineHalfLifeHours);
+      setCurrentCaffeineAmount(totalAmount);
+      const concentration = estimateConcentration(totalAmount, weight, volumeOfDistribution);
+      setCurrentCaffeineConcentration(concentration ?? 0);
+      const safeTargetAmount = estimateAmountFromConcentration(safeSleepThresholdConcentration, weight, volumeOfDistribution);
+      if (safeTargetAmount !== null && safeTargetAmount >= 0) {
+        const hoursNeeded = calculateHoursToReachTarget(totalAmount, safeTargetAmount, caffeineHalfLifeHours);
+        setHoursUntilSafeSleep(hoursNeeded);
+        if (hoursNeeded !== null && hoursNeeded > 0) {
+          const sleepTime = new Date(now + hoursNeeded * 60 * 60 * 1000);
+          setOptimalSleepTime(sleepTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }));
+        } else if (hoursNeeded === 0) {
+          setOptimalSleepTime('现在');
+        } else {
+          setOptimalSleepTime('N/A');
+        }
+      } else {
+        setHoursUntilSafeSleep(null);
+        setOptimalSleepTime('N/A');
+      }
+    };
+    calculateCurrentStatus();
+    const timer = setInterval(calculateCurrentStatus, 60000);
+    return () => clearInterval(timer);
   }, [records, userSettings]);
 
   // 生成图表数据 (保持不变)
   useEffect(() => {
     // ... (逻辑不变) ...
-     const chartData = generateMetabolismChartData(records, userSettings.caffeineHalfLifeHours);
-     setMetabolismChartData(chartData);
+    const chartData = generateMetabolismChartData(records, userSettings.caffeineHalfLifeHours);
+    setMetabolismChartData(chartData);
   }, [records, userSettings.caffeineHalfLifeHours]);
 
   // 保存数据 (保持不变)
   useEffect(() => {
     // ... (保存 records 逻辑不变) ...
-     if (records.length > 0 || localStorage.getItem('caffeineRecords') !== null) {
-       try {
-         localStorage.setItem('caffeineRecords', JSON.stringify(records));
-       } catch (error) {
-         console.error('Error saving records to localStorage:', error);
-       }
-     }
+    if (records.length > 0 || localStorage.getItem('caffeineRecords') !== null) {
+      try {
+        localStorage.setItem('caffeineRecords', JSON.stringify(records));
+      } catch (error) {
+        console.error('Error saving records to localStorage:', error);
+      }
+    }
   }, [records]);
   useEffect(() => {
     // ... (保存 settings 逻辑不变) ...
-     try {
-       const settingsToSave = { ...userSettings };
-       localStorage.setItem('caffeineSettings', JSON.stringify(settingsToSave));
-     } catch (error) {
-       console.error('Error saving settings to localStorage:', error);
-     }
+    try {
+      const settingsToSave = { ...userSettings };
+      localStorage.setItem('caffeineSettings', JSON.stringify(settingsToSave));
+    } catch (error) {
+      console.error('Error saving settings to localStorage:', error);
+    }
   }, [userSettings]);
   useEffect(() => {
     // ... (保存 drinks 逻辑不变) ...
-     if (drinks.length > 0 || localStorage.getItem('caffeineDrinks') !== null) {
-       try {
-         const drinksToSave = drinks.map(({ id, name, caffeineContent, defaultVolume, category, isPreset }) => ({ id, name, caffeineContent, defaultVolume, category, isPreset }));
-         localStorage.setItem('caffeineDrinks', JSON.stringify(drinksToSave));
-       } catch (error) {
-         console.error('Error saving drinks list to localStorage:', error);
-       }
-     }
+    if (drinks.length > 0 || localStorage.getItem('caffeineDrinks') !== null) {
+      try {
+        const drinksToSave = drinks.map(({ id, name, caffeineContent, defaultVolume, category, isPreset }) => ({ id, name, caffeineContent, defaultVolume, category, isPreset }));
+        localStorage.setItem('caffeineDrinks', JSON.stringify(drinksToSave));
+      } catch (error) {
+        console.error('Error saving drinks list to localStorage:', error);
+      }
+    }
   }, [drinks]);
 
   // 管理外部脚本 (保持不变)
   useEffect(() => {
-    // ... (管理 Umami 和 Adsense 脚本的逻辑不变) ...
-     const isDevelopMode = userSettings.develop === true;
-     console.log(`开发模式状态: ${isDevelopMode}`);
-     const addScript = (id, src, attributes = {}) => {
-       if (document.getElementById(id)) return;
-       const script = document.createElement('script');
-       script.id = id; script.src = src; script.async = true;
-       if (attributes.defer) { script.defer = true; delete attributes.defer; }
-       for (const key in attributes) { script.setAttribute(key, attributes[key]); }
-       document.head.appendChild(script);
-       console.log(`脚本 ${id} 已添加.`);
-     };
-     const removeScript = (id) => {
-       const script = document.getElementById(id);
-       if (script) { script.remove(); console.log(`脚本 ${id} 已移除.`); }
-     };
-     if (isDevelopMode) {
-       removeScript(UMAMI_SCRIPT_ID); removeScript(ADSENSE_SCRIPT_ID);
-     } else {
-       addScript(UMAMI_SCRIPT_ID, UMAMI_SRC, { defer: true, 'data-website-id': UMAMI_WEBSITE_ID });
-       addScript(ADSENSE_SCRIPT_ID, ADSENSE_SRC, { crossorigin: 'anonymous', 'data-ad-client': ADSENSE_CLIENT });
-     }
+    const isDomainLocal = () => {
+      const hostname = window.location.hostname;
+      return hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname.endsWith('.local') ||
+        hostname.endsWith('.test') ||
+        hostname.endsWith('.localhost');
+    };
+
+    const isDevelopMode = userSettings.develop === true || isDomainLocal();
+    console.log(`开发模式状态: ${isDevelopMode}，域名: ${window.location.hostname}`);
+    const addScript = (id, src, attributes = {}) => {
+      if (document.getElementById(id)) return;
+      const script = document.createElement('script');
+      script.id = id; script.src = src; script.async = true;
+      if (attributes.defer) { script.defer = true; delete attributes.defer; }
+      for (const key in attributes) { script.setAttribute(key, attributes[key]); }
+      document.head.appendChild(script);
+      console.log(`脚本 ${id} 已添加.`);
+    };
+    const removeScript = (id) => {
+      const script = document.getElementById(id);
+      if (script) { script.remove(); console.log(`脚本 ${id} 已移除.`); }
+    };
+    if (isDevelopMode) {
+      removeScript(UMAMI_SCRIPT_ID); removeScript(ADSENSE_SCRIPT_ID);
+    } else {
+      addScript(UMAMI_SCRIPT_ID, UMAMI_SRC, { defer: true, 'data-website-id': UMAMI_WEBSITE_ID });
+      addScript(ADSENSE_SCRIPT_ID, ADSENSE_SRC, { crossorigin: 'anonymous', 'data-ad-client': ADSENSE_CLIENT });
+    }
   }, [userSettings.develop]);
 
   // --- 数据聚合和派生状态 (保持不变) ---
   const getTodayTotal = useCallback(() => {
     // ... (逻辑不变) ...
-     const todayStart = getStartOfDay(new Date());
-     const todayEnd = getEndOfDay(new Date());
-     return Math.round(records.filter(record => record && record.timestamp >= todayStart && record.timestamp <= todayEnd).reduce((sum, record) => sum + record.amount, 0));
+    const todayStart = getStartOfDay(new Date());
+    const todayEnd = getEndOfDay(new Date());
+    return Math.round(records.filter(record => record && record.timestamp >= todayStart && record.timestamp <= todayEnd).reduce((sum, record) => sum + record.amount, 0));
   }, [records]);
 
   const personalizedRecommendation = useMemo(() => {
     // ... (逻辑不变) ...
-     const { weight, recommendedDosePerKg } = userSettings;
-     if (weight > 0 && recommendedDosePerKg > 0) return Math.round(weight * recommendedDosePerKg);
-     return null;
+    const { weight, recommendedDosePerKg } = userSettings;
+    if (weight > 0 && recommendedDosePerKg > 0) return Math.round(weight * recommendedDosePerKg);
+    return null;
   }, [userSettings.weight, userSettings.recommendedDosePerKg]);
 
   const effectiveMaxDaily = useMemo(() => {
     // ... (逻辑不变) ...
-     const generalMax = userSettings.maxDailyCaffeine > 0 ? userSettings.maxDailyCaffeine : 400;
-     if (personalizedRecommendation !== null) return Math.min(generalMax, personalizedRecommendation);
-     return generalMax;
+    const generalMax = userSettings.maxDailyCaffeine > 0 ? userSettings.maxDailyCaffeine : 400;
+    if (personalizedRecommendation !== null) return Math.min(generalMax, personalizedRecommendation);
+    return generalMax;
   }, [userSettings.maxDailyCaffeine, personalizedRecommendation]);
 
   const userStatus = useMemo(() => {
     // ... (逻辑不变) ...
-     const currentRounded = Math.round(currentCaffeineAmount);
-     const maxDaily = effectiveMaxDaily;
-     if (currentRounded < maxDaily * 0.1) return { status: '咖啡因含量极低', recommendation: '可以安全地摄入咖啡因。', color: `text-emerald-600` };
-     if (currentRounded < maxDaily * 0.5) return { status: '咖啡因含量低', recommendation: '如有需要，可以适量摄入更多。', color: `text-emerald-500` };
-     if (currentRounded < maxDaily) return { status: '咖啡因含量中等', recommendation: '请注意避免过量摄入。', color: `text-amber-500` };
-     return { status: '咖啡因含量高', recommendation: '建议暂时避免摄入更多咖啡因。', color: `text-red-500` };
+    const currentRounded = Math.round(currentCaffeineAmount);
+    const maxDaily = effectiveMaxDaily;
+    if (currentRounded < maxDaily * 0.1) return { status: '咖啡因含量极低', recommendation: '可以安全地摄入咖啡因。', color: `text-emerald-600` };
+    if (currentRounded < maxDaily * 0.5) return { status: '咖啡因含量低', recommendation: '如有需要，可以适量摄入更多。', color: `text-emerald-500` };
+    if (currentRounded < maxDaily) return { status: '咖啡因含量中等', recommendation: '请注意避免过量摄入。', color: `text-amber-500` };
+    return { status: '咖啡因含量高', recommendation: '建议暂时避免摄入更多咖啡因。', color: `text-red-500` };
   }, [currentCaffeineAmount, effectiveMaxDaily]);
 
   const healthAdvice = useMemo(() => {
     // ... (逻辑不变) ...
-     const dailyTotal = getTodayTotal();
-     const maxDaily = effectiveMaxDaily;
-     const currentRounded = Math.round(currentCaffeineAmount);
-     if (dailyTotal > maxDaily) return { advice: `您今日的咖啡因摄入量 (${dailyTotal}mg) 已超过您的个性化或通用上限 (${maxDaily}mg)，建议减少摄入。`, color: `text-red-700`, bgColor: `bg-red-100` };
-     if (currentRounded > 100 && new Date().getHours() >= 16) return { advice: '下午体内咖啡因含量较高可能影响睡眠，建议限制晚间摄入。', color: `text-amber-700`, bgColor: `bg-amber-100` };
-     return { advice: '您的咖啡因摄入量处于健康范围内，继续保持良好习惯。', color: 'text-emerald-700', bgColor: 'bg-emerald-100' };
+    const dailyTotal = getTodayTotal();
+    const maxDaily = effectiveMaxDaily;
+    const currentRounded = Math.round(currentCaffeineAmount);
+    if (dailyTotal > maxDaily) return { advice: `您今日的咖啡因摄入量 (${dailyTotal}mg) 已超过您的个性化或通用上限 (${maxDaily}mg)，建议减少摄入。`, color: `text-red-700`, bgColor: `bg-red-100` };
+    if (currentRounded > 100 && new Date().getHours() >= 16) return { advice: '下午体内咖啡因含量较高可能影响睡眠，建议限制晚间摄入。', color: `text-amber-700`, bgColor: `bg-amber-100` };
+    return { advice: '您的咖啡因摄入量处于健康范围内，继续保持良好习惯。', color: 'text-emerald-700', bgColor: 'bg-emerald-100' };
   }, [getTodayTotal, effectiveMaxDaily, currentCaffeineAmount]);
 
   const percentFilled = useMemo(() => {
     // ... (逻辑不变) ...
-     const maxDailyCaffeineForProgress = effectiveMaxDaily;
-     if (maxDailyCaffeineForProgress <= 0) return 0;
-     return Math.min(Math.max(0, (currentCaffeineAmount / maxDailyCaffeineForProgress) * 100), 100);
+    const maxDailyCaffeineForProgress = effectiveMaxDaily;
+    if (maxDailyCaffeineForProgress <= 0) return 0;
+    return Math.min(Math.max(0, (currentCaffeineAmount / maxDailyCaffeineForProgress) * 100), 100);
   }, [currentCaffeineAmount, effectiveMaxDaily]);
 
   const todayTotal = useMemo(() => getTodayTotal(), [getTodayTotal]);
@@ -368,33 +376,33 @@ const CaffeineTracker = () => {
   const performWebDAVSync = useCallback(async (settings, currentRecords, currentDrinks) => {
     // ... (同步逻辑不变, 确保处理 develop 字段) ...
     if (!settings.webdavEnabled || !settings.webdavServer || !settings.webdavUsername || !settings.webdavPassword) {
-        console.log("WebDAV sync not configured or disabled");
-        setSyncStatus(prev => ({ ...prev, inProgress: false, lastSyncResult: { success: false, message: "WebDAV未配置" } }));
-        setShowSyncBadge(true); setTimeout(() => setShowSyncBadge(false), 3000); return;
+      console.log("WebDAV sync not configured or disabled");
+      setSyncStatus(prev => ({ ...prev, inProgress: false, lastSyncResult: { success: false, message: "WebDAV未配置" } }));
+      setShowSyncBadge(true); setTimeout(() => setShowSyncBadge(false), 3000); return;
     }
     setSyncStatus(prev => ({ ...prev, inProgress: true })); setShowSyncBadge(true);
     try {
-        const webdavClient = new WebDAVClient(settings.webdavServer, settings.webdavUsername, settings.webdavPassword);
-        const localData = { records: currentRecords, drinks: currentDrinks, userSettings: { ...settings, webdavPassword: '' }, version: "1.0.2" };
-        const result = await webdavClient.performSync(localData);
-        if (result.success) {
-            let updatedSettings = { ...settings };
-            if (result.data) {
-                if (result.data.records && Array.isArray(result.data.records)) setRecords(result.data.records.sort((a, b) => b.timestamp - a.timestamp));
-                if (result.data.drinks && Array.isArray(result.data.drinks)) setDrinks(result.data.drinks);
-                if (result.data.userSettings) {
-                    const syncedDevelop = result.data.userSettings.develop;
-                    updatedSettings = { ...settings, ...result.data.userSettings, webdavPassword: settings.webdavPassword, develop: typeof syncedDevelop === 'boolean' ? syncedDevelop : settings.develop };
-                    console.log("同步后合并的设置:", updatedSettings);
-                }
-            }
-            updatedSettings.lastSyncTimestamp = result.timestamp;
-            setUserSettings(updatedSettings);
-            setSyncStatus({ inProgress: false, lastSyncTime: new Date(result.timestamp), lastSyncResult: { success: true, message: result.message } });
-        } else { throw new Error(result.message); }
+      const webdavClient = new WebDAVClient(settings.webdavServer, settings.webdavUsername, settings.webdavPassword);
+      const localData = { records: currentRecords, drinks: currentDrinks, userSettings: { ...settings, webdavPassword: '' }, version: "1.0.3" };
+      const result = await webdavClient.performSync(localData);
+      if (result.success) {
+        let updatedSettings = { ...settings };
+        if (result.data) {
+          if (result.data.records && Array.isArray(result.data.records)) setRecords(result.data.records.sort((a, b) => b.timestamp - a.timestamp));
+          if (result.data.drinks && Array.isArray(result.data.drinks)) setDrinks(result.data.drinks);
+          if (result.data.userSettings) {
+            const syncedDevelop = result.data.userSettings.develop;
+            updatedSettings = { ...settings, ...result.data.userSettings, webdavPassword: settings.webdavPassword, develop: typeof syncedDevelop === 'boolean' ? syncedDevelop : settings.develop };
+            console.log("同步后合并的设置:", updatedSettings);
+          }
+        }
+        updatedSettings.lastSyncTimestamp = result.timestamp;
+        setUserSettings(updatedSettings);
+        setSyncStatus({ inProgress: false, lastSyncTime: new Date(result.timestamp), lastSyncResult: { success: true, message: result.message } });
+      } else { throw new Error(result.message); }
     } catch (error) {
-        console.error("WebDAV sync failed:", error);
-        setSyncStatus({ inProgress: false, lastSyncTime: new Date(), lastSyncResult: { success: false, message: error.message || "同步时发生未知错误" } });
+      console.error("WebDAV sync failed:", error);
+      setSyncStatus({ inProgress: false, lastSyncTime: new Date(), lastSyncResult: { success: false, message: error.message || "同步时发生未知错误" } });
     }
     setTimeout(() => { setShowSyncBadge(false); }, 5000);
   }, []); // 添加空依赖数组，因为此函数不依赖组件状态（它接收参数）
@@ -402,64 +410,64 @@ const CaffeineTracker = () => {
   // 定时同步 (保持不变, 但依赖 performWebDAVSync)
   useEffect(() => {
     // ... (定时同步逻辑不变) ...
-     let syncTimer = null; let dailyCheckTimeout = null;
-     const clearTimers = () => { if (syncTimer) clearInterval(syncTimer); if (dailyCheckTimeout) clearTimeout(dailyCheckTimeout); };
-     if (userSettings.webdavEnabled) {
-       if (userSettings.webdavSyncFrequency === 'hourly') {
-         syncTimer = setInterval(() => { performWebDAVSync(userSettings, records, drinks); }, 3600000);
-       } else if (userSettings.webdavSyncFrequency === 'daily') {
-         const checkDailySync = () => {
-           const lastSync = userSettings.lastSyncTimestamp ? new Date(userSettings.lastSyncTimestamp) : null;
-           if (!lastSync || !isToday(lastSync)) { performWebDAVSync(userSettings, records, drinks); }
-           dailyCheckTimeout = setTimeout(checkDailySync, 3600000);
-         }; checkDailySync();
-       }
-     }
-     return () => clearTimers();
+    let syncTimer = null; let dailyCheckTimeout = null;
+    const clearTimers = () => { if (syncTimer) clearInterval(syncTimer); if (dailyCheckTimeout) clearTimeout(dailyCheckTimeout); };
+    if (userSettings.webdavEnabled) {
+      if (userSettings.webdavSyncFrequency === 'hourly') {
+        syncTimer = setInterval(() => { performWebDAVSync(userSettings, records, drinks); }, 3600000);
+      } else if (userSettings.webdavSyncFrequency === 'daily') {
+        const checkDailySync = () => {
+          const lastSync = userSettings.lastSyncTimestamp ? new Date(userSettings.lastSyncTimestamp) : null;
+          if (!lastSync || !isToday(lastSync)) { performWebDAVSync(userSettings, records, drinks); }
+          dailyCheckTimeout = setTimeout(checkDailySync, 3600000);
+        }; checkDailySync();
+      }
+    }
+    return () => clearTimers();
   }, [userSettings.webdavEnabled, userSettings.webdavSyncFrequency, userSettings.lastSyncTimestamp, records, drinks, performWebDAVSync]); // 添加 performWebDAVSync 作为依赖
 
 
   // --- 事件处理程序 (保持不变) ---
   const handleAddRecord = useCallback((record) => {
     // ... (逻辑不变) ...
-     setRecords(prevRecords => [...prevRecords, record].sort((a, b) => b.timestamp - a.timestamp));
+    setRecords(prevRecords => [...prevRecords, record].sort((a, b) => b.timestamp - a.timestamp));
   }, []);
 
   const handleEditRecord = useCallback((updatedRecord) => {
     // ... (逻辑不变) ...
-     setRecords(prevRecords => prevRecords.map(record => record.id === updatedRecord.id ? updatedRecord : record).sort((a, b) => b.timestamp - a.timestamp));
+    setRecords(prevRecords => prevRecords.map(record => record.id === updatedRecord.id ? updatedRecord : record).sort((a, b) => b.timestamp - a.timestamp));
   }, []);
 
   const handleDeleteRecord = useCallback((id) => {
     // ... (逻辑不变) ...
-     if (window.confirm('确定要删除这条记录吗？')) {
-       setRecords(prevRecords => prevRecords.filter(record => record.id !== id));
-     }
+    if (window.confirm('确定要删除这条记录吗？')) {
+      setRecords(prevRecords => prevRecords.filter(record => record.id !== id));
+    }
   }, []);
 
   const handleUpdateSettings = useCallback((newSettings) => {
     // ... (逻辑不变, 包含 develop 验证) ...
-     if (newSettings.hasOwnProperty('develop') && typeof newSettings.develop !== 'boolean') {
-         console.warn("尝试更新 'develop' 设置为非布尔值，已阻止。");
-         delete newSettings.develop;
-     }
-     setUserSettings(prevSettings => ({ ...prevSettings, ...newSettings }));
+    if (newSettings.hasOwnProperty('develop') && typeof newSettings.develop !== 'boolean') {
+      console.warn("尝试更新 'develop' 设置为非布尔值，已阻止。");
+      delete newSettings.develop;
+    }
+    setUserSettings(prevSettings => ({ ...prevSettings, ...newSettings }));
   }, []);
 
   const toggleThemeMode = useCallback(() => {
     // ... (逻辑不变) ...
-     setUserSettings(prev => {
-       let nextMode;
-       if (prev.themeMode === 'auto') nextMode = 'light';
-       else if (prev.themeMode === 'light') nextMode = 'dark';
-       else nextMode = 'auto';
-       return { ...prev, themeMode: nextMode };
-     });
+    setUserSettings(prev => {
+      let nextMode;
+      if (prev.themeMode === 'auto') nextMode = 'light';
+      else if (prev.themeMode === 'light') nextMode = 'dark';
+      else nextMode = 'auto';
+      return { ...prev, themeMode: nextMode };
+    });
   }, []);
 
   const handleManualSync = useCallback(() => {
     // ... (逻辑不变) ...
-     performWebDAVSync(userSettings, records, drinks);
+    performWebDAVSync(userSettings, records, drinks);
   }, [userSettings, records, drinks, performWebDAVSync]); // 添加 performWebDAVSync 作为依赖
 
   // --- 渲染 ---
@@ -467,9 +475,8 @@ const CaffeineTracker = () => {
     // 使用 HelmetProvider (已移至 main.jsx)
     // 使用语义化 div 和动态背景/文本颜色
     <div
-      className={`min-h-screen font-sans transition-colors duration-300 ${
-        effectiveTheme === 'dark' ? 'dark' : ''
-      }`}
+      className={`min-h-screen font-sans transition-colors duration-300 ${effectiveTheme === 'dark' ? 'dark' : ''
+        }`}
       style={{ backgroundColor: colors.bgBase, color: colors.textPrimary }}
     >
       {/* --- SEO: 添加默认 Helmet 配置 --- */}
@@ -521,9 +528,8 @@ const CaffeineTracker = () => {
             <button
               onClick={handleManualSync}
               disabled={syncStatus.inProgress}
-              className={`p-2 rounded-full transition-all duration-300 ${
-                syncStatus.inProgress ? 'animate-spin text-blue-500' : ''
-              }`}
+              className={`p-2 rounded-full transition-all duration-300 ${syncStatus.inProgress ? 'animate-spin text-blue-500' : ''
+                }`}
               style={{ color: colors.textSecondary }}
               aria-label="手动同步 WebDAV 数据" // SEO & A11y: 添加 aria-label
             >
@@ -539,23 +545,22 @@ const CaffeineTracker = () => {
             aria-label={`切换主题模式 (当前: ${userSettings.themeMode})`} // SEO & A11y: 添加 aria-label
           >
             {userSettings.themeMode === 'auto' ? <Laptop size={20} /> :
-             userSettings.themeMode === 'light' ? <Sun size={20} /> :
-             <Moon size={20} />}
+              userSettings.themeMode === 'light' ? <Sun size={20} /> :
+                <Moon size={20} />}
           </button>
         </div>
 
         {/* Sync Status Badge (保持不变) */}
         {showSyncBadge && (
-           <div
-             className={`absolute top-14 right-4 mt-1 py-1 px-2 rounded-full text-xs z-10 ${
-               syncStatus.lastSyncResult?.success ? 'bg-green-100 text-green-700 border border-green-200' :
-               syncStatus.lastSyncResult?.message === "WebDAV未配置" ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
-               'bg-red-100 text-red-700 border border-red-200'
-             } flex items-center shadow-sm`}
-             style={{ marginTop: '5%' }}
-           >
-              {syncStatus.inProgress ? '同步中...' : syncStatus.lastSyncResult?.success ? '同步成功' : syncStatus.lastSyncResult?.message || '同步失败'}
-           </div>
+          <div
+            className={`absolute top-14 right-4 mt-1 py-1 px-2 rounded-full text-xs z-10 ${syncStatus.lastSyncResult?.success ? 'bg-green-100 text-green-700 border border-green-200' :
+                syncStatus.lastSyncResult?.message === "WebDAV未配置" ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
+                  'bg-red-100 text-red-700 border border-red-200'
+              } flex items-center shadow-sm`}
+            style={{ marginTop: '5%' }}
+          >
+            {syncStatus.inProgress ? '同步中...' : syncStatus.lastSyncResult?.success ? '同步成功' : syncStatus.lastSyncResult?.message || '同步失败'}
+          </div>
         )}
       </header>
 
@@ -572,9 +577,8 @@ const CaffeineTracker = () => {
         >
           <button
             onClick={() => setViewMode('current')}
-            className={`flex-1 py-3 flex justify-center items-center transition-colors duration-200 text-sm font-medium ${
-              viewMode === 'current' ? 'text-white shadow-inner' : 'hover:bg-opacity-10'
-            }`}
+            className={`flex-1 py-3 flex justify-center items-center transition-colors duration-200 text-sm font-medium ${viewMode === 'current' ? 'text-white shadow-inner' : 'hover:bg-opacity-10'
+              }`}
             style={viewMode === 'current'
               ? { backgroundColor: colors.accent }
               : { color: colors.accent, ':hover': { backgroundColor: colors.accentHover } }
@@ -583,42 +587,39 @@ const CaffeineTracker = () => {
           >
             <TrendingUp size={16} className="mr-1.5" aria-hidden="true" /> 当前状态
           </button>
-           <button
+          <button
             onClick={() => setViewMode('stats')}
-            className={`flex-1 py-3 flex justify-center items-center transition-colors duration-200 text-sm font-medium border-l border-r ${
-              viewMode === 'stats' ? 'text-white shadow-inner' : 'hover:bg-opacity-10'
-            }`}
+            className={`flex-1 py-3 flex justify-center items-center transition-colors duration-200 text-sm font-medium border-l border-r ${viewMode === 'stats' ? 'text-white shadow-inner' : 'hover:bg-opacity-10'
+              }`}
             style={viewMode === 'stats'
               ? { backgroundColor: colors.accent, borderColor: colors.borderSubtle }
               : { color: colors.accent, borderColor: colors.borderSubtle, ':hover': { backgroundColor: colors.accentHover } }
             }
-             aria-current={viewMode === 'stats' ? 'page' : undefined} // A11y: 指示当前页面
+            aria-current={viewMode === 'stats' ? 'page' : undefined} // A11y: 指示当前页面
           >
             <BarChart2 size={16} className="mr-1.5" aria-hidden="true" /> 数据统计
           </button>
           <button
             onClick={() => setViewMode('settings')}
-            className={`flex-1 py-3 flex justify-center items-center transition-colors duration-200 text-sm font-medium border-l border-r ${
-              viewMode === 'settings' ? 'text-white shadow-inner' : 'hover:bg-opacity-10'
-            }`}
+            className={`flex-1 py-3 flex justify-center items-center transition-colors duration-200 text-sm font-medium border-l border-r ${viewMode === 'settings' ? 'text-white shadow-inner' : 'hover:bg-opacity-10'
+              }`}
             style={viewMode === 'settings'
               ? { backgroundColor: colors.accent, borderColor: colors.borderSubtle }
               : { color: colors.accent, borderColor: colors.borderSubtle, ':hover': { backgroundColor: colors.accentHover } }
             }
-             aria-current={viewMode === 'settings' ? 'page' : undefined} // A11y: 指示当前页面
+            aria-current={viewMode === 'settings' ? 'page' : undefined} // A11y: 指示当前页面
           >
             <Settings size={16} className="mr-1.5" aria-hidden="true" /> 设置
           </button>
           <button
             onClick={() => setViewMode('about')}
-            className={`flex-1 py-3 flex justify-center items-center transition-colors duration-200 text-sm font-medium ${
-              viewMode === 'about' ? 'text-white shadow-inner' : 'hover:bg-opacity-10'
-            }`}
+            className={`flex-1 py-3 flex justify-center items-center transition-colors duration-200 text-sm font-medium ${viewMode === 'about' ? 'text-white shadow-inner' : 'hover:bg-opacity-10'
+              }`}
             style={viewMode === 'about'
               ? { backgroundColor: colors.accent }
               : { color: colors.accent, ':hover': { backgroundColor: colors.accentHover } }
             }
-             aria-current={viewMode === 'about' ? 'page' : undefined} // A11y: 指示当前页面
+            aria-current={viewMode === 'about' ? 'page' : undefined} // A11y: 指示当前页面
           >
             <Info size={16} className="mr-1.5" aria-hidden="true" /> 关于
           </button>
@@ -715,7 +716,7 @@ const CaffeineTracker = () => {
             </p>
           )}
           <p>负责任地跟踪您的咖啡因摄入量。本应用提供的数据和建议基于科学模型估算，仅供参考，不能替代专业医疗意见。</p>
-          <p className="mt-1">&copy; {new Date().getFullYear()} 咖啡因追踪器 App v1.0.2</p>
+          <p className="mt-1">&copy; {new Date().getFullYear()} 咖啡因追踪器 App v1.0.3</p>
         </footer>
       </main> {/* 结束 main 标签 */}
     </div>

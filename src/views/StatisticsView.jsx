@@ -208,24 +208,24 @@ const StatisticsView = ({
 
   // 计算当前时间段是否是未来
   const isNextPeriodDisabled = useMemo(() => {
-      const nextDate = new Date(statsDate);
-      if (statsView === 'week') nextDate.setDate(nextDate.getDate() + 7);
-      else if (statsView === 'month') nextDate.setMonth(nextDate.getMonth() + 1, 1);
-      else nextDate.setFullYear(nextDate.getFullYear() + 1);
+    const nextDate = new Date(statsDate);
+    if (statsView === 'week') nextDate.setDate(nextDate.getDate() + 7);
+    else if (statsView === 'month') nextDate.setMonth(nextDate.getMonth() + 1, 1);
+    else nextDate.setFullYear(nextDate.getFullYear() + 1);
 
-      let startOfNextPeriod;
-      if (statsView === 'week') startOfNextPeriod = getStartOfWeek(nextDate);
-      else if (statsView === 'month') startOfPeriod = getStartOfMonth(nextDate);
-      else startOfNextPeriod = getStartOfYear(nextDate);
+    let startOfNextPeriod, startOfPeriod;
+    if (statsView === 'week') startOfNextPeriod = getStartOfWeek(nextDate);
+    else if (statsView === 'month') startOfPeriod = getStartOfMonth(nextDate);
+    else startOfNextPeriod = getStartOfYear(nextDate);
 
-      return startOfNextPeriod > Date.now();
+    return startOfNextPeriod > Date.now();
   }, [statsDate, statsView]);
 
   return (
     <>
       {/* SEO: 设置此视图特定的 Title 和 Description */}
       <Helmet>
-        <title>数据统计 ({formatStatsPeriod()}) - 咖啡因追踪器</title>
+        <title>数据统计 - 咖啡因追踪器</title>
         <meta name="description" content={`查看 ${formatStatsPeriod()} 期间的咖啡因摄入总量、日均摄入、摄入来源分布和健康分析。`} />
       </Helmet>
 
@@ -285,7 +285,7 @@ const StatisticsView = ({
               ? { backgroundColor: colors.accent }
               : { backgroundColor: colors.bgBase, color: colors.accent }
             }
-             aria-current={statsView === 'month' ? 'true' : 'false'} // A11y: 指示当前视图
+            aria-current={statsView === 'month' ? 'true' : 'false'} // A11y: 指示当前视图
           >
             月
           </button>
@@ -296,7 +296,7 @@ const StatisticsView = ({
               ? { backgroundColor: colors.accent }
               : { backgroundColor: colors.bgBase, color: colors.accent }
             }
-             aria-current={statsView === 'year' ? 'true' : 'false'} // A11y: 指示当前视图
+            aria-current={statsView === 'year' ? 'true' : 'false'} // A11y: 指示当前视图
           >
             年
           </button>
@@ -458,14 +458,14 @@ const StatisticsView = ({
               </li>
             ))
           ) : (
-             // 使用 li 标签包裹提示信息
+            // 使用 li 标签包裹提示信息
             <li>
-                <p
+              <p
                 className="text-center py-3 transition-colors"
                 style={{ color: colors.textMuted }}
-                >
+              >
                 没有足够的记录进行分析。
-                </p>
+              </p>
             </li>
           )}
         </ul>
@@ -506,20 +506,17 @@ const StatisticsView = ({
             </h4>
             <p>
               {records.length > 0
-                ? `根据您的历史记录，${
-                    caffeineDistribution[0]?.name
-                      ? `您的主要咖啡因来源似乎是 ${caffeineDistribution[0].name} (${caffeineDistribution[0].percentage}%)。`
-                      : '您的咖啡因来源较为多样。'
-                  }`
+                ? `根据您的历史记录，${caffeineDistribution[0]?.name
+                  ? `您的主要咖啡因来源似乎是 ${caffeineDistribution[0].name} (${caffeineDistribution[0].percentage}%)。`
+                  : '您的咖啡因来源较为多样。'
+                }`
                 : "您还没有添加任何摄入记录。"
               }
-              {records.length > 0 && ` 您设定的每日推荐上限为 ${effectiveMaxDaily}mg (综合通用指南${
-                userSettings.recommendedDosePerKg
+              {records.length > 0 && ` 您设定的每日推荐上限为 ${effectiveMaxDaily}mg (综合通用指南${userSettings.recommendedDosePerKg
                   ? `和体重推荐 ${Math.round(userSettings.weight * userSettings.recommendedDosePerKg)}mg`
                   : ''
-              })。本周您的日均摄入量约为 ${
-                Math.round(getWeekTotal(new Date()) / 7)
-              }mg。请关注统计图表，了解您是否经常超过推荐量。`}
+                })。本周您的日均摄入量约为 ${Math.round(getWeekTotal(new Date()) / 7)
+                }mg。请关注统计图表，了解您是否经常超过推荐量。`}
             </p>
           </article>
           <article

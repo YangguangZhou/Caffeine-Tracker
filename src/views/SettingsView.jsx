@@ -159,7 +159,7 @@ const SettingsView = ({
                 userSettings,
                 drinks,
                 exportTimestamp: Date.now(),
-                version: '1.0.2'
+                version: '1.0.3'
             };
             const dataStr = JSON.stringify(exportData, null, 2);
             const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
