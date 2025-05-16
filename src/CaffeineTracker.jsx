@@ -795,8 +795,11 @@ const CaffeineTracker = () => {
           )}
           <p>负责任地跟踪您的咖啡因摄入量。本应用提供的数据和建议基于科学模型估算，仅供参考，不能替代专业医疗意见。</p>
           <p className="mt-1">&copy; {new Date().getFullYear()} 咖啡因追踪器 App v{appConfig.latest_version}</p>
+          <p className="mt-1">
+            Copyright &copy; 2025 <a href="https://jerryz.com.cn" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: colors.accent }}>Jerry Zhou</a>. All Rights Reserved.
+          </p>
         </footer>
-      </main> {/* 结束 main 标签 */}
+      </main>
     </div>
   );
 };
