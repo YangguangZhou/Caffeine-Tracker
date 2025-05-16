@@ -147,6 +147,7 @@ export const initialPresetDrinks = [
   // --- 瓶装茶饮 (Bottled Tea) ---
   { id: 'preset-black-tea', name: '红茶', category: '瓶装茶饮', caffeineContent: 47, defaultVolume: 240, isPreset: true },
   { id: 'preset-green-tea', name: '绿茶', category: '瓶装茶饮', caffeineContent: 28, defaultVolume: 240, isPreset: true },
+  { id: 'preset-green-tea', name: '奶茶', category: '瓶装茶饮', caffeineContent: 25, defaultVolume: 240, isPreset: true },
   { id: 'preset-chagee', name: '霸王茶姬 (中杯)', category: '瓶装茶饮', caffeineContent: 35, defaultVolume: 470, isPreset: true },
   { id: 'preset-chagee-large', name: '霸王茶姬 (大杯)', category: '瓶装茶饮', caffeineContent: 35, defaultVolume: 580, isPreset: true },
   { id: 'preset-tea-pi', name: '茶π', category: '瓶装茶饮', caffeineContent: 9.4, defaultVolume: 500, isPreset: true },
