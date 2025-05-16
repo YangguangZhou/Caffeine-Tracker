@@ -309,21 +309,21 @@ export default class WebDAVClient {
         console.log(`合并后的记录数: ${mergedRecords.length}`);
 
         // --- 合并饮品 ---
-        // Strategy: Combine unique drinks. If IDs match, prefer the one from the primary source.
-        // The main app will handle reconciliation with its current initialPresetDrinks.
-        const drinkMap = new Map();
-        // Add all drinks from the secondary source first
-        (secondarySource?.drinks || []).forEach(drink => {
-            if (drink?.id && typeof drink.name === 'string' && typeof drink.caffeineContent === 'number') // Basic validation
-                drinkMap.set(drink.id, { ...drink }); // Clone to avoid mutation issues
-        });
-        // Then add/overwrite with drinks from the primary source
-        (primarySource?.drinks || []).forEach(drink => {
-            if (drink?.id && typeof drink.name === 'string' && typeof drink.caffeineContent === 'number') // Basic validation
-                drinkMap.set(drink.id, { ...drink }); // This will overwrite if ID exists
-        });
-        const mergedDrinks = Array.from(drinkMap.values());
-        console.log(`合并后的饮品数: ${mergedDrinks.length}`);
+        // Strategy: The list of drinks from the primary data source (determined by the newer syncTimestamp)
+        // is considered authoritative. This ensures that additions, deletions, and modifications
+        // are consistently handled based on which dataset is considered more up-to-date.
+        const mergedDrinks = (primarySource?.drinks || [])
+            .filter(drink => {
+                // Basic validation, consistent with original logic for adding to map
+                const isValid = drink?.id && typeof drink.name === 'string' && typeof drink.caffeineContent === 'number';
+                if (!isValid) {
+                    console.warn("合并饮品时发现无效或不完整的饮品对象，已跳过:", drink);
+                }
+                return isValid;
+            })
+            .map(drink => ({ ...drink })); // Clone valid drinks to avoid mutation issues
+
+        console.log(`合并后的饮品数 (来自 '${isRemotePrimary ? '远程' : '本地'}' 主要来源): ${mergedDrinks.length}`);
 
 
         // --- 合并用户设置 ---
