@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, Coffee, CupSoda, Leaf, Star, Droplet, Sun, X } from 'lucide-react';
+import { Search, Filter, Coffee, CupSoda, Leaf, Star, Droplet, Sun, X, Beer, Wine, Milk } from 'lucide-react';
 
 /**
  * 饮品选择器组件
@@ -85,19 +85,51 @@ const DrinkSelector = ({
   // 根据分类或名称关键词获取图标
   const getDrinkIcon = (drink) => {
     const nameLower = drink.name.toLowerCase();
-    if (nameLower.includes('美式') || nameLower.includes('浓缩') || nameLower.includes('滴滤') || nameLower.includes('咖啡')) 
-      return <Coffee size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-amber-700' : colors.customDrinkText}`} />;
-    if (nameLower.includes('拿铁') || nameLower.includes('卡布奇诺')) 
-      return <Coffee size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-orange-600' : colors.customDrinkText}`} />;
-    if (nameLower.includes('茶')) 
-      return <Leaf size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-green-600' : colors.customDrinkText}`} />;
-    if (nameLower.includes('可乐') || nameLower.includes('苏打')) 
-      return <CupSoda size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-blue-500' : colors.customDrinkText}`} />;
-    if (nameLower.includes('能量')) 
-      return <Sun size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-yellow-500' : colors.customDrinkText}`} />;
-    if (nameLower.includes('巧克力')) 
-      return <Star size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-yellow-900' : colors.customDrinkText}`} />;
-    return <Droplet size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-gray-500' : colors.customDrinkText}`} />; // 默认使用Droplet图标
+    const category = drink.category || DEFAULT_CATEGORY;
+    
+    // 根据分类选择图标
+    switch(category) {
+      case '手工咖啡':
+        if (nameLower.includes('拿铁') || nameLower.includes('卡布奇诺')) 
+          return <Coffee size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-orange-600' : colors.customDrinkText}`} />;
+        return <Coffee size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-amber-800' : colors.customDrinkText}`} />;
+      
+      case '连锁品牌':
+      case '精品咖啡':
+        if (nameLower.includes('拿铁')) 
+          return <Coffee size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-orange-500' : colors.customDrinkText}`} />;
+        return <Coffee size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-amber-700' : colors.customDrinkText}`} />;
+      
+      case '瓶装茶饮':
+        return <Leaf size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-green-600' : colors.customDrinkText}`} />;
+      
+      case '速溶咖啡':
+        return <Coffee size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-amber-600' : colors.customDrinkText}`} />;
+      
+      case '碳酸饮料':
+        return <CupSoda size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-blue-500' : colors.customDrinkText}`} />;
+      
+      case '功能饮料':
+        return <Sun size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-yellow-500' : colors.customDrinkText}`} />;
+      
+      default:
+        // 其他根据名称选择图标
+        if (nameLower.includes('巧克力')) 
+          return <Star size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-yellow-900' : colors.customDrinkText}`} />;
+        if (nameLower.includes('咖啡')) 
+          return <Coffee size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-gray-700' : colors.customDrinkText}`} />;
+        if (nameLower.includes('茶')) 
+          return <Leaf size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-green-700' : colors.customDrinkText}`} />;
+        if (nameLower.includes('可乐') || nameLower.includes('苏打')) 
+          return <CupSoda size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-blue-600' : colors.customDrinkText}`} />;
+        if (nameLower.includes('酒') || nameLower.includes('wine')) 
+          return <Wine size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-red-600' : colors.customDrinkText}`} />;
+        if (nameLower.includes('啤酒') || nameLower.includes('beer')) 
+          return <Beer size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-amber-500' : colors.customDrinkText}`} />;
+        if (nameLower.includes('奶') || nameLower.includes('milk')) 
+          return <Milk size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-slate-300' : colors.customDrinkText}`} />;
+        return <Droplet size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-gray-500' : colors.customDrinkText}`} />;
+    }
   };
 
   return (

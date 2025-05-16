@@ -11,8 +11,13 @@
   },
   "dependencies": {
     "@capacitor/android": "^7.2.0",
+    "@capacitor/browser": "^7.0.1",
     "@capacitor/cli": "^7.2.0",
     "@capacitor/core": "^7.2.0",
+    "@capacitor/filesystem": "^7.0.1",
+    "@capacitor/share": "^7.0.1",
+    "@capacitor/splash-screen": "^7.0.1",
+    "@capacitor/status-bar": "^7.0.1",
     "@tailwindcss/vite": "^4.1.4",
     "lucide-react": "^0.501.0",
     "react": "^18.2.0",

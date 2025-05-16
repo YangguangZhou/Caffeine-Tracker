@@ -1,15 +1,15 @@
 // webdavSync.js
 // WebDAV 同步实用工具
 
-// 如果需要合并键，则导入默认设置结构
-// 假设 defaultSettings 键可用或以某种方式传递。
-// 对于独立使用，在此处定义预期的设置键。
+// 导入常量以辅助合并 (如果需要，但尽量保持此文件独立)
+// import { initialPresetDrinks, originalPresetDrinkIds } from './constants'; // Avoid if possible, pass if needed
+
 const knownSettingKeys = [
     'weight', 'maxDailyCaffeine', 'recommendedDosePerKg',
     'safeSleepThresholdConcentration', 'volumeOfDistribution',
     'caffeineHalfLifeHours', 'themeMode', 'webdavEnabled',
     'webdavServer', 'webdavUsername', /* 'webdavPassword' - 避免合并密码 */
-    'webdavSyncFrequency', 'lastSyncTimestamp', 'develop', 
+    'webdavSyncFrequency', 'lastSyncTimestamp', 'develop', 'plannedSleepTime' // Added plannedSleepTime
 ];
 
 /**
@@ -167,6 +167,14 @@ export default class WebDAVClient {
             if (typeof data !== 'object' || data === null) {
                  throw new Error("下载的数据格式无效 (非对象)");
             }
+            // 验证核心数据结构
+            const coreKeys = ['records', 'drinks', 'userSettings', 'version'];
+            for (const key of coreKeys) {
+                if (!data.hasOwnProperty(key)) {
+                    console.warn(`下载的数据缺少关键字段: ${key}。可能导致同步问题。`);
+                }
+            }
+
             if (data.records && !Array.isArray(data.records)) {
                  throw new Error("下载的数据格式无效 ('records' 不是数组)");
             }
@@ -178,9 +186,12 @@ export default class WebDAVClient {
             }
              // --- 新增: 验证 develop 字段类型 ---
              if (data.userSettings && data.userSettings.hasOwnProperty('develop') && typeof data.userSettings.develop !== 'boolean') {
-                console.warn("下载的数据格式警告: 'develop' 字段不是布尔值，将忽略。");
-                // 可选：删除无效字段或尝试转换
-                // delete data.userSettings.develop;
+                console.warn("下载的数据格式警告: 'develop' 字段不是布尔值，将尝试使用默认值或忽略。");
+                // 在合并阶段处理，而不是在这里删除
+             }
+             // 验证版本字段
+             if (data.hasOwnProperty('version') && typeof data.version !== 'string') {
+                console.warn("下载的数据格式警告: 'version' 字段不是字符串。");
              }
 
 
@@ -246,21 +257,16 @@ export default class WebDAVClient {
      * @returns {'local_newer' | 'remote_newer' | 'equal' | 'only_local' | 'only_remote' | 'no_timestamps'} 比较结果。
      */
     compareTimestamps(localTs, remoteTs) {
-        const localTimestamp = localTs || null;
-        const remoteTimestamp = remoteTs || null;
+        const localTimestamp = localTs || 0; // Treat null/undefined as 0 for comparison
+        const remoteTimestamp = remoteTs || 0;
 
-        if (localTimestamp && !remoteTimestamp) return 'only_local'; // 只有本地有时间戳
-        if (!localTimestamp && remoteTimestamp) return 'only_remote'; // 只有远程有时间戳
-        if (!localTimestamp && !remoteTimestamp) return 'no_timestamps'; // 两者都没有时间戳
-
-        if (localTimestamp > remoteTimestamp) return 'local_newer'; // 本地较新
-        if (remoteTimestamp > localTimestamp) return 'remote_newer'; // 远程较新
-        // 时间戳相等（且都存在）
-        if (localTimestamp === remoteTimestamp) return 'equal';
-
-        // 如果逻辑健全，不应到达此处，但作为后备
-        console.warn("时间戳比较到达意外状态。");
-        return 'no_timestamps';
+        if (localTimestamp === 0 && remoteTimestamp === 0) return 'no_timestamps';
+        if (localTimestamp > 0 && remoteTimestamp === 0) return 'only_local';
+        if (remoteTimestamp > 0 && localTimestamp === 0) return 'only_remote';
+        
+        if (localTimestamp > remoteTimestamp) return 'local_newer';
+        if (remoteTimestamp > localTimestamp) return 'remote_newer';
+        return 'equal';
     }
 
     /**
@@ -273,14 +279,16 @@ export default class WebDAVClient {
      * @param {Object} remoteData 远程数据对象。
      * @returns {Object} 合并后的数据对象。
      */
-    mergeData(localData, remoteData) {
+    mergeData(localData, remoteData) { // Removed initialPresetDrinks, originalPresetDrinkIds as params
         console.log("正在合并本地和远程数据...");
         const localTs = localData?.syncTimestamp;
         const remoteTs = remoteData?.syncTimestamp;
 
-        // 根据时间戳确定主要来源（较新的为主要）
-        // 如果时间戳相等或其中一个缺失，则默认为本地作为设置合并偏差的主要来源。
-        const isRemotePrimary = remoteTs && (!localTs || remoteTs > localTs);
+        const comparison = this.compareTimestamps(localTs, remoteTs);
+        // Determine primary source based on newer timestamp. If equal or one is missing, local might be preferred or specific logic applied.
+        // For simplicity, if remote is newer, it's primary. Otherwise, local is primary (covers local_newer, only_local, equal, no_timestamps where local might have data).
+        const isRemotePrimary = comparison === 'remote_newer' || comparison === 'only_remote';
+
         const primarySource = isRemotePrimary ? remoteData : localData;
         const secondarySource = isRemotePrimary ? localData : remoteData;
         console.log(`合并的主要来源 (基于时间戳): ${isRemotePrimary ? '远程' : '本地'}`);
@@ -301,19 +309,22 @@ export default class WebDAVClient {
         console.log(`合并后的记录数: ${mergedRecords.length}`);
 
         // --- 合并饮品 ---
+        // Strategy: Combine unique drinks. If IDs match, prefer the one from the primary source.
+        // The main app will handle reconciliation with its current initialPresetDrinks.
         const drinkMap = new Map();
-         // 首先添加主要来源的饮品
-        (primarySource?.drinks || []).forEach(drink => {
-            if (drink?.id) drinkMap.set(drink.id, drink);
-        });
-        // 添加次要来源中的唯一饮品
+        // Add all drinks from the secondary source first
         (secondarySource?.drinks || []).forEach(drink => {
-            if (drink?.id && !drinkMap.has(drink.id)) {
-                drinkMap.set(drink.id, drink);
-            }
+            if (drink?.id && typeof drink.name === 'string' && typeof drink.caffeineContent === 'number') // Basic validation
+                drinkMap.set(drink.id, { ...drink }); // Clone to avoid mutation issues
+        });
+        // Then add/overwrite with drinks from the primary source
+        (primarySource?.drinks || []).forEach(drink => {
+            if (drink?.id && typeof drink.name === 'string' && typeof drink.caffeineContent === 'number') // Basic validation
+                drinkMap.set(drink.id, { ...drink }); // This will overwrite if ID exists
         });
         const mergedDrinks = Array.from(drinkMap.values());
         console.log(`合并后的饮品数: ${mergedDrinks.length}`);
+
 
         // --- 合并用户设置 ---
         const mergedSettings = {};
@@ -323,52 +334,53 @@ export default class WebDAVClient {
         // 遍历已知键以确保结构并优先考虑主要来源
         knownSettingKeys.forEach(key => {
             // 显式跳过密码合并
-            if (key === 'webdavPassword') return;
+            if (key === 'webdavPassword') return; // Already handled below
 
-            // 如果主要来源中存在该键，则优先使用
+            // If primary source has the key and it's valid type (or it's 'develop')
             if (primarySettings.hasOwnProperty(key)) {
-                // --- 新增: 验证 develop 类型 ---
                 if (key === 'develop' && typeof primarySettings[key] !== 'boolean') {
-                    console.warn(`合并警告：主要来源中的 'develop' 类型 (${typeof primarySettings[key]}) 无效，将使用次要来源或默认值。`);
-                    // 尝试从次要来源获取
+                    // Try secondary if primary 'develop' is invalid
                     if (secondarySettings.hasOwnProperty(key) && typeof secondarySettings[key] === 'boolean') {
                         mergedSettings[key] = secondarySettings[key];
                     } else {
-                        // 如果次要来源也没有或无效，则可能需要设置默认值，
-                        // 但由于已知键循环，如果默认设置中有，它最终会被添加。
-                        // 这里可以考虑添加一个显式的默认值 fallback。
-                        // mergedSettings[key] = false; // 例如
+                        // Fallback to a default if both are invalid (e.g., false for develop)
+                        // This part depends on having defaultSettings available or hardcoding
+                        mergedSettings[key] = false; // Default for develop
                     }
                 } else {
                     mergedSettings[key] = primarySettings[key];
                 }
             }
-            // 否则，如果次要来源中存在，则从中获取
+            // Else if secondary source has the key and it's valid
             else if (secondarySettings.hasOwnProperty(key)) {
-                 // --- 新增: 验证 develop 类型 ---
                  if (key === 'develop' && typeof secondarySettings[key] !== 'boolean') {
-                     console.warn(`合并警告：次要来源中的 'develop' 类型 (${typeof secondarySettings[key]}) 无效，将不包含此设置。`);
-                     // 可以选择设置默认值
-                     // mergedSettings[key] = false;
+                     // Fallback to default if secondary 'develop' is invalid
+                     mergedSettings[key] = false; // Default for develop
                  } else {
                     mergedSettings[key] = secondarySettings[key];
                  }
             }
-            // 如果两者中都缺少该键，则不会添加（除非添加了默认逻辑）
+            // If key is missing in both, it won't be added unless defaultSettings are iterated here
         });
-        // 关键：如果本地密码存在，则保留它，无论来源优先级如何
+        // Ensure local webdavPassword is preserved if it exists, as it's not synced from remote.
+        // It's stripped before upload and not expected from download.
         if (localData?.userSettings?.webdavPassword) {
              mergedSettings.webdavPassword = localData.userSettings.webdavPassword;
+        } else if (primarySettings.webdavPassword && primarySource === localData) { // If local was primary and had it
+            mergedSettings.webdavPassword = primarySettings.webdavPassword;
         }
+
+
         console.log("设置已合并。");
 
 
         // 创建最终的合并数据结构
         const mergedResult = {
-            records: mergedRecords.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)), // 对合并后的记录进行排序
-            drinks: mergedDrinks, // 饮品可能不需要排序
+            records: mergedRecords.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)),
+            drinks: mergedDrinks,
             userSettings: mergedSettings,
-            syncTimestamp: Date.now() // 为合并后的数据设置新的时间戳
+            syncTimestamp: Date.now(), // 为合并后的数据设置新的时间戳
+            version: primarySource.version || secondarySource.version || 'unknown' // Preserve version from source
         };
         console.log(`合并完成。新时间戳: ${mergedResult.syncTimestamp}`);
         return mergedResult;
@@ -382,7 +394,7 @@ export default class WebDAVClient {
      * 同步结果。'data' 包含同步后应在本地使用的数据。
      * 'timestamp' 是 'data' 的时间戳。失败时返回 null 数据。
      */
-    async performSync(localData) {
+    async performSync(localData /*, initialPresetDrinks, originalPresetDrinkIds */) { // Removed preset params
         console.log("开始同步过程...");
         // 如果未配置，则中止同步
         if (!this.isConfigured()) {
@@ -396,7 +408,7 @@ export default class WebDAVClient {
         }
 
         // 确保 localData 是一个对象，即使最初为空
-        const currentLocalData = typeof localData === 'object' && localData !== null ? localData : {};
+        const currentLocalData = typeof localData === 'object' && localData !== null ? localData : { records: [], drinks: [], userSettings: {}, version: 'unknown' };
         // 安全地获取本地时间戳
         const localTs = currentLocalData.syncTimestamp || null;
 
@@ -411,18 +423,26 @@ export default class WebDAVClient {
                 // 仅当本地数据确定是新的（没有时间戳）时才继续上传。
                  console.error("下载远程数据失败:", downloadError);
                  // 检查本地是否有记录且没有时间戳
-                 if (!localTs && (currentLocalData.records?.length > 0 || currentLocalData.drinks?.length > 0 || Object.keys(currentLocalData.userSettings || {}).length > 0)) {
+                 if (!localTs && (currentLocalData.records?.length > 0 || currentLocalData.drinks?.length > 0 || Object.keys(currentLocalData.userSettings || {}).filter(k => k !== 'webdavPassword').length > 0 )) {
                      // 假设这是第一次同步，尝试上传。
                      console.warn("下载失败，但本地数据似乎是新的（无时间戳）。尝试进行初始上传。");
                       try {
                           // 为初始上传数据添加时间戳
                           const initialUploadData = { ...currentLocalData, syncTimestamp: Date.now() };
+                          // Ensure userSettings in initialUploadData doesn't include password if it somehow got there
+                          if (initialUploadData.userSettings) {
+                            delete initialUploadData.userSettings.webdavPassword;
+                          }
                           await this.uploadData(initialUploadData);
-                          // 返回成功和上传的数据
+                          // 返回成功和上传的数据 (re-add password for local state if it was there)
+                          const returnData = { ...initialUploadData };
+                          if (currentLocalData.userSettings?.webdavPassword) {
+                            returnData.userSettings = { ...returnData.userSettings, webdavPassword: currentLocalData.userSettings.webdavPassword };
+                          }
                           return {
                               success: true,
                               message: "首次同步：已上传本地数据。",
-                              data: initialUploadData,
+                              data: returnData,
                               timestamp: initialUploadData.syncTimestamp
                           };
                       } catch (uploadError) {
@@ -455,22 +475,32 @@ export default class WebDAVClient {
                     console.log("操作：上传本地数据。");
                     // 确保本地数据在上传前有时间戳
                     finalData = { ...currentLocalData, syncTimestamp: localTs || Date.now() };
-                    await this.uploadData(finalData);
+                    // Strip password before upload
+                    const uploadableFinalData = { ...finalData };
+                    if (uploadableFinalData.userSettings) {
+                        delete uploadableFinalData.userSettings.webdavPassword;
+                    }
+                    await this.uploadData(uploadableFinalData);
                     message = "同步成功：本地数据已上传。";
+                    // finalData for local use should retain password if it was there
                     break;
 
                 case 'remote_newer': // 远程较新
                 case 'only_remote':     // 只有远程存在
-                    action = "merge"; // 改为合并，而不是直接下载覆盖
-                    console.log("操作：合并本地和远程数据（远程较新）。");
-                    // 合并本地和远程数据，保留两边新增内容
+                    action = "merge"; 
+                    console.log("操作：合并本地和远程数据（远程较新或仅远程存在）。");
                     finalData = this.mergeData(currentLocalData, remoteData);
-                    // 将合并结果上传到服务器
-                    await this.uploadData(finalData);
-                    message = "同步成功：已合并本地和远程数据，保留本地和远程新增记录。";
+                    // Strip password before upload
+                    const uploadableMergedData = { ...finalData };
+                     if (uploadableMergedData.userSettings) {
+                        delete uploadableMergedData.userSettings.webdavPassword;
+                    }
+                    await this.uploadData(uploadableMergedData);
+                    message = "同步成功：已合并本地和远程数据。";
+                    // finalData for local use should retain password if it was there (mergeData handles this)
                     break;
 
-                case 'equal': // 时间戳匹配 (无需更改)
+                case 'equal': // 时间戳匹配
                     action = "no_change";
                     console.log("操作：无需更改。");
                     // 保留本地数据（理论上应与远程相同）
@@ -483,12 +513,23 @@ export default class WebDAVClient {
                     action = "merge";
                     console.log("操作：合并本地和远程数据。");
                     // 确保 mergeData 的两个输入都是有效的对象
-                    finalData = this.mergeData(currentLocalData || {}, remoteData || {});
-                    // 上传合并后的结果
-                    await this.uploadData(finalData);
+                    // Ensure remoteData is an object for mergeData if it was null (e.g. file not found but local data exists with no timestamp)
+                    finalData = this.mergeData(currentLocalData, remoteData || { records: [], drinks: [], userSettings: {}, version: 'unknown' });
+                    // Strip password before upload
+                    const uploadableDefaultMergedData = { ...finalData };
+                    if (uploadableDefaultMergedData.userSettings) {
+                        delete uploadableDefaultMergedData.userSettings.webdavPassword;
+                    }
+                    await this.uploadData(uploadableDefaultMergedData);
                     message = "同步成功：已合并本地和远程数据。";
+                    // finalData for local use should retain password
                     break;
             }
+            // Ensure the finalData returned for local use has the webdavPassword if it was in currentLocalData
+            if (currentLocalData.userSettings?.webdavPassword && finalData?.userSettings && !finalData.userSettings.webdavPassword) {
+                finalData.userSettings.webdavPassword = currentLocalData.userSettings.webdavPassword;
+            }
+
 
             console.log(`同步完成。操作: ${action}。最终时间戳: ${finalData?.syncTimestamp}`);
             // 返回成功以及现在应在本地视为当前的数据

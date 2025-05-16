@@ -1,7 +1,7 @@
 // constants.js - 应用常量和默认值
 
 // 饮品分类
-export const DRINK_CATEGORIES = ['通用', '连锁咖啡', '茶饮', '速溶', '其他'];
+export const DRINK_CATEGORIES = ['手工咖啡', '速溶咖啡', '连锁品牌', '瓶装茶饮', '碳酸饮料', '功能饮料'];
 export const DEFAULT_CATEGORY = '其他';
 
 // 默认设置
@@ -53,6 +53,16 @@ export const COFFEE_COLORS = {
   customDrinkBg: '#FFF6E9',
   customDrinkBorder: '#FFE2B8',
   customDrinkText: '#8B5A2B',
+
+  // Standard status colors
+  successBg: '#f0fdf4', // Light green (emerald-50 like)
+  successText: '#065f46', // Dark green (emerald-800 like)
+  warningBg: '#fffbeb', // Light yellow (amber-50 like)
+  warningText: '#b45309', // Dark yellow (amber-700 like)
+  dangerBg: '#fef2f2', // Light red (red-50 like)
+  dangerText: '#b91c1c', // Dark red (red-700 like)
+  infoBg: '#eff6ff', // Light blue (blue-50 like)
+  infoText: '#1d4ed8', // Dark blue (blue-700 like)
 };
 
 // 夜间模式颜色方案
@@ -83,49 +93,78 @@ export const NIGHT_COLORS = {
   customDrinkBg: '#3D3222',
   customDrinkBorder: '#5E4C32',
   customDrinkText: '#D4A76A',
+
+  // Standard status colors
+  successBg: '#22332E', // 更深的绿色背景
+  successText: '#6ee7b7', // Lighter green text
+  warningBg: '#332B22', // 更深的黄色/橙色背景
+  warningText: '#fcd34d', // Lighter yellow text
+  dangerBg: '#332222',  // 更深的红色背景
+  dangerText: '#fca5a5', // Lighter red text
+  infoBg: '#222833',    // 更深的蓝色背景
+  infoText: '#93c5fd', // Lighter blue text
 };
 
 // 预设饮品定义
 export const initialPresetDrinks = [
-  // --- 通用 (Generic) ---
-  { id: 'preset-espresso', name: '浓缩咖啡', category: '通用', caffeineContent: 212, defaultVolume: 30, isPreset: true },
-  { id: 'preset-drip', name: '滴滤咖啡', category: '通用', caffeineContent: 95, defaultVolume: 240, isPreset: true },
-  { id: 'preset-americano-generic', name: '美式咖啡', category: '通用', caffeineContent: 80, defaultVolume: 355, isPreset: true },
-  { id: 'preset-latte-generic', name: '拿铁咖啡', category: '通用', caffeineContent: 55, defaultVolume: 355, isPreset: true },
-  { id: 'preset-cappuccino', name: '卡布奇诺', category: '通用', caffeineContent: 60, defaultVolume: 240, isPreset: true },
+  // --- 手工咖啡 (Craft Coffee) ---
+  { id: 'preset-espresso', name: '浓缩咖啡', category: '手工咖啡', caffeineContent: 200, defaultVolume: 30, isPreset: true },
+  { id: 'preset-drip', name: '滴滤咖啡', category: '手工咖啡', caffeineContent: 60, defaultVolume: 355, isPreset: true },
+  { id: 'preset-cold-brew', name: '冷萃咖啡', category: '手工咖啡', caffeineContent: 43, defaultVolume: 200, isPreset: true },
+  { id: 'preset-americano-generic', name: '美式咖啡', category: '手工咖啡', caffeineContent: 45, defaultVolume: 240, isPreset: true },
+  { id: 'preset-latte-generic', name: '拿铁咖啡', category: '手工咖啡', caffeineContent: 30, defaultVolume: 240, isPreset: true },
+  { id: 'preset-cappuccino', name: '卡布奇诺', category: '手工咖啡', caffeineContent: 30, defaultVolume: 240, isPreset: true },
 
-  // --- 连锁咖啡 (Coffee Chains - 按感知受欢迎程度排序) ---
-  { id: 'preset-starbucks-americano', name: '星巴克 美式', category: '连锁咖啡', caffeineContent: 38.59, defaultVolume: 355, isPreset: true },
-  { id: 'preset-starbucks-latte', name: '星巴克 拿铁', category: '连锁咖啡', caffeineContent: 27.89, defaultVolume: 355, isPreset: true },
-  { id: 'preset-luckin-americano', name: '瑞幸 美式', category: '连锁咖啡', caffeineContent: 50, defaultVolume: 450, isPreset: true },
-  { id: 'preset-luckin-latte', name: '瑞幸 拿铁', category: '连锁咖啡', caffeineContent: 33.33, defaultVolume: 450, isPreset: true },
-  { id: 'preset-manner-americano', name: 'MANNER 美式', category: '连锁咖啡', caffeineContent: 56.34, defaultVolume: 355, isPreset: true },
-  { id: 'preset-manner-latte', name: 'MANNER 拿铁', category: '连锁咖啡', caffeineContent: 52.39, defaultVolume: 355, isPreset: true },
-  { id: 'preset-costa-americano', name: 'COSTA 美式', category: '连锁咖啡', caffeineContent: 47.29, defaultVolume: 480, isPreset: true },
-  { id: 'preset-costa-latte', name: 'COSTA 拿铁', category: '连锁咖啡', caffeineContent: 36.88, defaultVolume: 480, isPreset: true },
-  { id: 'preset-mcd-americano', name: '麦当劳 美式', category: '连锁咖啡', caffeineContent: 44.4, defaultVolume: 400, isPreset: true },
-  { id: 'preset-mcd-latte', name: '麦当劳 拿铁', category: '连锁咖啡', caffeineContent: 42.75, defaultVolume: 400, isPreset: true },
-  { id: 'preset-kfc-americano', name: '肯德基 美式', category: '连锁咖啡', caffeineContent: 37.50, defaultVolume: 400, isPreset: true },
-  { id: 'preset-kfc-latte', name: '肯德基 拿铁', category: '连锁咖啡', caffeineContent: 16.50, defaultVolume: 400, isPreset: true },
-  { id: 'preset-tims-americano', name: 'Tims 美式', category: '连锁咖啡', caffeineContent: 34.00, defaultVolume: 350, isPreset: true },
-  { id: 'preset-tims-latte', name: 'Tims 拿铁', category: '连锁咖啡', caffeineContent: 22.57, defaultVolume: 350, isPreset: true },
-  { id: 'preset-cotti-americano', name: 'COTTI 美式', category: '连锁咖啡', caffeineContent: 34.00, defaultVolume: 400, isPreset: true },
-  { id: 'preset-cotti-latte', name: 'COTTI 拿铁', category: '连锁咖啡', caffeineContent: 43.00, defaultVolume: 400, isPreset: true },
+  // --- 连锁品牌 (Chain Brands) ---
+  { id: 'preset-starbucks-americano', name: '星巴克 美式', category: '连锁品牌', caffeineContent: 38.59, defaultVolume: 355, isPreset: true },
+  { id: 'preset-starbucks-latte', name: '星巴克 拿铁', category: '连锁品牌', caffeineContent: 27.89, defaultVolume: 355, isPreset: true },
+  { id: 'preset-luckin-americano', name: '瑞幸 美式', category: '连锁品牌', caffeineContent: 50, defaultVolume: 450, isPreset: true },
+  { id: 'preset-luckin-latte', name: '瑞幸 拿铁', category: '连锁品牌', caffeineContent: 33.33, defaultVolume: 450, isPreset: true },
+  { id: 'preset-manner-americano', name: 'MANNER 美式', category: '连锁品牌', caffeineContent: 56.34, defaultVolume: 355, isPreset: true },
+  { id: 'preset-manner-latte', name: 'MANNER 拿铁', category: '连锁品牌', caffeineContent: 52.39, defaultVolume: 355, isPreset: true },
+  { id: 'preset-costa-americano', name: 'COSTA 美式', category: '连锁品牌', caffeineContent: 47.29, defaultVolume: 480, isPreset: true },
+  { id: 'preset-costa-latte', name: 'COSTA 拿铁', category: '连锁品牌', caffeineContent: 36.88, defaultVolume: 480, isPreset: true },
+  { id: 'preset-mcd-americano', name: '麦当劳 美式', category: '连锁品牌', caffeineContent: 44.4, defaultVolume: 400, isPreset: true },
+  { id: 'preset-mcd-latte', name: '麦当劳 拿铁', category: '连锁品牌', caffeineContent: 42.75, defaultVolume: 400, isPreset: true },
+  { id: 'preset-kfc-americano', name: '肯德基 美式', category: '连锁品牌', caffeineContent: 37.50, defaultVolume: 400, isPreset: true },
+  { id: 'preset-kfc-latte', name: '肯德基 拿铁', category: '连锁品牌', caffeineContent: 16.50, defaultVolume: 400, isPreset: true },
+  { id: 'preset-tims-americano', name: 'Tims 美式', category: '连锁品牌', caffeineContent: 34.00, defaultVolume: 350, isPreset: true },
+  { id: 'preset-tims-latte', name: 'Tims 拿铁', category: '连锁品牌', caffeineContent: 22.57, defaultVolume: 350, isPreset: true },
+  { id: 'preset-cotti-americano', name: 'COTTI 美式', category: '连锁品牌', caffeineContent: 34.00, defaultVolume: 400, isPreset: true },
+  { id: 'preset-cotti-latte', name: 'COTTI 拿铁', category: '连锁品牌', caffeineContent: 43.00, defaultVolume: 400, isPreset: true },
 
-  // --- 茶饮 (Tea) ---
-  { id: 'preset-black-tea', name: '红茶', category: '茶饮', caffeineContent: 47, defaultVolume: 240, isPreset: true },
-  { id: 'preset-green-tea', name: '绿茶', category: '茶饮', caffeineContent: 28, defaultVolume: 240, isPreset: true },
-  { id: 'preset-chagee', name: '霸王茶姬 (中杯)', category: '茶饮', caffeineContent: 35, defaultVolume: 470, isPreset: true },
-  { id: 'preset-chagee-large', name: '霸王茶姬 (大杯)', category: '茶饮', caffeineContent: 35, defaultVolume: 580, isPreset: true },
+  // --- 速溶咖啡 (Instant) ---
+  { id: 'preset-instant', name: '速溶咖啡', category: '速溶咖啡', caffeineContent: 45, defaultVolume: 200, isPreset: true },
+  { id: 'preset-nescafe-gold', name: '雀巢金牌速溶', category: '速溶咖啡', caffeineContent: 40, defaultVolume: 150, isPreset: true },
+  { id: 'preset-nescafe-black', name: '雀巢速溶黑咖啡', category: '速溶咖啡', caffeineContent: 35, defaultVolume: 150, isPreset: true },
+  { id: 'preset-saturnbird', name: '三顿半咖啡', category: '速溶咖啡', caffeineContent: 45, defaultVolume: 200, isPreset: true },
+  { id: 'preset-sumida', name: '隅田川咖啡', category: '速溶咖啡', caffeineContent: 20, defaultVolume: 200, isPreset: true },
+  { id: 'preset-huatiancui-latte', name: '花田萃拿铁', category: '速溶咖啡', caffeineContent: 68, defaultVolume: 150, isPreset: true },
+  { id: 'preset-huatiancui-fruit', name: '花田萃水果美式', category: '速溶咖啡', caffeineContent: 28, defaultVolume: 250, isPreset: true },
+  { id: 'preset-liancafe-daily', name: '连咖啡每日鲜萃', category: '速溶咖啡', caffeineContent: 22.5, defaultVolume: 200, isPreset: true },
+  { id: 'preset-liancafe-ranran', name: '连咖啡燃燃咖', category: '速溶咖啡', caffeineContent: 14, defaultVolume: 260, isPreset: true },
 
-  // --- 速溶 (Instant) ---
-  { id: 'preset-instant', name: '速溶咖啡', category: '速溶', caffeineContent: 62, defaultVolume: 240, isPreset: true },
-  { id: 'preset-nescafe-gold', name: '雀巢 金牌', category: '速溶', caffeineContent: 40, defaultVolume: 150, isPreset: true },
+  // --- 瓶装茶饮 (Bottled Tea) ---
+  { id: 'preset-black-tea', name: '红茶', category: '瓶装茶饮', caffeineContent: 47, defaultVolume: 240, isPreset: true },
+  { id: 'preset-green-tea', name: '绿茶', category: '瓶装茶饮', caffeineContent: 28, defaultVolume: 240, isPreset: true },
+  { id: 'preset-chagee', name: '霸王茶姬 (中杯)', category: '瓶装茶饮', caffeineContent: 35, defaultVolume: 470, isPreset: true },
+  { id: 'preset-chagee-large', name: '霸王茶姬 (大杯)', category: '瓶装茶饮', caffeineContent: 35, defaultVolume: 580, isPreset: true },
+  { id: 'preset-tea-pi', name: '茶π', category: '瓶装茶饮', caffeineContent: 9.4, defaultVolume: 500, isPreset: true },
+  { id: 'preset-oriental-leaf', name: '东方树叶', category: '瓶装茶饮', caffeineContent: 11, defaultVolume: 500, isPreset: true },
+  { id: 'preset-suntory-oolong', name: '三得利 乌龙茶', category: '瓶装茶饮', caffeineContent: 13.7, defaultVolume: 500, isPreset: true },
+  { id: 'preset-kangshifu-icetea', name: '康师傅 冰红茶', category: '瓶装茶饮', caffeineContent: 4.8, defaultVolume: 500, isPreset: true },
+
+  // --- 碳酸饮料 (Carbonated Drinks) ---
+  { id: 'preset-coca-cola', name: '可口可乐', category: '碳酸饮料', caffeineContent: 10, defaultVolume: 330, isPreset: true },
+  { id: 'preset-pepsi-cola', name: '百事可乐', category: '碳酸饮料', caffeineContent: 10.6, defaultVolume: 330, isPreset: true },
+
+  // --- 功能饮料 (Functional Drinks) ---
+  { id: 'preset-redbull', name: '红牛', category: '功能饮料', caffeineContent: 20, defaultVolume: 250, isPreset: true },
+  { id: 'preset-dongpeng', name: '东鹏特饮', category: '功能饮料', caffeineContent: 20, defaultVolume: 250, isPreset: true },
+  { id: 'preset-monster', name: '魔爪', category: '功能饮料', caffeineContent: 28, defaultVolume: 330, isPreset: true },
 
   // --- 其他 (Other) ---
-  { id: 'preset-cola', name: '可乐', category: '其他', caffeineContent: 10, defaultVolume: 330, isPreset: true },
-  { id: 'preset-energy', name: '能量饮料', category: '其他', caffeineContent: 32, defaultVolume: 250, isPreset: true },
-  { id: 'preset-dark-chocolate', name: '黑巧克力(100g)', category: '其他', caffeineContent: 43, defaultVolume: 100, isPreset: true }, // 注意：单位不一致
+  { id: 'preset-dark-chocolate', name: '黑巧克力(100g)', category: '其他', caffeineContent: 43, defaultVolume: 100, isPreset: true },
 ];
 
 // 存储原始预设ID用于参考（例如，用于删除逻辑）

@@ -83,9 +83,12 @@ const IntakeForm = ({
         const baseDrink = selectedDrinkId ? drinks.find(d => d.id === selectedDrinkId) : null;
         nameForRecord = finalEntryName || (baseDrink ? `${baseDrink.name} (手动)` : '自定义摄入');
         drinkIdForRecord = selectedDrinkId || null;
-        volume = null;
-        
-        // 如果选择了饮品但使用了自定义量，并且名称不同，则存储自定义名称
+        if (drinkVolume) {
+          const parsedVolume = parseFloat(drinkVolume);
+          if (!isNaN(parsedVolume) && parsedVolume > 0) {
+            volume = parsedVolume; // 如果 drinkVolume 有效且大于0，则记录
+          }
+        }
         if (baseDrink && finalEntryName && finalEntryName !== baseDrink.name) {
           customNameValue = finalEntryName;
         } else if (!baseDrink && finalEntryName) {

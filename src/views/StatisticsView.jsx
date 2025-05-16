@@ -29,7 +29,7 @@ const StatisticsView = ({
   drinks,
   colors
 }) => {
-  // 获取特定日期的当日总摄入量 (保持不变)
+  // 获取特定日期的当日总摄入量
   const getDayTotal = useCallback((date) => {
     const dayStart = getStartOfDay(date);
     const dayEnd = getEndOfDay(date);
@@ -38,7 +38,7 @@ const StatisticsView = ({
       .reduce((sum, record) => sum + record.amount, 0));
   }, [records]);
 
-  // 获取特定日期所在周的总摄入量 (保持不变)
+  // 获取特定日期所在周的总摄入量
   const getWeekTotal = useCallback((date) => {
     const weekStart = getStartOfWeek(date);
     const weekEnd = getEndOfWeek(date);
@@ -47,7 +47,7 @@ const StatisticsView = ({
       .reduce((sum, record) => sum + record.amount, 0));
   }, [records]);
 
-  // 获取特定日期所在月的总摄入量 (保持不变)
+  // 获取特定日期所在月的总摄入量
   const getMonthTotal = useCallback((date) => {
     const monthStart = getStartOfMonth(date);
     const monthEnd = getEndOfMonth(date);
@@ -56,7 +56,7 @@ const StatisticsView = ({
       .reduce((sum, record) => sum + record.amount, 0));
   }, [records]);
 
-  // 获取特定日期所在年的总摄入量 (保持不变)
+  // 获取特定日期所在年的总摄入量
   const getYearTotal = useCallback((date) => {
     const yearStart = getStartOfYear(date);
     const yearEnd = getEndOfYear(date);
@@ -65,7 +65,7 @@ const StatisticsView = ({
       .reduce((sum, record) => sum + record.amount, 0));
   }, [records]);
 
-  // 获取每周每日总量 (保持不变)
+  // 获取每周每日总量
   const getWeekDailyTotals = useCallback(() => {
     const weekStart = getStartOfWeek(statsDate);
     const totals = [];
@@ -82,7 +82,7 @@ const StatisticsView = ({
     return totals;
   }, [statsDate, getDayTotal]);
 
-  // 获取每月每日总量 (保持不变)
+  // 获取每月每日总量
   const getMonthDailyTotals = useCallback(() => {
     const monthStart = getStartOfMonth(statsDate);
     const monthEnd = getEndOfMonth(statsDate);
@@ -102,7 +102,7 @@ const StatisticsView = ({
     return totals;
   }, [statsDate, getDayTotal]);
 
-  // 获取每年每月总量 (保持不变)
+  // 获取每年每月总量
   const getYearMonthlyTotals = useCallback(() => {
     const year = statsDate.getFullYear();
     const totals = [];
@@ -115,7 +115,7 @@ const StatisticsView = ({
     return totals;
   }, [statsDate, getMonthTotal]);
 
-  // 统计导航 (保持不变)
+  // 统计导航
   const navigateStats = useCallback((direction) => {
     const newDate = new Date(statsDate);
     let isFutureDate = false;
@@ -139,7 +139,7 @@ const StatisticsView = ({
     setStatsDate(newDate);
   }, [statsDate, statsView, setStatsDate]);
 
-  // 格式化统计时间段 (保持不变)
+  // 格式化统计时间段
   const formatStatsPeriod = useCallback(() => {
     try {
       if (statsView === 'week') {
@@ -158,7 +158,7 @@ const StatisticsView = ({
     return '';
   }, [statsDate, statsView]);
 
-  // 图表数据 (保持不变)
+  // 图表数据
   const statsChartData = useMemo(() => {
     try {
       if (statsView === 'week') return getWeekDailyTotals();
@@ -168,7 +168,7 @@ const StatisticsView = ({
     return [];
   }, [statsView, getWeekDailyTotals, getMonthDailyTotals, getYearMonthlyTotals]);
 
-  // 咖啡因分布 (保持不变)
+  // 咖啡因分布
   const caffeineDistribution = useMemo(() => {
     const sourceData = {};
     let totalIntake = 0;
@@ -203,7 +203,7 @@ const StatisticsView = ({
     return distributionArray.sort((a, b) => b.amount - a.amount);
   }, [records, drinks]);
 
-  // 格式化Y轴刻度 (保持不变)
+  // 格式化Y轴刻度
   const formatYAxisTick = (value) => Math.round(value);
 
   // 计算当前时间段是否是未来

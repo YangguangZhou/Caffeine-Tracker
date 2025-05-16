@@ -1,16 +1,90 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 // 导入 Helmet 用于设置页面头部信息
 import { Helmet } from 'react-helmet-async';
 import {
   Info, User, Globe, Coffee, AlertTriangle,
-  BookOpen, Brain, HeartPulse, ExternalLink, Mail, Github, Sparkle
+  BookOpen, Brain, HeartPulse, ExternalLink, Mail, Github, Sparkle, DownloadCloud, RefreshCcw as RefreshIcon,
+  Share as ShareIcon, Copy, Check
 } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
+import { Share } from '@capacitor/share'; // 导入 Share API
+
 
 /**
  * 关于页面视图组件
  * 显示关于应用的信息，包括作者、数据来源和科学依据
  */
-const AboutView = ({ colors }) => {
+const AboutView = ({ colors, appConfig, isNativePlatform }) => {
+  const [updateCheckStatus, setUpdateCheckStatus] = useState('');
+  const [checkingForUpdate, setCheckingForUpdate] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  const handleCheckForUpdate = async () => {
+    if (!isNativePlatform) return;
+    setCheckingForUpdate(true);
+    setUpdateCheckStatus('正在检查更新...');
+    try {
+      const response = await fetch('https://ct.jerryz.com.cn/version.json?_=' + new Date().getTime()); // Cache buster
+      if (!response.ok) {
+        throw new Error(`检查更新失败: ${response.status}`);
+      }
+      const remoteConfig = await response.json();
+      
+      // Simple version comparison
+      // More robust comparison might be needed for complex version strings
+      if (remoteConfig.latest_version && remoteConfig.latest_version > appConfig.latest_version) {
+        if (window.confirm(`发现新版本 ${remoteConfig.latest_version}！当前版本 ${appConfig.latest_version}。是否前往下载页面？`)) {
+          await Browser.open({ url: remoteConfig.download_url || appConfig.download_url });
+          setUpdateCheckStatus(`有新版本: ${remoteConfig.latest_version}。正在打开下载链接...`);
+        } else {
+          setUpdateCheckStatus(`有新版本: ${remoteConfig.latest_version}。用户取消下载。`);
+        }
+      } else {
+        setUpdateCheckStatus('当前已是最新版本。');
+      }
+    } catch (error) {
+      console.error('检查更新出错:', error);
+      setUpdateCheckStatus(`检查更新失败: ${error.message}`);
+    } finally {
+      setCheckingForUpdate(false);
+    }
+  };
+
+  const handleShareApp = async () => {
+    const shareData = {
+      title: '咖啡因追踪器 - 科学管理您的咖啡因摄入',
+      text: '推荐这款咖啡因追踪器！它可以帮助科学管理咖啡因摄入量，提供代谢预测和健康建议。',
+      url: 'https://ct.jerryz.com.cn',
+      dialogTitle: '分享咖啡因追踪器'
+    };
+
+    try {
+      if (isNativePlatform) {
+        // 在原生平台使用 Capacitor Share API
+        await Share.share(shareData);
+      } else {
+        // 在网页平台尝试使用 Web Share API
+        if (navigator.share) {
+          await navigator.share(shareData);
+        } else {
+          // 如果 Web Share API 不可用，直接复制链接
+          navigator.clipboard.writeText(shareData.url);
+          setLinkCopied(true);
+          setTimeout(() => setLinkCopied(false), 2000);
+        }
+      }
+    } catch (error) {
+      console.error('分享失败:', error);
+    }
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText('https://ct.jerryz.com.cn');
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
+
   return (
     <>
       {/* SEO: 设置此视图特定的 Title 和 Description */}
@@ -155,7 +229,7 @@ const AboutView = ({ colors }) => {
             </a>
             
             <a 
-              href="https://cloud.jerryz.com.cn/d/OneDrive/OnlineDrive/Caffeine%20Manager/app-release.apk" 
+              href={appConfig.download_url} // Use dynamic download URL
               target="_blank"
               rel="noopener noreferrer"
               className="flex flex-col items-center justify-center p-5 rounded-lg border hover:shadow-md transition-all duration-300"
@@ -181,16 +255,119 @@ const AboutView = ({ colors }) => {
                 <rect x="5" y="2" width="14" height="20" rx="2" />
                 <path d="M12 18h.01" />
               </svg>
-              <h3 className="font-semibold mb-2 transition-colors" style={{ color: colors.espresso }}>
-                Android 客户端
+              <h3 className="font-semibold mb-2 transition-colors text-center" style={{ color: colors.espresso }}>
+                Android 客户端 v{appConfig.latest_version}
               </h3>
               <p className="text-center">
                 无需等待，点击即开<br />
                 <span className="font-medium inline-block mt-1 px-3 py-1 rounded-full" style={{ backgroundColor: colors.bgHighlight, color: colors.accent }}>
-                  下载链接
+                  <DownloadCloud size={14} className="inline mr-1" /> 下载链接
                 </span>
               </p>
             </a>
+          </div>
+
+          {isNativePlatform && (
+            <div className="mt-6 text-center">
+              <button
+                onClick={handleCheckForUpdate}
+                disabled={checkingForUpdate}
+                className="py-2.5 px-5 text-white rounded-md transition-opacity duration-200 flex items-center justify-center text-sm shadow font-medium mx-auto disabled:opacity-60 hover:opacity-90"
+                style={{ backgroundColor: colors.accent }}
+              >
+                <RefreshIcon size={16} className={`mr-1.5 ${checkingForUpdate ? 'animate-spin' : ''}`} aria-hidden="true" />
+                {checkingForUpdate ? '检查中...' : '检查应用更新'}
+              </button>
+              {updateCheckStatus && (
+                <p className="text-xs mt-2 transition-colors" style={{ color: colors.textMuted }}>
+                  {updateCheckStatus}
+                </p>
+              )}
+            </div>
+          )}
+
+        </div>
+      </section>
+
+      {/* 分享推荐卡片 - 新增部分 */}
+      <section
+        aria-labelledby="share-heading"
+        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        style={{
+          backgroundColor: colors.bgCard,
+          borderColor: colors.borderSubtle
+        }}
+      >
+        <h2
+          id="share-heading"
+          className="text-xl font-semibold mb-4 flex items-center transition-colors"
+          style={{ color: colors.espresso }}
+        >
+          <ShareIcon size={20} className="mr-2" aria-hidden="true" /> 分享推荐
+        </h2>
+
+        <div className="space-y-4 text-sm transition-colors" style={{ color: colors.textSecondary }}>
+          <p>
+            如果您觉得咖啡因追踪器对您有所帮助，请将它推荐给可能需要科学管理咖啡因摄入的朋友们！
+            通过分享，您可以帮助更多人养成健康的咖啡因摄入习惯。
+          </p>
+          
+          <div className="flex flex-col items-center justify-center p-5 rounded-lg border transition-colors"
+            style={{ borderColor: colors.borderSubtle, backgroundColor: colors.bgBase }}>
+            
+            <div className="w-full max-w-md flex flex-col sm:flex-row items-center sm:justify-between gap-4">
+              <div className="flex items-center">
+                <div className="mr-3 p-2 rounded-full" style={{ backgroundColor: colors.bgHighlight }}>
+                  <ShareIcon size={24} style={{ color: colors.accent }} aria-hidden="true" />
+                </div>
+                <div>
+                  <h3 className="font-medium transition-colors" style={{ color: colors.espresso }}>一键分享</h3>
+                  <p className="text-xs">分享给您的朋友和社交圈</p>
+                </div>
+              </div>
+              
+              <button
+                onClick={handleShareApp}
+                className="py-2.5 px-4 text-white rounded-md transition-opacity duration-200 flex items-center justify-center text-sm shadow font-medium hover:opacity-90 w-full sm:w-auto"
+                style={{ backgroundColor: colors.accent }}
+              >
+                <ShareIcon size={16} className="mr-1.5" aria-hidden="true" />
+                {isNativePlatform ? '立即分享' : (navigator.share ? '立即分享' : '复制链接')}
+              </button>
+            </div>
+            
+            <div className="w-full border-t mt-5 pt-5" style={{ borderColor: colors.borderSubtle }}>
+              <div className="flex flex-col sm:flex-row items-center gap-3 justify-between">
+                <div className="flex items-center">
+                  <p className="text-xs sm:mr-2">应用网址:</p>
+                  <span className="font-medium text-sm px-3 py-1.5 rounded-md" style={{ backgroundColor: colors.bgHighlight, color: colors.textPrimary }}>
+                    ct.jerryz.com.cn
+                  </span>
+                </div>
+                
+                <button
+                  onClick={handleCopyLink}
+                  className="py-1.5 px-3 rounded-md transition-all duration-200 flex items-center text-xs border"
+                  style={{ 
+                    backgroundColor: linkCopied ? colors.successBg : 'transparent',
+                    borderColor: linkCopied ? colors.successText : colors.borderSubtle,
+                    color: linkCopied ? colors.successText : colors.textSecondary
+                  }}
+                >
+                  {linkCopied ? (
+                    <>
+                      <Check size={14} className="mr-1.5" aria-hidden="true" />
+                      已复制
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={14} className="mr-1.5" aria-hidden="true" />
+                      复制链接
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -272,7 +449,16 @@ const AboutView = ({ colors }) => {
 
         <div className="space-y-5 text-sm transition-colors" style={{ color: colors.textSecondary }}>
           {/* 预设数据提醒 */}
-          <div className="p-4 rounded-lg border border-amber-200 bg-amber-50 text-amber-800">
+          <div
+            className="p-4 rounded-lg border"
+            style={{
+              backgroundColor: colors.warningBg,
+              color: colors.warningText,
+              borderColor: colors.warningText, // Use themed border color
+              borderWidth: '1px',
+              borderStyle: 'solid',
+            }}
+          >
             <h3 className="font-semibold mb-2 flex items-center">
               <AlertTriangle size={16} className="mr-1.5" aria-hidden="true" /> 预设数据提醒
             </h3>
@@ -285,7 +471,16 @@ const AboutView = ({ colors }) => {
           </div>
 
           {/* 计算模型局限性 */}
-          <div className="p-4 rounded-lg border border-amber-200 bg-amber-50 text-amber-800">
+          <div
+            className="p-4 rounded-lg border"
+            style={{
+              backgroundColor: colors.warningBg,
+              color: colors.warningText,
+              borderColor: colors.warningText, // Use themed border color
+              borderWidth: '1px',
+              borderStyle: 'solid',
+            }}
+          >
             <h3 className="font-semibold mb-2 flex items-center">
               <AlertTriangle size={16} className="mr-1.5" aria-hidden="true" /> 计算模型局限性
             </h3>
@@ -312,7 +507,16 @@ const AboutView = ({ colors }) => {
           </div>
 
           {/* 个性化调整建议 */}
-          <div className="p-4 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800">
+          <div
+            className="p-4 rounded-lg border"
+            style={{
+              backgroundColor: colors.successBg,
+              color: colors.successText,
+              borderColor: colors.successText, // Use themed border color
+              borderWidth: '1px',
+              borderStyle: 'solid',
+            }}
+          >
             <h3 className="font-semibold mb-2 flex items-center">
               <BookOpen size={16} className="mr-1.5" aria-hidden="true" /> 个性化调整建议
             </h3>

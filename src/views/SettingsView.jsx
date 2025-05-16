@@ -5,10 +5,12 @@ import {
     User, Weight, Target, Sliders, Clock, Moon,
     Droplet, Coffee, Plus, X, Save, Edit, Trash2,
     Download, Upload, RotateCcw, HelpCircle, Tag,
-    CloudDownload, Server, Lock, Activity, TestTubeDiagonal, Database // 添加 Database 图标
+    CloudDownload, Server, Lock, Activity, TestTubeDiagonal, Database
 } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem'; // For Capacitor export
 import { formatDatetimeLocal } from '../utils/timeUtils';
-import { initialPresetDrinks, DRINK_CATEGORIES, DEFAULT_CATEGORY } from '../utils/constants';
+import { initialPresetDrinks, DRINK_CATEGORIES, DEFAULT_CATEGORY, defaultSettings } from '../utils/constants'; // Import defaultSettings
 // 动态导入 WebDAVClient
 const WebDAVClientPromise = import('../utils/webdavSync');
 
@@ -26,9 +28,11 @@ const SettingsView = ({
     syncStatus,
     records,
     setRecords,
-    colors
+    colors,
+    appConfig, // Receive appConfig
+    isNativePlatform // Receive platform info
 }) => {
-    // 饮品编辑状态 (保持不变)
+    // 饮品编辑状态
     const [showDrinkEditor, setShowDrinkEditor] = useState(false);
     const [editingDrink, setEditingDrink] = useState(null);
     const [newDrinkName, setNewDrinkName] = useState('');
@@ -36,16 +40,16 @@ const SettingsView = ({
     const [newDrinkVolume, setNewDrinkVolume] = useState('');
     const [newDrinkCategory, setNewDrinkCategory] = useState(DEFAULT_CATEGORY);
 
-    // WebDAV测试状态 (保持不变)
+    // WebDAV测试状态
     const [testingWebDAV, setTestingWebDAV] = useState(false);
     const [webDAVTestResult, setWebDAVTestResult] = useState(null);
 
-    // 处理设置变更 (保持不变)
+    // 处理设置变更
     const handleSettingChange = useCallback((key, value) => {
         onUpdateSettings({ [key]: value });
     }, [onUpdateSettings]);
 
-    // 验证数值输入范围 (保持不变)
+    // 验证数值输入范围
     const validateNumericSetting = useCallback((key, value, min, max, defaultValue) => {
         const numValue = parseFloat(value);
         if (isNaN(numValue) || numValue < min || numValue > max) {
@@ -53,7 +57,7 @@ const SettingsView = ({
         }
     }, [onUpdateSettings]);
 
-    // 重置饮品表单 (保持不变)
+    // 重置饮品表单
     const resetDrinkForm = useCallback(() => {
         setShowDrinkEditor(false);
         setEditingDrink(null);
@@ -152,29 +156,48 @@ const SettingsView = ({
     }, [userSettings.webdavServer, userSettings.webdavUsername, userSettings.webdavPassword]);
 
     // 导出数据 (使用 useCallback)
-    const exportData = useCallback(() => {
+    const exportData = useCallback(async () => { // Make async for Capacitor
         try {
-            const exportData = {
+            const settingsToExport = { ...userSettings };
+            delete settingsToExport.webdavPassword; // Don't export password
+
+            const exportDataObject = {
                 records,
-                userSettings,
+                userSettings: settingsToExport,
                 drinks,
                 exportTimestamp: Date.now(),
-                version: '1.0.3'
+                version: appConfig.latest_version // Use version from appConfig
             };
-            const dataStr = JSON.stringify(exportData, null, 2);
-            const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
+            const dataStr = JSON.stringify(exportDataObject, null, 2);
             const exportFileDefaultName = `caffeine-tracker-data-${new Date().toISOString().slice(0, 10)}.json`;
-            const linkElement = document.createElement('a');
-            linkElement.setAttribute('href', dataUri);
-            linkElement.setAttribute('download', exportFileDefaultName);
-            document.body.appendChild(linkElement);
-            linkElement.click();
-            document.body.removeChild(linkElement);
+
+            if (isNativePlatform) {
+                try {
+                    await Filesystem.writeFile({
+                        path: exportFileDefaultName,
+                        data: dataStr,
+                        directory: Directory.Documents,
+                        encoding: Encoding.UTF8,
+                    });
+                    alert(`数据已导出到文档目录: ${exportFileDefaultName}`);
+                } catch (e) {
+                    console.error('Capacitor 文件保存失败', e);
+                    alert(`导出失败: ${e.message}`);
+                }
+            } else {
+                const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
+                const linkElement = document.createElement('a');
+                linkElement.setAttribute('href', dataUri);
+                linkElement.setAttribute('download', exportFileDefaultName);
+                document.body.appendChild(linkElement);
+                linkElement.click();
+                document.body.removeChild(linkElement);
+            }
         } catch (error) {
             console.error("导出数据失败:", error);
             alert("导出数据时发生错误。");
         }
-    }, [records, userSettings, drinks]);
+    }, [records, userSettings, drinks, appConfig.latest_version, isNativePlatform]);
 
     // 导入数据 (使用 useCallback)
     const importData = useCallback((event) => {
@@ -192,39 +215,62 @@ const SettingsView = ({
                         }
                     }
                     if (window.confirm('导入数据将覆盖当前所有记录、设置和饮品列表。确定要继续吗？')) {
-                        const importedSettings = { ...defaultSettings }; // 从默认设置开始，防止导入不兼容的旧设置
-                        for (const key in defaultSettings) { // 遍历 *默认* 设置的键
-                            if (data.userSettings.hasOwnProperty(key) && typeof data.userSettings[key] === typeof defaultSettings[key]) {
-                                // 特殊处理布尔值 develop
-                                if (key === 'develop' && typeof data.userSettings[key] !== 'boolean') {
-                                    importedSettings[key] = defaultSettings[key]; // 使用默认值
-                                } else {
-                                    importedSettings[key] = data.userSettings[key];
+                        const importedSettings = { ...defaultSettings }; // 从默认设置开始
+                        const settingsFromImport = data.userSettings;
+
+                        // Merge imported settings into defaultSettings structure
+                        for (const key in defaultSettings) {
+                            if (settingsFromImport.hasOwnProperty(key)) {
+                                if (typeof settingsFromImport[key] === typeof defaultSettings[key] || (key === 'develop' && typeof settingsFromImport[key] === 'boolean')) {
+                                     importedSettings[key] = settingsFromImport[key];
+                                } else if (key === 'develop' && typeof settingsFromImport[key] !== 'boolean') {
+                                    // if develop is present but not boolean, use default
+                                    importedSettings[key] = defaultSettings.develop;
                                 }
+                                // For other type mismatches, defaultSettings value for 'key' is already there
                             }
                         }
-                         // 确保同步相关设置也被导入（如果存在且类型匹配）
-                         ['webdavEnabled', 'webdavServer', 'webdavUsername', 'webdavPassword', 'webdavSyncFrequency'].forEach(key => {
-                            if (data.userSettings.hasOwnProperty(key) && typeof data.userSettings[key] === typeof defaultSettings[key]) {
-                                importedSettings[key] = data.userSettings[key];
-                            }
-                        });
-                        // 不要导入 lastSyncTimestamp
-                        importedSettings.lastSyncTimestamp = userSettings.lastSyncTimestamp;
+                        // Ensure WebDAV password from current settings is preserved if not in import
+                        if (userSettings.webdavPassword && !settingsFromImport.webdavPassword) {
+                            importedSettings.webdavPassword = userSettings.webdavPassword;
+                        } else if (settingsFromImport.webdavPassword) { // If import has a password, use it
+                            importedSettings.webdavPassword = settingsFromImport.webdavPassword;
+                        }
 
 
-                        const validatedDrinks = data.drinks.map(d => ({
-                            id: d.id || `imported-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-                            name: d.name || '未知饮品',
-                            caffeineContent: typeof d.caffeineContent === 'number' ? d.caffeineContent : 0,
-                            defaultVolume: typeof d.defaultVolume === 'number' ? d.defaultVolume : null,
-                            category: DRINK_CATEGORIES.includes(d.category) ? d.category : DEFAULT_CATEGORY,
-                            isPreset: d.isPreset === true,
-                        }));
+                        // Validate and process drinks
+                        const processImportedDrinks = (drinksToProcess) => {
+                            if (!Array.isArray(drinksToProcess)) return [...initialPresetDrinks];
+                            const validDrinks = drinksToProcess.filter(d => d && typeof d.id !== 'undefined' && typeof d.name === 'string' && typeof d.caffeineContent === 'number')
+                                .map(d => ({ // Ensure all fields expected by app are present, with defaults
+                                    id: d.id,
+                                    name: d.name,
+                                    caffeineContent: d.caffeineContent,
+                                    defaultVolume: typeof d.defaultVolume === 'number' ? d.defaultVolume : null,
+                                    category: DRINK_CATEGORIES.includes(d.category) ? d.category : DEFAULT_CATEGORY,
+                                    isPreset: d.isPreset === true, // Coerce to boolean, default false
+                                }));
+
+                            const importedDrinkIds = new Set(validDrinks.map(d => d.id));
+                            const newPresetsToAdd = initialPresetDrinks.filter(p => !importedDrinkIds.has(p.id));
+                            
+                            // For existing presets in import, ensure they are marked as presets if their ID matches
+                            const validatedImportedDrinks = validDrinks.map(d => {
+                                const isOriginal = originalPresetDrinkIds.has(d.id);
+                                return {
+                                    ...d,
+                                    isPreset: d.isPreset ?? isOriginal // If isPreset is undefined, determine from originalPresetDrinkIds
+                                };
+                            });
+
+                            return [...validatedImportedDrinks, ...newPresetsToAdd].sort((a,b) => a.name.localeCompare(b.name));
+                        };
+                        
+                        const finalImportedDrinks = processImportedDrinks(data.drinks);
 
                         setRecords(data.records.sort((a, b) => b.timestamp - a.timestamp));
                         onUpdateSettings(importedSettings);
-                        setDrinks(validatedDrinks);
+                        setDrinks(finalImportedDrinks);
                         alert('数据导入成功！');
                     }
                 } else {
@@ -243,7 +289,7 @@ const SettingsView = ({
             event.target.value = null;
         };
         reader.readAsText(file);
-    }, [setRecords, onUpdateSettings, setDrinks, userSettings.lastSyncTimestamp]); // 添加依赖
+    }, [setRecords, onUpdateSettings, setDrinks, userSettings.lastSyncTimestamp, userSettings.webdavPassword, originalPresetDrinkIds]); // Added userSettings.webdavPassword and originalPresetDrinkIds
 
     // 清除所有数据 (使用 useCallback)
     const clearAllData = useCallback(() => {

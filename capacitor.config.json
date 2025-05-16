@@ -1,5 +1,11 @@
 {
   "appId": "com.jerryz.caffeine",
   "appName": "咖啡因追踪",
-  "webDir": "dist"
+  "webDir": "dist",
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 50000,
+      "launchAutoHide": false
+    }
+  }
 }

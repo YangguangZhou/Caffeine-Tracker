@@ -33,7 +33,7 @@ const CurrentStatusView = ({
   onDeleteRecord,
   estimateAmountFromConcentration,
   // formatTime and formatDate are now imported directly
-  colors
+  colors // Expect colors prop to have successBg, successText, infoBg, infoText for dark mode
 }) => {
   // 状态
   const [showForm, setShowForm] = useState(false);
@@ -65,6 +65,42 @@ const CurrentStatusView = ({
     setEditingRecord(null);
   };
 
+  // Helper function to determine styles for health advice
+  const getHealthAdviceStyles = () => {
+    let styleProps = {
+      bgColor: colors.infoBg, // Default to info
+      textColor: colors.infoText,
+      borderColor: colors.infoText,
+    };
+
+    switch (healthAdvice.type) {
+      case 'success':
+        styleProps.bgColor = colors.successBg;
+        styleProps.textColor = colors.successText;
+        styleProps.borderColor = colors.successText;
+        break;
+      case 'warning':
+        styleProps.bgColor = colors.warningBg;
+        styleProps.textColor = colors.warningText;
+        styleProps.borderColor = colors.warningText;
+        break;
+      case 'danger':
+        styleProps.bgColor = colors.dangerBg;
+        styleProps.textColor = colors.dangerText;
+        styleProps.borderColor = colors.dangerText;
+        break;
+      // No default needed as it's set above
+    }
+
+    return {
+      backgroundColor: styleProps.bgColor,
+      color: styleProps.textColor,
+      borderColor: styleProps.borderColor,
+      borderWidth: '1px',
+      borderStyle: 'solid',
+    };
+  };
+
   return (
     // 使用 React Fragment 或 div 包裹，因为 Helmet 需要是顶级元素之一
     <>
@@ -93,7 +129,6 @@ const CurrentStatusView = ({
 
         {/* 半圆进度表 */}
         <div className="relative w-full flex justify-center my-6">
-          {/* SVG 代码保持不变 */}
           <svg width="240" height="160" viewBox="0 0 240 160">
             {/* 背景轨道 */}
             <path
@@ -152,8 +187,8 @@ const CurrentStatusView = ({
           {/* 健康建议 - 使用 aside 或 div 均可，取决于其与主要内容的相关性 */}
           <aside
             aria-label="健康建议" // A11y: 添加标签
-            className={`mt-3 text-sm p-3 rounded-lg ${healthAdvice.bgColor} ${healthAdvice.color} border border-opacity-50`}
-            style={{ borderColor: healthAdvice.color.replace('text', 'border') }}
+            className={`mt-3 text-sm p-3 rounded-lg`}
+            style={getHealthAdviceStyles()}
           >
             <div className="flex items-center justify-center">
               <AlertCircle size={16} className="inline-block mr-1.5 flex-shrink-0" aria-hidden="true" />
@@ -204,7 +239,16 @@ const CurrentStatusView = ({
 
         {/* 最佳睡眠时间 */}
         {/* 使用 div 或 p 标签 */}
-        <div className="mt-3 text-sm text-center p-3 rounded-lg bg-blue-50 text-blue-700 border border-blue-200">
+        <div
+          className="mt-3 text-sm text-center p-3 rounded-lg border"
+          style={{
+            backgroundColor: colors.infoBg,
+            color: colors.infoText,
+            borderColor: colors.infoText, 
+            borderWidth: '1px', 
+            borderStyle: 'solid', 
+          }}
+        >
           <p className="flex items-center justify-center">
             <Moon size={16} className="inline-block mr-1.5" aria-hidden="true" />
             {optimalSleepTime === 'N/A'
