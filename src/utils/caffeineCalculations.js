@@ -121,19 +121,28 @@ export const calculateRemainingCaffeine = (initialAmount, intakeTimestamp, calcu
   };
   
   /**
-   * 计算摄入特定容量饮品的咖啡因量
+   * 计算摄入特定饮品的咖啡因量
    * 
-   * @param {number} caffeineContent - 咖啡因含量 (mg/100ml)
-   * @param {number} volume - 容量 (ml)
+   * @param {Object} drink - 饮品对象，包含 calculationMode, caffeineContent (mg/100ml), caffeinePerGram (mg/g)
+   * @param {number} inputValue - 容量 (ml) 或重量 (g)，取决于 drink.calculationMode
    * @returns {number} 咖啡因量 (mg)
    */
-  export const calculateCaffeineAmount = (caffeineContent, volume) => {
-    if (typeof caffeineContent !== 'number' || typeof volume !== 'number' || 
-        caffeineContent < 0 || volume <= 0) {
+  export const calculateCaffeineAmount = (drink, inputValue) => {
+    if (!drink || typeof inputValue !== 'number' || inputValue <= 0) {
       return 0;
     }
-    
-    return Math.round((caffeineContent * volume) / 100);
+  
+    if (drink.calculationMode === 'perGram') {
+      if (typeof drink.caffeinePerGram !== 'number' || drink.caffeinePerGram < 0) {
+        return 0;
+      }
+      return Math.round(drink.caffeinePerGram * inputValue);
+    } else { // 默认为 'per100ml'
+      if (typeof drink.caffeineContent !== 'number' || drink.caffeineContent < 0) {
+        return 0;
+      }
+      return Math.round((drink.caffeineContent * inputValue) / 100);
+    }
   };
   
   /**

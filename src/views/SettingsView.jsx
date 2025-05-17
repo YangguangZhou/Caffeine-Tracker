@@ -36,7 +36,10 @@ const SettingsView = ({
     const [showDrinkEditor, setShowDrinkEditor] = useState(false);
     const [editingDrink, setEditingDrink] = useState(null);
     const [newDrinkName, setNewDrinkName] = useState('');
-    const [newDrinkCaffeine, setNewDrinkCaffeine] = useState('');
+    // const [newDrinkCaffeine, setNewDrinkCaffeine] = useState(''); // Replaced by specific fields
+    const [newDrinkCaffeineContent, setNewDrinkCaffeineContent] = useState(''); // mg/100ml
+    const [newDrinkCaffeinePerGram, setNewDrinkCaffeinePerGram] = useState(''); // mg/g
+    const [newDrinkCalculationMode, setNewDrinkCalculationMode] = useState('per100ml');
     const [newDrinkVolume, setNewDrinkVolume] = useState('');
     const [newDrinkCategory, setNewDrinkCategory] = useState(DEFAULT_CATEGORY);
 
@@ -62,7 +65,10 @@ const SettingsView = ({
         setShowDrinkEditor(false);
         setEditingDrink(null);
         setNewDrinkName('');
-        setNewDrinkCaffeine('');
+        // setNewDrinkCaffeine(''); // Replaced
+        setNewDrinkCaffeineContent('');
+        setNewDrinkCaffeinePerGram('');
+        setNewDrinkCalculationMode('per100ml');
         setNewDrinkVolume('');
         setNewDrinkCategory(DEFAULT_CATEGORY);
     }, []);
@@ -70,16 +76,35 @@ const SettingsView = ({
     // 处理添加/更新饮品 (使用 useCallback)
     const handleAddOrUpdateDrink = useCallback(() => {
         const name = newDrinkName.trim();
-        const caffeine = parseFloat(newDrinkCaffeine);
         const volume = newDrinkVolume.trim() === '' ? null : parseFloat(newDrinkVolume);
         const category = newDrinkCategory || DEFAULT_CATEGORY;
 
-        if (!name || isNaN(caffeine) || caffeine < 0) {
-            alert("请输入有效的饮品名称和非负的咖啡因含量 (mg/100ml)。");
+        let caffeineContentValue = null;
+        let caffeinePerGramValue = null;
+
+        if (newDrinkCalculationMode === 'per100ml') {
+            caffeineContentValue = parseFloat(newDrinkCaffeineContent);
+            if (isNaN(caffeineContentValue) || caffeineContentValue < 0) {
+                alert("请输入有效的咖啡因含量 (mg/100ml)，必须为非负数字。");
+                return;
+            }
+        } else if (newDrinkCalculationMode === 'perGram') {
+            caffeinePerGramValue = parseFloat(newDrinkCaffeinePerGram);
+            if (isNaN(caffeinePerGramValue) || caffeinePerGramValue < 0) {
+                alert("请输入有效的每克咖啡豆咖啡因含量 (mg/g)，必须为非负数字。");
+                return;
+            }
+        } else {
+            alert("请选择一个有效的计算模式。");
+            return;
+        }
+        
+        if (!name) {
+            alert("请输入饮品名称。");
             return;
         }
         if (volume !== null && (isNaN(volume) || volume <= 0)) {
-            alert("默认容量必须是大于 0 的数字，或留空。");
+            alert(`默认${newDrinkCalculationMode === 'perGram' ? '用量(g)' : '容量(ml)'}必须是大于 0 的数字，或留空。`);
             return;
         }
         const existingDrink = drinks.find(drink =>
@@ -94,7 +119,9 @@ const SettingsView = ({
         const newDrinkData = {
             id: editingDrink?.id || `custom-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
             name: name,
-            caffeineContent: caffeine,
+            calculationMode: newDrinkCalculationMode,
+            caffeineContent: caffeineContentValue,
+            caffeinePerGram: caffeinePerGramValue,
             defaultVolume: volume,
             category: category,
             isPreset: editingDrink?.isPreset ?? false,
@@ -106,7 +133,19 @@ const SettingsView = ({
             setDrinks(prevDrinks => [...prevDrinks, newDrinkData]);
         }
         resetDrinkForm();
-    }, [newDrinkName, newDrinkCaffeine, newDrinkVolume, newDrinkCategory, editingDrink, drinks, setDrinks, resetDrinkForm]);
+    }, [
+        newDrinkName, 
+        // newDrinkCaffeine, // Replaced
+        newDrinkCaffeineContent,
+        newDrinkCaffeinePerGram,
+        newDrinkCalculationMode,
+        newDrinkVolume, 
+        newDrinkCategory, 
+        editingDrink, 
+        drinks, 
+        setDrinks, 
+        resetDrinkForm
+    ]);
 
     // 删除饮品 (使用 useCallback)
     const deleteDrink = useCallback((id) => {
@@ -125,7 +164,10 @@ const SettingsView = ({
     const editDrink = useCallback((drink) => {
         setEditingDrink(drink);
         setNewDrinkName(drink.name);
-        setNewDrinkCaffeine(drink.caffeineContent.toString());
+        const mode = drink.calculationMode || 'per100ml';
+        setNewDrinkCalculationMode(mode);
+        setNewDrinkCaffeineContent(mode === 'per100ml' ? (drink.caffeineContent?.toString() ?? '') : '');
+        setNewDrinkCaffeinePerGram(mode === 'perGram' ? (drink.caffeinePerGram?.toString() ?? '') : '');
         setNewDrinkVolume(drink.defaultVolume?.toString() ?? '');
         setNewDrinkCategory(drink.category || DEFAULT_CATEGORY);
         setShowDrinkEditor(true);
@@ -835,41 +877,102 @@ const SettingsView = ({
                             />
                         </div>
 
-                        {/* 咖啡因含量 */}
+                        {/* 计算模式选择 */}
                         <div className="mb-3">
                             <label
-                                htmlFor="newDrinkCaffeine"
+                                htmlFor="newDrinkCalculationMode"
                                 className="block mb-1 text-sm font-medium transition-colors"
                                 style={{ color: colors.textSecondary }}
                             >
-                                咖啡因含量 (mg/100ml):
+                                咖啡因计算模式:
                             </label>
-                            <input
-                                id="newDrinkCaffeine"
-                                type="number"
-                                className="w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm transition-colors"
+                            <select
+                                id="newDrinkCalculationMode"
+                                className="w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm appearance-none transition-colors"
                                 style={{
                                     borderColor: colors.borderStrong,
                                     backgroundColor: colors.bgCard,
-                                    color: colors.textPrimary
+                                    color: colors.textPrimary,
+                                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                                    backgroundPosition: 'right 0.5rem center',
+                                    backgroundRepeat: 'no-repeat',
+                                    backgroundSize: '1.5em 1.5em',
+                                    paddingRight: '2.5rem',
                                 }}
-                                value={newDrinkCaffeine}
-                                onChange={(e) => setNewDrinkCaffeine(e.target.value)}
-                                placeholder="每100ml的咖啡因毫克数"
-                                min="0"
-                                step="0.1" // 允许小数
-                                required // HTML5 验证
-                            />
+                                value={newDrinkCalculationMode}
+                                onChange={(e) => setNewDrinkCalculationMode(e.target.value)}
+                            >
+                                <option value="per100ml">按液体体积 (mg/100ml)</option>
+                                <option value="perGram">按咖啡豆重量 (mg/g)</option>
+                            </select>
                         </div>
 
-                        {/* 默认容量 */}
+                        {/* 咖啡因含量 (mg/100ml) - 条件渲染 */}
+                        {newDrinkCalculationMode === 'per100ml' && (
+                            <div className="mb-3">
+                                <label
+                                    htmlFor="newDrinkCaffeineContent"
+                                    className="block mb-1 text-sm font-medium transition-colors"
+                                    style={{ color: colors.textSecondary }}
+                                >
+                                    咖啡因含量 (mg/100ml):
+                                </label>
+                                <input
+                                    id="newDrinkCaffeineContent"
+                                    type="number"
+                                    className="w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm transition-colors"
+                                    style={{
+                                        borderColor: colors.borderStrong,
+                                        backgroundColor: colors.bgCard,
+                                        color: colors.textPrimary
+                                    }}
+                                    value={newDrinkCaffeineContent}
+                                    onChange={(e) => setNewDrinkCaffeineContent(e.target.value)}
+                                    placeholder="每100ml液体中的咖啡因毫克数"
+                                    min="0"
+                                    step="0.1"
+                                    required={newDrinkCalculationMode === 'per100ml'}
+                                />
+                            </div>
+                        )}
+
+                        {/* 每克咖啡豆咖啡因含量 (mg/g) - 条件渲染 */}
+                        {newDrinkCalculationMode === 'perGram' && (
+                            <div className="mb-3">
+                                <label
+                                    htmlFor="newDrinkCaffeinePerGram"
+                                    className="block mb-1 text-sm font-medium transition-colors"
+                                    style={{ color: colors.textSecondary }}
+                                >
+                                    每克咖啡豆咖啡因含量 (mg/g):
+                                </label>
+                                <input
+                                    id="newDrinkCaffeinePerGram"
+                                    type="number"
+                                    className="w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm transition-colors"
+                                    style={{
+                                        borderColor: colors.borderStrong,
+                                        backgroundColor: colors.bgCard,
+                                        color: colors.textPrimary
+                                    }}
+                                    value={newDrinkCaffeinePerGram}
+                                    onChange={(e) => setNewDrinkCaffeinePerGram(e.target.value)}
+                                    placeholder="每克咖啡豆的咖啡因毫克数"
+                                    min="0"
+                                    step="0.1"
+                                    required={newDrinkCalculationMode === 'perGram'}
+                                />
+                            </div>
+                        )}
+                        
+                        {/* 默认容量/用量 */}
                         <div className="mb-3">
                             <label
                                 htmlFor="newDrinkVolume"
                                 className="block mb-1 text-sm font-medium transition-colors"
                                 style={{ color: colors.textSecondary }}
                             >
-                                默认容量 (ml, 可选):
+                                {newDrinkCalculationMode === 'perGram' ? '默认用量 (g, 可选):' : '默认容量 (ml, 可选):'}
                             </label>
                             <input
                                 id="newDrinkVolume"
@@ -882,7 +985,7 @@ const SettingsView = ({
                                 }}
                                 value={newDrinkVolume}
                                 onChange={(e) => setNewDrinkVolume(e.target.value)}
-                                placeholder="例如: 350 (留空则无默认)"
+                                placeholder={newDrinkCalculationMode === 'perGram' ? "例如: 15 (克)" : "例如: 350 (毫升)"}
                                 min="1"
                                 step="1"
                             />
@@ -1023,8 +1126,16 @@ const SettingsView = ({
                                                 <span className="inline-flex items-center mr-2">
                                                     <Tag size={12} className="mr-0.5" aria-hidden="true" />{drink.category || DEFAULT_CATEGORY}
                                                 </span>
-                                                <span>{drink.caffeineContent}mg/100ml</span>
-                                                {drink.defaultVolume && <span className="ml-1">({drink.defaultVolume}ml)</span>}
+                                                <span>
+                                                    {drink.calculationMode === 'perGram' 
+                                                        ? `${drink.caffeinePerGram ?? 0}mg/g` 
+                                                        : `${drink.caffeineContent ?? 0}mg/100ml`}
+                                                </span>
+                                                {drink.defaultVolume && (
+                                                    <span className="ml-1">
+                                                        ({drink.defaultVolume}{drink.calculationMode === 'perGram' ? 'g' : 'ml'})
+                                                    </span>
+                                                )}
                                             </p>
                                         </div>
                                         <div className="flex items-center flex-shrink-0 space-x-1 ml-2">

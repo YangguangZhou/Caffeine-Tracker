@@ -161,13 +161,33 @@ const CaffeineTracker = () => {
 
     const processLoadedDrinks = (drinksToProcess) => {
       if (!Array.isArray(drinksToProcess)) return [...initialPresetDrinks];
-      const validDrinks = drinksToProcess.filter(d => d && typeof d.id !== 'undefined' && typeof d.name === 'string' && typeof d.caffeineContent === 'number');
+      const validDrinks = drinksToProcess.filter(d => d && typeof d.id !== 'undefined' && typeof d.name === 'string'); // Relax caffeineContent check here, will be handled by mode
       const savedDrinkIds = new Set(validDrinks.map(d => d.id));
       const newPresetsToAdd = initialPresetDrinks.filter(p => !savedDrinkIds.has(p.id));
+      
       const validatedSavedDrinks = validDrinks.map(d => {
         const isOriginalPreset = originalPresetDrinkIds.has(d.id);
         const originalPresetData = isOriginalPreset ? initialPresetDrinks.find(p => p.id === d.id) : {};
-        return { ...d, category: d.category || (isOriginalPreset ? originalPresetData.category : '其他'), isPreset: d.isPreset ?? isOriginalPreset, defaultVolume: d.defaultVolume !== undefined ? d.defaultVolume : (originalPresetData?.defaultVolume ?? null) };
+        
+        const mode = d.calculationMode || originalPresetData?.calculationMode || 'per100ml';
+        let cc = null;
+        let cpg = null;
+
+        if (mode === 'perGram') {
+          cpg = (d.caffeinePerGram !== undefined && d.caffeinePerGram !== null) ? d.caffeinePerGram : (originalPresetData?.caffeinePerGram ?? 0);
+        } else { // per100ml
+          cc = (d.caffeineContent !== undefined && d.caffeineContent !== null) ? d.caffeineContent : (originalPresetData?.caffeineContent ?? 0);
+        }
+
+        return { 
+          ...d, 
+          category: d.category || (isOriginalPreset ? originalPresetData.category : DEFAULT_CATEGORY), 
+          isPreset: d.isPreset ?? isOriginalPreset, 
+          defaultVolume: d.defaultVolume !== undefined ? d.defaultVolume : (originalPresetData?.defaultVolume ?? null),
+          calculationMode: mode,
+          caffeineContent: cc,
+          caffeinePerGram: cpg
+        };
       });
       return [...validatedSavedDrinks, ...newPresetsToAdd].sort((a, b) => a.name.localeCompare(b.name));
     };
@@ -305,7 +325,7 @@ const CaffeineTracker = () => {
   useEffect(() => {
     if (drinks.length > 0 || localStorage.getItem('caffeineDrinks') !== null) {
       try {
-        const drinksToSave = drinks.map(({ id, name, caffeineContent, defaultVolume, category, isPreset }) => ({ id, name, caffeineContent, defaultVolume, category, isPreset }));
+        const drinksToSave = drinks.map(({ id, name, caffeineContent, caffeinePerGram, calculationMode, defaultVolume, category, isPreset }) => ({ id, name, caffeineContent, caffeinePerGram, calculationMode, defaultVolume, category, isPreset }));
         localStorage.setItem('caffeineDrinks', JSON.stringify(drinksToSave));
       } catch (error) {
         console.error('Error saving drinks list to localStorage:', error);
@@ -426,13 +446,33 @@ const CaffeineTracker = () => {
         if (result.data) {
           const processSyncedDrinks = (drinksToProcess) => {
             if (!Array.isArray(drinksToProcess)) return [...initialPresetDrinks];
-            const validDrinks = drinksToProcess.filter(d => d && typeof d.id !== 'undefined' && typeof d.name === 'string' && typeof d.caffeineContent === 'number');
+            const validDrinks = drinksToProcess.filter(d => d && typeof d.id !== 'undefined' && typeof d.name === 'string');
             const savedDrinkIds = new Set(validDrinks.map(d => d.id));
             const newPresetsToAdd = initialPresetDrinks.filter(p => !savedDrinkIds.has(p.id));
+            
             const validatedSavedDrinks = validDrinks.map(d => {
               const isOriginalPreset = originalPresetDrinkIds.has(d.id);
               const originalPresetData = isOriginalPreset ? initialPresetDrinks.find(p => p.id === d.id) : {};
-              return { ...d, category: d.category || (isOriginalPreset ? originalPresetData.category : '其他'), isPreset: d.isPreset ?? isOriginalPreset, defaultVolume: d.defaultVolume !== undefined ? d.defaultVolume : (originalPresetData?.defaultVolume ?? null) };
+
+              const mode = d.calculationMode || originalPresetData?.calculationMode || 'per100ml';
+              let cc = null;
+              let cpg = null;
+
+              if (mode === 'perGram') {
+                cpg = (d.caffeinePerGram !== undefined && d.caffeinePerGram !== null) ? d.caffeinePerGram : (originalPresetData?.caffeinePerGram ?? 0);
+              } else { // per100ml
+                cc = (d.caffeineContent !== undefined && d.caffeineContent !== null) ? d.caffeineContent : (originalPresetData?.caffeineContent ?? 0);
+              }
+              
+              return { 
+                ...d, 
+                category: d.category || (isOriginalPreset ? originalPresetData.category : DEFAULT_CATEGORY), 
+                isPreset: d.isPreset ?? isOriginalPreset, 
+                defaultVolume: d.defaultVolume !== undefined ? d.defaultVolume : (originalPresetData?.defaultVolume ?? null),
+                calculationMode: mode,
+                caffeineContent: cc,
+                caffeinePerGram: cpg
+              };
             });
             return [...validatedSavedDrinks, ...newPresetsToAdd].sort((a, b) => a.name.localeCompare(b.name));
           };

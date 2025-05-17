@@ -33,9 +33,9 @@ const IntakeForm = ({
   // 选中的饮品
   const selectedDrink = drinks.find(d => d.id === selectedDrinkId);
   
-  // 计算的咖啡因量（基于体积）
+  // 计算的咖啡因量（基于体积或重量）
   const calculatedAmount = selectedDrink && drinkVolume 
-    ? calculateCaffeineAmount(selectedDrink.caffeineContent, parseFloat(drinkVolume))
+    ? calculateCaffeineAmount(selectedDrink, parseFloat(drinkVolume))
     : null;
 
   // 加载初始值（用于编辑模式）
@@ -56,6 +56,8 @@ const IntakeForm = ({
       if (drink) {
         setDrinkVolume(drink.defaultVolume?.toString() ?? '');
         setEntryName(drink.name);
+        // 清除自定义量，因为选择了预设饮品，其计算方式已确定
+        setCustomAmount(''); 
       }
     }
   }, [selectedDrinkId, drinks, initialValues]);
@@ -107,11 +109,11 @@ const IntakeForm = ({
         return; 
       }
       
-      const caffeineContent = drink.caffeineContent;
+      const caffeineContent = drink.caffeineContent; // This specific variable might not be directly used if calculateCaffeineAmount takes the whole drink object
       const parsedVolume = parseFloat(drinkVolume);
       
-      if (!isNaN(parsedVolume) && parsedVolume > 0 && caffeineContent >= 0) {
-        caffeineAmount = calculateCaffeineAmount(caffeineContent, parsedVolume);
+      if (!isNaN(parsedVolume) && parsedVolume > 0) { // caffeineContent check is now inside calculateCaffeineAmount
+        caffeineAmount = calculateCaffeineAmount(drink, parsedVolume);
         volume = parsedVolume;
         drinkIdForRecord = drink.id;
         nameForRecord = finalEntryName || drink.name;
@@ -121,7 +123,7 @@ const IntakeForm = ({
           customNameValue = finalEntryName;
         }
       } else {
-        alert("请输入有效的容量 (必须大于 0)。");
+        alert(selectedDrink?.calculationMode === 'perGram' ? "请输入有效的咖啡豆用量 (必须大于 0)。" : "请输入有效的容量 (必须大于 0)。");
         return;
       }
     }
@@ -157,6 +159,15 @@ const IntakeForm = ({
     // 调用提交回调
     onSubmit(record);
   };
+
+  const volumeInputLabel = selectedDrink?.calculationMode === 'perGram' ? "咖啡豆用量 (g):" : "容量 (ml):";
+  const volumeInputPlaceholder = selectedDrink?.calculationMode === 'perGram' 
+    ? `例如: ${selectedDrink?.defaultVolume ?? '15'}` 
+    : `例如: ${selectedDrink?.defaultVolume ?? '250'}`;
+  const volumeInputMin = "1";
+  const volumeHelpText = selectedDrink?.calculationMode === 'perGram'
+    ? "输入咖啡豆用量(克)以计算咖啡因。如需直接输入含量，请清除饮品选择。"
+    : "输入容量以计算咖啡因。如需直接输入含量，请清除饮品选择。";
 
   return (
     <div className="transition-all">
@@ -239,7 +250,7 @@ const IntakeForm = ({
         </p>
       </div>
 
-      {/* 容量输入（条件渲染） */}
+      {/* 容量/重量输入（条件渲染） */}
       {selectedDrinkId && (
         <div className="mb-4">
           <label 
@@ -247,7 +258,7 @@ const IntakeForm = ({
             className="block mb-1 font-medium text-sm transition-colors" 
             style={{ color: colors.textSecondary }}
           >
-            容量 (ml):
+            {volumeInputLabel}
           </label>
           <input 
             id="drinkVolume" 
@@ -259,9 +270,15 @@ const IntakeForm = ({
               color: colors.textPrimary
             }}
             value={drinkVolume} 
-            onChange={(e) => setDrinkVolume(e.target.value)} 
-            placeholder={`例如: ${selectedDrink?.defaultVolume ?? '250'}`} 
-            min="1" 
+            onChange={(e) => {
+              setDrinkVolume(e.target.value);
+              // 当通过容量/重量输入时，清除自定义摄入量
+              if (e.target.value.trim() !== '') {
+                setCustomAmount('');
+              }
+            }} 
+            placeholder={volumeInputPlaceholder} 
+            min={volumeInputMin} 
           />
           {calculatedAmount !== null && (
             <div 
@@ -275,7 +292,7 @@ const IntakeForm = ({
             className="text-xs mt-1 transition-colors" 
             style={{ color: colors.textMuted }}
           >
-            输入容量以计算咖啡因。如需直接输入含量，请清除饮品选择。
+            {volumeHelpText}
           </p>
         </div>
       )}
@@ -299,7 +316,16 @@ const IntakeForm = ({
             color: colors.textPrimary
           }}
           value={customAmount} 
-          onChange={(e) => setCustomAmount(e.target.value)} 
+          onChange={(e) => {
+            setCustomAmount(e.target.value);
+            // 当用户开始输入自定义含量时，如果之前选择了饮品，则清除饮品选择和用量/体积
+            // 这样可以避免混淆：是按饮品计算还是按自定义含量计算
+            if (e.target.value.trim() !== '' && selectedDrinkId) {
+                //保留饮品选择，让用户可以基于某个饮品手动调整总量
+                //setSelectedDrinkId(''); 
+                //setDrinkVolume('');
+            }
+          }} 
           placeholder="直接输入咖啡因毫克数" 
           min="0" 
         />
