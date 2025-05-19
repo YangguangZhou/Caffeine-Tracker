@@ -5,6 +5,8 @@
   <a href="https://github.com/YangguangZhou/Caffeine-Tracker/issues" target="_blank"><img src="https://img.shields.io/github/issues/YangguangZhou/Caffeine-Tracker?style=flat-square" alt="GitHub issues"></a>
   <a href="https://github.com/YangguangZhou/Caffeine-Tracker/network" target="_blank"><img src="https://img.shields.io/github/forks/YangguangZhou/Caffeine-Tracker?style=flat-square" alt="GitHub forks"></a>
   <a href="https://github.com/YangguangZhou/Caffeine-Tracker/stargazers" target="_blank"><img src="https://img.shields.io/github/stars/YangguangZhou/Caffeine-Tracker?style=flat-square" alt="GitHub stars"></a>
+  <a href="https://github.com/YangguangZhou/Caffeine-Tracker/releases" target="_blank"><img src="https://img.shields.io/github/v/release/YangguangZhou/Caffeine-Tracker?style=flat-square" alt="GitHub release (latest by date)"></a>
+  <a href="https://github.com/YangguangZhou/Caffeine-Tracker/releases" target="_blank"><img src="https://img.shields.io/github/release-date/YangguangZhou/Caffeine-Tracker?style=flat-square" alt="GitHub Release Date"></a>
   <br>
    <a href="https://ct.jerryz.com.cn/" target="_blank"><img src="https://img.shields.io/badge/Web%20App-在线体验-blue?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Web App"></a>
   <a href="https://cloud.jerryz.com.cn/d/OneDrive/OnlineDrive/Caffeine%20Manager/app-release.apk" target="_blank"><img src="https://img.shields.io/badge/Android%20App-立即下载-green?style=for-the-badge&logo=android&logoColor=white" alt="Android App"></a>
