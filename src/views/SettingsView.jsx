@@ -206,14 +206,30 @@ const SettingsView = ({
         setTestingWebDAV(true);
         setWebDAVTestResult(null);
         
-        // 检查基本配置
-        if (!userSettings.webdavServer || !userSettings.webdavUsername || !userSettings.webdavPassword) {
+        // 详细的配置检查
+        const configCheck = {
+            hasServer: !!userSettings.webdavServer,
+            hasUsername: !!userSettings.webdavUsername,
+            hasPassword: !!userSettings.webdavPassword,
+            serverValid: userSettings.webdavServer && userSettings.webdavServer.startsWith('http')
+        };
+        
+        console.log("WebDAV配置检查:", configCheck);
+        
+        if (!configCheck.hasServer || !configCheck.hasUsername || !configCheck.hasPassword) {
             const errorMsg = "请确保已填写服务器地址、用户名和密码";
-            console.error("WebDAV配置不完整:", {
-                hasServer: !!userSettings.webdavServer,
-                hasUsername: !!userSettings.webdavUsername,
-                hasPassword: !!userSettings.webdavPassword
+            console.error("WebDAV配置不完整:", configCheck);
+            setWebDAVTestResult({ 
+                success: false, 
+                message: errorMsg 
             });
+            setTestingWebDAV(false);
+            return;
+        }
+
+        if (!configCheck.serverValid) {
+            const errorMsg = "服务器地址必须以 http:// 或 https:// 开头";
+            console.error("服务器地址格式错误:", userSettings.webdavServer);
             setWebDAVTestResult({ 
                 success: false, 
                 message: errorMsg 
@@ -238,26 +254,55 @@ const SettingsView = ({
                 userSettings.webdavPassword
             );
             
+            // 验证客户端配置
+            if (!client.isConfigured()) {
+                throw new Error("WebDAV客户端配置无效");
+            }
+            
             console.log("开始测试WebDAV连接...", {
                 server: userSettings.webdavServer,
                 username: userSettings.webdavUsername,
                 hasPassword: !!userSettings.webdavPassword,
-                platform: isNativePlatform ? 'native' : 'web'
+                platform: isNativePlatform ? 'native' : 'web',
+                userAgent: navigator.userAgent.substring(0, 50) + '...'
             });
             
             const result = await client.testConnection();
             console.log("WebDAV测试结果:", result);
             setWebDAVTestResult(result);
+            
+            // 如果连接成功，可以进行额外的检查
+            if (result.success) {
+                console.log("连接测试成功，WebDAV服务器可用");
+            } else {
+                console.error("连接测试失败:", result.message);
+            }
+            
         } catch (error) {
             console.error("测试WebDAV连接时出现异常:", {
                 message: error.message,
                 stack: error.stack,
                 name: error.name,
-                platform: isNativePlatform ? 'native' : 'web'
+                platform: isNativePlatform ? 'native' : 'web',
+                configCheck: configCheck
             });
+            
+            let errorMessage = `连接错误: ${error.message}`;
+            
+            // 根据错误类型提供更有用的提示
+            if (error.message.includes('Failed to fetch')) {
+                errorMessage += isNativePlatform 
+                    ? " (请检查网络连接和服务器地址)" 
+                    : " (请检查网络连接、服务器地址和CORS配置)";
+            } else if (error.message.includes('CORS')) {
+                errorMessage += " (跨域问题：请在WebDAV服务器配置允许跨域访问)";
+            } else if (error.message.includes('SSL') || error.message.includes('certificate')) {
+                errorMessage += " (SSL证书问题：请检查HTTPS配置)";
+            }
+            
             setWebDAVTestResult({ 
                 success: false, 
-                message: `连接错误: ${error.message}` 
+                message: errorMessage
             });
         } finally {
             setTestingWebDAV(false);
@@ -857,10 +902,38 @@ const SettingsView = ({
                         </div>
                     )}
 
-                    {/* 测试结果 */}
+                    {/* 测试结果 - 增强显示 */}
                     {webDAVTestResult && (
-                        <div className={`p-3 rounded-lg text-sm ${webDAVTestResult.success ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                            {webDAVTestResult.message}
+                        <div className={`p-3 rounded-lg text-sm border ${
+                            webDAVTestResult.success 
+                                ? 'bg-green-50 text-green-800 border-green-200' 
+                                : 'bg-red-50 text-red-800 border-red-200'
+                        }`}>
+                            <div className="flex items-start">
+                                <div className={`flex-shrink-0 w-4 h-4 rounded-full mt-0.5 mr-2 ${
+                                    webDAVTestResult.success ? 'bg-green-500' : 'bg-red-500'
+                                }`} />
+                                <div className="flex-1">
+                                    <p className="font-medium">
+                                        {webDAVTestResult.success ? '连接成功' : '连接失败'}
+                                    </p>
+                                    <p className="mt-1">
+                                        {webDAVTestResult.message}
+                                    </p>
+                                    {!webDAVTestResult.success && (
+                                        <div className="mt-2 text-xs">
+                                            <p>故障排除建议:</p>
+                                            <ul className="list-disc list-inside mt-1 space-y-1">
+                                                <li>确认服务器地址格式正确 (http:// 或 https://)</li>
+                                                <li>检查用户名和密码是否正确</li>
+                                                <li>确认网络连接正常</li>
+                                                {!isNativePlatform && <li>检查服务器是否支持CORS跨域访问</li>}
+                                                <li>确认WebDAV服务已启用</li>
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     )}
 

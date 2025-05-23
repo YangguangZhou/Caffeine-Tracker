@@ -66,11 +66,20 @@ export default class WebDAVClient {
      * 创建标准化的fetch请求配置
      */
     createFetchOptions(method, additionalHeaders = {}, body = null) {
+        // 确保Authorization header正确设置
+        if (!this.authHeader) {
+            console.error("createFetchOptions: 缺少认证头信息");
+        }
+
         const headers = {
-            'Authorization': this.authHeader,
             'User-Agent': this.userAgent,
             ...additionalHeaders
         };
+
+        // 只有在有认证信息时才添加Authorization头
+        if (this.authHeader) {
+            headers['Authorization'] = this.authHeader;
+        }
 
         const fetchOptions = {
             method,
@@ -81,10 +90,20 @@ export default class WebDAVClient {
             fetchOptions.body = body;
         }
 
-        // 只在Web平台添加CORS模式
-        if (!this.isNative) {
+        // 根据平台设置不同的请求配置
+        if (this.isNative) {
+            // 原生平台：不需要CORS设置，但需要确保认证
+            console.log('原生平台请求配置');
+        } else {
+            // Web平台：需要CORS设置
             fetchOptions.mode = 'cors';
-            fetchOptions.credentials = 'omit'; // 避免发送cookies
+            fetchOptions.credentials = 'omit'; // 不发送cookies，使用Basic认证
+            
+            // 对于Web平台，确保预检请求能通过
+            if (method === 'OPTIONS' || method === 'PUT' || method === 'DELETE') {
+                // 这些方法可能触发预检请求
+                console.log('Web平台：可能触发CORS预检的请求');
+            }
         }
 
         console.log('创建fetch配置', {
@@ -92,8 +111,9 @@ export default class WebDAVClient {
             platform: this.platform,
             isNative: this.isNative,
             hasBody: body !== null,
+            hasAuth: !!this.authHeader,
             headers: Object.keys(headers).reduce((acc, key) => {
-                acc[key] = key === 'Authorization' ? '[HIDDEN]' : headers[key];
+                acc[key] = key === 'Authorization' ? '[REDACTED]' : headers[key];
                 return acc;
             }, {})
         });
@@ -154,35 +174,111 @@ export default class WebDAVClient {
         }
 
         try {
+            // 首先尝试HEAD请求，这是最轻量的方式
             const url = new URL(this.fileName, this.server);
             console.log(`测试连接URL: ${url.toString()}`);
+            console.log(`认证信息状态: ${this.authHeader ? '已设置' : '未设置'}`);
 
-            const fetchOptions = this.createFetchOptions('OPTIONS');
-            const response = await this.executeRequest(url, fetchOptions, 'OPTIONS连接测试');
-
-            if (response.ok) {
-                console.log("连接测试成功");
-                return { success: true, message: "连接成功 (服务器可达且OPTIONS请求成功)" };
-            } else {
-                const errorMsg = `连接失败: ${response.status} ${response.statusText} (OPTIONS请求)`;
-                console.error("连接测试失败:", errorMsg);
-                return { success: false, message: errorMsg };
+            let response;
+            let testMethod = 'HEAD';
+            
+            try {
+                // 尝试HEAD请求
+                const fetchOptions = this.createFetchOptions('HEAD');
+                response = await this.executeRequest(url, fetchOptions, 'HEAD连接测试');
+                
+                if (response.ok || response.status === 404) {
+                    // 200 OK 或 404 Not Found 都表示连接成功
+                    console.log("HEAD请求测试成功");
+                    return { 
+                        success: true, 
+                        message: `连接成功 (${response.status} ${response.statusText} via HEAD)` 
+                    };
+                } else if (response.status === 401) {
+                    return { 
+                        success: false, 
+                        message: `认证失败 (401): 请检查用户名和密码` 
+                    };
+                } else if (response.status === 403) {
+                    return { 
+                        success: false, 
+                        message: `权限被拒绝 (403): 用户可能没有访问权限` 
+                    };
+                } else if (response.status === 405) {
+                    // Method Not Allowed，尝试OPTIONS请求
+                    console.log("HEAD请求不被支持，尝试OPTIONS请求");
+                    testMethod = 'OPTIONS';
+                } else {
+                    return { 
+                        success: false, 
+                        message: `连接失败: ${response.status} ${response.statusText} (HEAD请求)` 
+                    };
+                }
+            } catch (headError) {
+                console.warn("HEAD请求失败，尝试OPTIONS请求:", headError.message);
+                testMethod = 'OPTIONS';
             }
+
+            if (testMethod === 'OPTIONS') {
+                try {
+                    const fetchOptions = this.createFetchOptions('OPTIONS');
+                    response = await this.executeRequest(url, fetchOptions, 'OPTIONS连接测试');
+                    
+                    if (response.ok) {
+                        console.log("OPTIONS请求测试成功");
+                        return { 
+                            success: true, 
+                            message: `连接成功 (${response.status} ${response.statusText} via OPTIONS)` 
+                        };
+                    } else if (response.status === 401) {
+                        return { 
+                            success: false, 
+                            message: `认证失败 (401): 请检查用户名和密码` 
+                        };
+                    } else if (response.status === 403) {
+                        return { 
+                            success: false, 
+                            message: `权限被拒绝 (403): 用户可能没有访问权限` 
+                        };
+                    } else {
+                        return { 
+                            success: false, 
+                            message: `连接失败: ${response.status} ${response.statusText} (OPTIONS请求)` 
+                        };
+                    }
+                } catch (optionsError) {
+                    console.error("OPTIONS请求也失败:", optionsError.message);
+                    throw optionsError;
+                }
+            }
+
         } catch (error) {
             console.error("WebDAV连接测试异常:", {
                 message: error.message,
                 stack: error.stack,
-                platform: this.platform
+                platform: this.platform,
+                name: error.name
             });
             
             let message = `连接错误: ${error.message}`;
+            
+            // 根据错误类型提供更具体的建议
             if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-                message += " (请检查网络连接、服务器URL和CORS配置)";
+                if (this.isNative) {
+                    message += " (请检查网络连接和服务器地址)";
+                } else {
+                    message += " (请检查网络连接、服务器URL和CORS配置)";
+                }
+            } else if (error.message.toLowerCase().includes('cors')) {
+                message += " (CORS跨域问题：请在服务器端配置允许跨域访问)";
+            } else if (error.message.toLowerCase().includes('network')) {
+                message += " (网络连接问题：请检查网络状态)";
+            } else if (error.message.toLowerCase().includes('ssl') || error.message.toLowerCase().includes('certificate')) {
+                message += " (SSL证书问题：请检查HTTPS配置)";
+            } else if (error.message.toLowerCase().includes('timeout')) {
+                message += " (请求超时：请检查服务器响应速度)";
             }
-            if (error.message.toLowerCase().includes('method not allowed') || 
-                error.message.toLowerCase().includes('expected one of')) {
-                message += " (服务器可能不支持OPTIONS请求或客户端限制了该方法)";
-            }
+            
             return { success: false, message: message };
         }
     }
@@ -223,12 +319,23 @@ export default class WebDAVClient {
 
         try {
             const url = new URL(this.fileName, this.server);
+            console.log(`下载数据URL: ${url.toString()}`);
+            console.log(`认证状态: ${this.authHeader ? '已配置' : '未配置'}`);
+            
             const fetchOptions = this.createFetchOptions('GET');
             const response = await this.executeRequest(url, fetchOptions, 'GET下载数据');
 
             if (response.status === 404) {
-                console.log("远程文件未找到 (404)");
+                console.log("远程文件未找到 (404) - 这是正常的，表示首次同步");
                 return null;
+            }
+
+            if (response.status === 401) {
+                throw new Error("认证失败 (401): 用户名或密码错误");
+            }
+
+            if (response.status === 403) {
+                throw new Error("权限被拒绝 (403): 用户没有读取权限");
             }
 
             if (!response.ok) {
@@ -237,11 +344,16 @@ export default class WebDAVClient {
                 throw new Error(error);
             }
 
-            const contentType = response.headers.get('content-type');
+            const contentType = response.headers.get('content-type') || 'unknown';
             console.log(`下载响应内容类型: ${contentType}`);
 
             const text = await response.text();
             console.log(`下载的原始文本长度: ${text.length}`);
+
+            if (text.length === 0) {
+                console.warn("下载的文件为空");
+                return null;
+            }
 
             let data;
             try {
@@ -250,7 +362,8 @@ export default class WebDAVClient {
             } catch (parseError) {
                 console.error("JSON解析失败:", {
                     error: parseError.message,
-                    textPreview: text.substring(0, 200)
+                    textPreview: text.substring(0, 200),
+                    textLength: text.length
                 });
                 throw new Error(`下载的数据JSON格式无效: ${parseError.message}`);
             }
@@ -291,7 +404,8 @@ export default class WebDAVClient {
             console.error("下载数据过程中发生错误:", {
                 message: error.message,
                 stack: error.stack,
-                platform: this.platform
+                platform: this.platform,
+                hasAuth: !!this.authHeader
             });
             throw error;
         }
@@ -332,18 +446,44 @@ export default class WebDAVClient {
 
         try {
             const url = new URL(this.fileName, this.server);
-            const jsonString = JSON.stringify(dataToUpload);
-            console.log(`上传JSON字符串长度: ${jsonString.length}`);
+            const jsonString = JSON.stringify(dataToUpload, null, 2); // 添加格式化以便调试
+            console.log(`上传数据到: ${url.toString()}`);
+            console.log(`JSON字符串长度: ${jsonString.length}`);
+            console.log(`认证状态: ${this.authHeader ? '已配置' : '未配置'}`);
 
             const fetchOptions = this.createFetchOptions('PUT', {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json; charset=utf-8',
+                'Content-Length': jsonString.length.toString()
             }, jsonString);
 
             const response = await this.executeRequest(url, fetchOptions, 'PUT上传数据');
 
+            if (response.status === 401) {
+                throw new Error("认证失败 (401): 用户名或密码错误");
+            }
+
+            if (response.status === 403) {
+                throw new Error("权限被拒绝 (403): 用户没有写入权限");
+            }
+
+            if (response.status === 507) {
+                throw new Error("存储空间不足 (507): 服务器空间已满");
+            }
+
             if (!response.ok) {
                 const error = `上传数据失败: ${response.status} ${response.statusText}`;
                 console.error(error);
+                
+                // 尝试获取响应体以获取更多错误信息
+                try {
+                    const responseText = await response.text();
+                    if (responseText) {
+                        console.error("服务器错误详情:", responseText);
+                    }
+                } catch (textError) {
+                    console.warn("无法读取错误响应:", textError.message);
+                }
+                
                 throw new Error(error);
             }
 
@@ -353,7 +493,8 @@ export default class WebDAVClient {
             console.error("上传数据过程中发生错误:", {
                 message: error.message,
                 stack: error.stack,
-                platform: this.platform
+                platform: this.platform,
+                hasAuth: !!this.authHeader
             });
             throw error;
         }
