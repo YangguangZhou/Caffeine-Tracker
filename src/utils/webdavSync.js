@@ -37,7 +37,7 @@ export default class WebDAVClient {
         this.isNative = Capacitor.isNativePlatform();
 
         console.log('WebDAVClient 初始化完成', {
-            serverUrl: this.server,
+            serverUrl: this.server ? this.server.substring(0, 30) + '...' : '未设置', // 截断长URL
             hasAuthHeader: !!this.authHeader,
             platform: this.platform,
             isNative: this.isNative
@@ -55,7 +55,7 @@ export default class WebDAVClient {
     createFetchOptions(method, additionalHeaders = {}, body = null) {
         // 确保Authorization header正确设置
         if (!this.authHeader) {
-            console.error("createFetchOptions: 缺少认证头信息");
+            // console.error("createFetchOptions: 缺少认证头信息"); // 仅在实际请求失败时记录此信息
         }
 
         const headers = {
@@ -80,7 +80,7 @@ export default class WebDAVClient {
         // 根据平台设置不同的请求配置
         if (this.isNative) {
             // 原生平台：不需要CORS设置，但需要确保认证
-            console.log('原生平台请求配置');
+            // console.log('原生平台请求配置'); // 通常不需要此日志
         } else {
             // Web平台：需要CORS设置
             fetchOptions.mode = 'cors';
@@ -119,23 +119,21 @@ export default class WebDAVClient {
             url: url.toString(),
             method: options.method,
             platform: this.platform,
-            hasAuth: !!options.headers?.Authorization,
+            // hasAuth: !!options.headers?.Authorization, // 通常不需要此日志
             isNative: this.isNative
         });
 
         try {
             const response = await fetch(url.toString(), options);
 
-            console.log(`${operation} 响应`, {
-                status: response.status,
-                statusText: response.statusText,
+            console.log(`${operation} 响应状态: ${response.status} ${response.statusText}`, {
                 ok: response.ok,
                 type: response.type,
-                url: response.url,
-                headers: Array.from(response.headers.entries()).reduce((acc, [key, value]) => {
-                    acc[key] = value;
-                    return acc;
-                }, {})
+                // url: response.url, // 通常与请求URL相同
+                // headers: Array.from(response.headers.entries()).reduce((acc, [key, value]) => { // 移除详细头信息
+                //     acc[key] = value;
+                //     return acc;
+                // }, {})
             });
 
             return response;
@@ -182,7 +180,7 @@ export default class WebDAVClient {
 
                 if (response.ok || response.status === 404) {
                     // 200 OK 或 404 Not Found 都表示连接成功
-                    console.log("HEAD请求测试成功");
+                    // console.log("HEAD请求测试成功"); // 包含在最终结果消息中
                     return {
                         success: true,
                         message: `连接成功 (${response.status} ${response.statusText} via HEAD)`
@@ -218,7 +216,7 @@ export default class WebDAVClient {
                     response = await this.executeRequest(url, fetchOptions, 'OPTIONS连接测试');
 
                     if (response.ok) {
-                        console.log("OPTIONS请求测试成功");
+                        // console.log("OPTIONS请求测试成功"); // 包含在最终结果消息中
                         return {
                             success: true,
                             message: `连接成功 (${response.status} ${response.statusText} via OPTIONS)`
@@ -312,8 +310,8 @@ export default class WebDAVClient {
 
         try {
             const url = new URL(this.fileName, this.server);
-            console.log(`下载数据URL: ${url.toString()}`);
-            console.log(`认证状态: ${this.authHeader ? '已配置' : '未配置'}`);
+            // console.log(`下载数据URL: ${url.toString()}`); // 已在 executeRequest 中记录
+            // console.log(`认证状态: ${this.authHeader ? '已配置' : '未配置'}`); // 客户端状态，非关键日志
 
             const fetchOptions = this.createFetchOptions('GET');
             const response = await this.executeRequest(url, fetchOptions, 'GET下载数据');
@@ -337,11 +335,8 @@ export default class WebDAVClient {
                 throw new Error(error);
             }
 
-            const contentType = response.headers.get('content-type') || 'unknown';
-            console.log(`下载响应内容类型: ${contentType}`);
-
             const text = await response.text();
-            console.log(`下载的原始文本长度: ${text.length}`);
+            // console.log(`下载的原始文本长度: ${text.length}`); // 通常不关键
 
             if (text.length === 0) {
                 console.warn("下载的文件为空");
@@ -351,11 +346,11 @@ export default class WebDAVClient {
             let data;
             try {
                 data = JSON.parse(text);
-                console.log("JSON解析成功");
+                // console.log("JSON解析成功"); // 隐含在后续日志中
             } catch (parseError) {
                 console.error("JSON解析失败:", {
                     error: parseError.message,
-                    textPreview: text.substring(0, 200),
+                    textPreview: text.substring(0, 100), // 缩短预览
                     textLength: text.length
                 });
                 throw new Error(`下载的数据JSON格式无效: ${parseError.message}`);
@@ -426,12 +421,12 @@ export default class WebDAVClient {
             if (dataToUpload.userSettings && dataToUpload.userSettings.hasOwnProperty('webdavPassword')) {
                 delete dataToUpload.userSettings.webdavPassword;
             }
-            console.log("上传数据准备完成:", {
-                recordsCount: dataToUpload.records ? dataToUpload.records.length : 0,
-                drinksCount: dataToUpload.drinks ? dataToUpload.drinks.length : 0,
-                hasUserSettings: !!dataToUpload.userSettings,
-                syncTimestamp: dataToUpload.syncTimestamp
-            });
+            // console.log("上传数据准备完成:", { // 隐含在后续日志中
+            //     recordsCount: dataToUpload.records ? dataToUpload.records.length : 0,
+            //     drinksCount: dataToUpload.drinks ? dataToUpload.drinks.length : 0,
+            //     hasUserSettings: !!dataToUpload.userSettings,
+            //     syncTimestamp: dataToUpload.syncTimestamp
+            // });
         } catch (error) {
             console.error("准备上传数据时出错:", error.message);
             throw new Error(`数据序列化失败: ${error.message}`);
@@ -440,9 +435,9 @@ export default class WebDAVClient {
         try {
             const url = new URL(this.fileName, this.server);
             const jsonString = JSON.stringify(dataToUpload, null, 2); // 添加格式化以便调试
-            console.log(`上传数据到: ${url.toString()}`);
-            console.log(`JSON字符串长度: ${jsonString.length}`);
-            console.log(`认证状态: ${this.authHeader ? '已配置' : '未配置'}`);
+            // console.log(`上传数据到: ${url.toString()}`); // 已在 executeRequest 中记录
+            // console.log(`JSON字符串长度: ${jsonString.length}`); // 通常不关键
+            // console.log(`认证状态: ${this.authHeader ? '已配置' : '未配置'}`); // 客户端状态
 
             const fetchOptions = this.createFetchOptions('PUT', {
                 'Content-Type': 'application/json; charset=utf-8',
@@ -696,7 +691,7 @@ export default class WebDAVClient {
         }
 
 
-        console.log("设置已合并。", mergedSettings);
+        // console.log("设置已合并。", mergedSettings); // mergedSettings 可能非常大，包含许多字段
 
 
         // 创建最终的合并数据结构
@@ -721,13 +716,13 @@ export default class WebDAVClient {
      */
     async performSync(localData, initialPresetDrinks = [], originalPresetDrinkIds = new Set()) {
         console.log("=== 开始WebDAV同步过程 ===");
-        console.log("同步参数:", {
+        console.log("同步参数 (计数):", { // 仅记录计数以避免大数据日志
             platform: this.platform,
             isNative: this.isNative,
             hasLocalData: !!localData,
             localRecordsCount: localData?.records?.length || 0,
             localDrinksCount: localData?.drinks?.length || 0,
-            localSyncTimestamp: localData?.syncTimestamp,
+            localSyncTimestamp: localData?.syncTimestamp || localData?.userSettings?.localLastModifiedTimestamp,
             initialPresetDrinksCount: initialPresetDrinks.length,
             originalPresetDrinkIdsCount: originalPresetDrinkIds.size
         });
@@ -749,11 +744,11 @@ export default class WebDAVClient {
             : { records: [], drinks: [], userSettings: {}, version: 'unknown', syncTimestamp: 0 };
 
         const localTs = currentLocalData.userSettings?.localLastModifiedTimestamp || currentLocalData.syncTimestamp || null;
-        console.log("本地时间戳:", localTs);
+        // console.log("本地时间戳:", localTs); // 已包含在 "同步参数" 中
 
         try {
             // 1. 下载远程数据
-            console.log("步骤1: 下载远程数据");
+            // console.log("步骤1: 下载远程数据"); // 下一个日志会指明
             let remoteData = null;
             try {
                 remoteData = await this.downloadData();
@@ -822,7 +817,7 @@ export default class WebDAVClient {
             }
 
             // 2. 比较并决定操作
-            console.log("步骤2: 比较时间戳并决定操作");
+            // console.log("步骤2: 比较时间戳并决定操作"); // 下一个日志会指明
             const remoteTs = remoteData?.syncTimestamp || null;
             const comparison = this.compareTimestamps(localTs, remoteTs);
             console.log(`时间戳比较结果: ${comparison} (本地: ${localTs}, 远程: ${remoteTs})`);
