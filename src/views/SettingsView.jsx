@@ -214,7 +214,6 @@ const SettingsView = ({
             serverValid: userSettings.webdavServer && userSettings.webdavServer.startsWith('http')
         };
         
-        console.log("WebDAV配置检查:", configCheck);
         
         if (!configCheck.hasServer || !configCheck.hasUsername || !configCheck.hasPassword) {
             const errorMsg = "请确保已填写服务器地址、用户名和密码";
@@ -927,12 +926,52 @@ const SettingsView = ({
                                                 <li>确认服务器地址格式正确 (http:// 或 https://)</li>
                                                 <li>检查用户名和密码是否正确</li>
                                                 <li>确认网络连接正常</li>
-                                                {!isNativePlatform && <li>检查服务器是否支持CORS跨域访问</li>}
+                                                {!isNativePlatform && (
+                                                    <>
+                                                        <li>检查服务器是否支持CORS跨域访问</li>
+                                                        <li>确认WebDAV服务器配置了以下CORS头：
+                                                            <div className="mt-1 text-xs bg-gray-100 p-2 rounded font-mono">
+                                                                Access-Control-Allow-Origin: *<br/>
+                                                                Access-Control-Allow-Methods: GET, PUT, HEAD, OPTIONS<br/>
+                                                                Access-Control-Allow-Headers: Authorization, Content-Type<br/>
+                                                                Access-Control-Allow-Credentials: false
+                                                            </div>
+                                                        </li>
+                                                        <li>如果使用Apache，需要在.htaccess或虚拟主机配置中添加：
+                                                            <div className="mt-1 text-xs bg-gray-100 p-2 rounded font-mono">
+                                                                Header always set Access-Control-Allow-Origin "*"<br/>
+                                                                Header always set Access-Control-Allow-Methods "GET, PUT, HEAD, OPTIONS"<br/>
+                                                                Header always set Access-Control-Allow-Headers "Authorization, Content-Type"
+                                                            </div>
+                                                        </li>
+                                                        <li>如果使用Nginx，需要在配置中添加：
+                                                            <div className="mt-1 text-xs bg-gray-100 p-2 rounded font-mono">
+                                                                add_header Access-Control-Allow-Origin "*";<br/>
+                                                                add_header Access-Control-Allow-Methods "GET, PUT, HEAD, OPTIONS";<br/>
+                                                                add_header Access-Control-Allow-Headers "Authorization, Content-Type";
+                                                            </div>
+                                                        </li>
+                                                    </>
+                                                )}
                                                 <li>确认WebDAV服务已启用</li>
+                                                <li>尝试使用其他WebDAV客户端测试服务器连接</li>
                                             </ul>
                                         </div>
                                     )}
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Web平台专用的CORS配置说明 */}
+                    {!isNativePlatform && userSettings.webdavEnabled && (
+                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                            <h4 className="font-medium text-blue-800 mb-2">Web平台使用说明</h4>
+                            <div className="text-blue-700 space-y-1">
+                                <p>• Web版本需要WebDAV服务器支持CORS跨域访问</p>
+                                <p>• 如果遇到连接问题，请联系服务器管理员配置CORS</p>
+                                <p>• 建议使用原生APP版本以获得更好的WebDAV兼容性</p>
+                                <p>• 常见的云存储服务（如坚果云）通常已支持CORS</p>
                             </div>
                         </div>
                     )}

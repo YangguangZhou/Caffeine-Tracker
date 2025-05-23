@@ -495,7 +495,6 @@ const CaffeineTracker = () => {
     setShowSyncBadge(true);
     
     try {
-      console.log("创建WebDAV客户端...");
       const webdavClient = new WebDAVClient(
         settingsToUse.webdavServer, 
         settingsToUse.webdavUsername, 
@@ -741,13 +740,6 @@ const CaffeineTracker = () => {
                       userSettings.webdavUsername && 
                       userSettings.webdavPassword;
     setWebdavConfigured(configured);
-    console.log("WebDAV配置状态更新:", {
-      enabled: userSettings.webdavEnabled,
-      hasServer: !!userSettings.webdavServer,
-      hasUsername: !!userSettings.webdavUsername,
-      hasPassword: !!userSettings.webdavPassword,
-      configured
-    });
   }, [userSettings.webdavEnabled, userSettings.webdavServer, userSettings.webdavUsername, userSettings.webdavPassword]);
 
   // --- 渲染 ---

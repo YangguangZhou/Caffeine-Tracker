@@ -22,12 +22,6 @@ const knownSettingKeys = [
  */
 export default class WebDAVClient {
     constructor(server, username, password) {
-        console.log('WebDAVClient 构造函数调用', {
-            server: server ? `${server.substring(0, 20)}...` : 'undefined',
-            username: username || 'undefined',
-            hasPassword: !!password,
-            platform: Capacitor.getPlatform()
-        });
 
         if (!server || !username) {
            console.warn("WebDAVClient 使用不完整的凭据进行初始化。");
@@ -52,13 +46,6 @@ export default class WebDAVClient {
 
     isConfigured() {
         const configured = !!this.server && !!this.username && !!this.password && !!this.authHeader;
-        console.log('WebDAVClient 配置检查', {
-            hasServer: !!this.server,
-            hasUsername: !!this.username,
-            hasPassword: !!this.password,
-            hasAuthHeader: !!this.authHeader,
-            configured
-        });
         return configured;
     }
 
@@ -99,24 +86,27 @@ export default class WebDAVClient {
             fetchOptions.mode = 'cors';
             fetchOptions.credentials = 'omit'; // 不发送cookies，使用Basic认证
             
+            // 针对Web平台的额外设置
+            fetchOptions.cache = 'no-cache'; // 避免缓存问题
+            
             // 对于Web平台，确保预检请求能通过
             if (method === 'OPTIONS' || method === 'PUT' || method === 'DELETE') {
-                // 这些方法可能触发预检请求
-                console.log('Web平台：可能触发CORS预检的请求');
+                
+                // 为了更好的CORS兼容性，简化headers
+                if (method !== 'OPTIONS') {
+                    // 保持必要的headers，移除可能导致预检失败的headers
+                    const simplifiedHeaders = {
+                        'Authorization': headers['Authorization']
+                    };
+                    
+                    if (additionalHeaders['Content-Type']) {
+                        simplifiedHeaders['Content-Type'] = additionalHeaders['Content-Type'];
+                    }
+                    
+                    fetchOptions.headers = simplifiedHeaders;
+                }
             }
         }
-
-        console.log('创建fetch配置', {
-            method,
-            platform: this.platform,
-            isNative: this.isNative,
-            hasBody: body !== null,
-            hasAuth: !!this.authHeader,
-            headers: Object.keys(headers).reduce((acc, key) => {
-                acc[key] = key === 'Authorization' ? '[REDACTED]' : headers[key];
-                return acc;
-            }, {})
-        });
 
         return fetchOptions;
     }
@@ -128,7 +118,9 @@ export default class WebDAVClient {
         console.log(`开始执行 ${operation}`, {
             url: url.toString(),
             method: options.method,
-            platform: this.platform
+            platform: this.platform,
+            hasAuth: !!options.headers?.Authorization,
+            isNative: this.isNative
         });
 
         try {
@@ -138,6 +130,8 @@ export default class WebDAVClient {
                 status: response.status,
                 statusText: response.statusText,
                 ok: response.ok,
+                type: response.type,
+                url: response.url,
                 headers: Array.from(response.headers.entries()).reduce((acc, [key, value]) => {
                     acc[key] = value;
                     return acc;
@@ -152,8 +146,23 @@ export default class WebDAVClient {
                 name: error.name,
                 platform: this.platform,
                 url: url.toString(),
-                method: options.method
+                method: options.method,
+                cause: error.cause
             });
+            
+            // 增强错误诊断
+            if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+                if (!this.isNative) {
+                    console.error("Web平台fetch失败可能原因:", {
+                        cors: "服务器未配置CORS或不支持跨域",
+                        auth: "认证方式不被支持",
+                        ssl: "SSL证书问题",
+                        network: "网络连接问题",
+                        server: "服务器不可达或WebDAV服务未启用"
+                    });
+                }
+            }
+            
             throw error;
         }
     }
@@ -176,9 +185,6 @@ export default class WebDAVClient {
         try {
             // 首先尝试HEAD请求，这是最轻量的方式
             const url = new URL(this.fileName, this.server);
-            console.log(`测试连接URL: ${url.toString()}`);
-            console.log(`认证信息状态: ${this.authHeader ? '已设置' : '未设置'}`);
-
             let response;
             let testMethod = 'HEAD';
             
