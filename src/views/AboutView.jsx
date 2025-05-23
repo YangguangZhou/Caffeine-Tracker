@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-// 导入 Helmet 用于设置页面头部信息
-import { Helmet } from 'react-helmet-async';
 import {
   Info, User, Globe, Coffee, AlertTriangle,
   BookOpen, Brain, HeartPulse, ExternalLink, Mail, Github, Sparkle, DownloadCloud, RefreshCcw as RefreshIcon,
@@ -87,18 +85,6 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
 
   return (
     <>
-      {/* SEO: 设置此视图特定的 Title 和 Description */}
-      <Helmet>
-        <title>关于 - 咖啡因追踪器</title>
-        <meta name="description" content="了解咖啡因追踪器应用的开发者、数据来源和科学依据。科学追踪和管理您的每日咖啡因摄入量，获取个性化建议。" />
-        <meta name="keywords" content="咖啡因追踪器, 咖啡因计算, 健康应用, Jerry Zhou, 咖啡因代谢, 睡眠优化" />
-        <meta property="og:title" content="关于 - 咖啡因追踪器" />
-        <meta property="og:description" content="了解咖啡因追踪器应用的开发者、数据来源和科学依据。科学追踪和管理您的每日咖啡因摄入量，获取个性化建议。" />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://ct.jerryz.com.cn/" />
-        <meta property="og:image" content="https://ct.jerryz.com.cn/og-image.png" />
-        <link rel="canonical" href="https://ct.jerryz.com.cn/" />
-      </Helmet>
 
       {/* 开发者信息卡片 */}
       <section

@@ -2,8 +2,9 @@
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Coffee, Sun, Moon, RefreshCw, Code, Laptop, Loader2, TrendingUp, BarChart2, Settings as SettingsIcon, Info } from 'lucide-react'; // Renamed Settings to SettingsIcon
-import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar'; // 导入 StatusBar
+import { Preferences } from '@capacitor/preferences'; // <--- 从 @capacitor/preferences 导入 Preferences
+import { Capacitor } from '@capacitor/core';
 import { SplashScreen } from '@capacitor/splash-screen';
 
 // 导入工具函数
@@ -26,29 +27,6 @@ const UMAMI_SRC = "https://umami.jerryz.com.cn/script.js";
 const UMAMI_WEBSITE_ID = "81f97aba-b11b-44f1-890a-9dc588a0d34d";
 const ADSENSE_SRC = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2597042766299857";
 const ADSENSE_CLIENT = "ca-pub-2597042766299857";
-
-const schemaData = {
-  "@context": "https://schema.org",
-  "@type": "WebApplication",
-  "name": "咖啡因追踪器",
-  "description": "科学追踪和管理您的每日咖啡因摄入量，提供代谢预测和健康建议。",
-  "applicationCategory": "HealthApplication",
-  "operatingSystem": "Web Browser",
-  "browserRequirements": "Requires JavaScript. Modern browsers recommended.",
-  "url": "https://ct.jerryz.com.cn", // Will be dynamic if appConfig is used for canonical URL
-  "image": "https://ct.jerryz.com.cn/og-image.png", // General OG image
-  "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "CNY"
-  },
-  "author": {
-    "@type": "Person",
-    "name": "Jerry Zhou",
-    "url": "https://jerryz.com.cn"
-  }
-};
-
 
 /**
  * 应用主组件
@@ -103,12 +81,12 @@ const CaffeineTracker = () => {
         setEffectiveTheme(userSettings.themeMode);
       }
     };
-    
+
     updateEffectiveTheme();
-    
+
     // 无论是原生平台还是Web平台，都监听系统主题变化
     mediaQuery.addEventListener('change', updateEffectiveTheme);
-    
+
     return () => {
       mediaQuery.removeEventListener('change', updateEffectiveTheme);
     };
@@ -155,120 +133,64 @@ const CaffeineTracker = () => {
 
   // 加载数据
   useEffect(() => {
-    let loadedRecords = [];
-    let loadedSettings = { ...defaultSettings };
-    let loadedDrinks = [];
-
-    const processLoadedDrinks = (drinksToProcess) => {
-      if (!Array.isArray(drinksToProcess)) return [...initialPresetDrinks];
-      const validDrinks = drinksToProcess.filter(d => d && typeof d.id !== 'undefined' && typeof d.name === 'string'); // Relax caffeineContent check here, will be handled by mode
-      const savedDrinkIds = new Set(validDrinks.map(d => d.id));
-      const newPresetsToAdd = initialPresetDrinks.filter(p => !savedDrinkIds.has(p.id));
-      
-      const validatedSavedDrinks = validDrinks.map(d => {
-        const isOriginalPreset = originalPresetDrinkIds.has(d.id);
-        const originalPresetData = isOriginalPreset ? initialPresetDrinks.find(p => p.id === d.id) : {};
-        
-        const mode = d.calculationMode || originalPresetData?.calculationMode || 'per100ml';
-        let cc = null;
-        let cpg = null;
-
-        if (mode === 'perGram') {
-          cpg = (d.caffeinePerGram !== undefined && d.caffeinePerGram !== null) ? d.caffeinePerGram : (originalPresetData?.caffeinePerGram ?? 0);
-        } else { // per100ml
-          cc = (d.caffeineContent !== undefined && d.caffeineContent !== null) ? d.caffeineContent : (originalPresetData?.caffeineContent ?? 0);
+    const loadData = async () => {
+      try {
+        const { value: savedRecords } = await Preferences.get({ key: 'caffeineRecords' });
+        if (savedRecords) {
+          setRecords(JSON.parse(savedRecords));
         }
 
-        return { 
-          ...d, 
-          category: d.category || (isOriginalPreset ? originalPresetData.category : DEFAULT_CATEGORY), 
-          isPreset: d.isPreset ?? isOriginalPreset, 
-          defaultVolume: d.defaultVolume !== undefined ? d.defaultVolume : (originalPresetData?.defaultVolume ?? null),
-          calculationMode: mode,
-          caffeineContent: cc,
-          caffeinePerGram: cpg
-        };
-      });
-      return [...validatedSavedDrinks, ...newPresetsToAdd].sort((a, b) => a.name.localeCompare(b.name));
+        const { value: savedSettings } = await Preferences.get({ key: 'caffeineSettings' });
+        if (savedSettings) {
+          const parsedSettings = JSON.parse(savedSettings);
+          // 合并加载的设置和默认设置，以确保所有键都存在
+          setUserSettings(prev => ({ ...defaultSettings, ...prev, ...parsedSettings }));
+        } else {
+          setUserSettings(defaultSettings); // 如果没有保存的设置，则使用默认设置
+        }
+
+        const { value: savedDrinks } = await Preferences.get({ key: 'caffeineDrinks' });
+        if (savedDrinks) {
+          setDrinks(JSON.parse(savedDrinks));
+        } else {
+          // 如果没有保存的饮品，可以考虑加载预设饮品
+          // setDrinks(initialPresetDrinks); // 取消注释以加载预设
+        }
+      } catch (error) {
+        console.error('Error loading data from Preferences:', error);
+        // 如果加载失败，确保设置了默认值
+        setUserSettings(defaultSettings);
+        // setDrinks(initialPresetDrinks); // 取消注释以加载预设
+      }
     };
 
-    try {
-      // 加载记录
-      const savedRecords = localStorage.getItem('caffeineRecords');
-      if (savedRecords) {
-        const parsedRecords = JSON.parse(savedRecords);
-        if (Array.isArray(parsedRecords)) {
-          loadedRecords = parsedRecords.filter(r => r && typeof r.id !== 'undefined' && typeof r.amount === 'number' && typeof r.timestamp === 'number' && typeof r.name === 'string');
-        } else {
-          localStorage.removeItem('caffeineRecords');
+    loadData();
+  }, [isNativePlatform]); // 依赖 isNativePlatform 确保在平台确定后加载
+
+  // 当 records, userSettings, 或 drinks 变化时保存数据
+  useEffect(() => {
+    const saveData = async () => {
+      try {
+        if (records.length > 0) { // 仅当有记录时才保存，避免覆盖空数组
+          await Preferences.set({ key: 'caffeineRecords', value: JSON.stringify(records) });
         }
-      }
+        // 总是保存设置，因为它包含默认值和用户修改
+        const settingsToSave = { ...userSettings };
+        delete settingsToSave.webdavPassword; // 确保不保存密码
+        await Preferences.set({ key: 'caffeineSettings', value: JSON.stringify(settingsToSave) });
 
-      // 加载设置 (确保 develop 字段被正确加载)
-      const savedSettings = localStorage.getItem('caffeineSettings');
-      if (savedSettings) {
-        const parsedSettings = JSON.parse(savedSettings);
-        if (typeof parsedSettings === 'object' && parsedSettings !== null) {
-          const mergedSettings = { ...defaultSettings };
-          if (parsedSettings.hasOwnProperty('nightMode') && !parsedSettings.hasOwnProperty('themeMode')) {
-            mergedSettings.themeMode = parsedSettings.nightMode ? 'dark' : 'light';
-            delete parsedSettings.nightMode;
-          }
-          for (const key in defaultSettings) {
-            if (parsedSettings.hasOwnProperty(key)) {
-              if (typeof parsedSettings[key] === typeof defaultSettings[key] || key === 'develop') { // Allow develop to be loaded even if type differs initially
-                if (key === 'develop' && typeof parsedSettings[key] !== 'boolean') {
-                  mergedSettings[key] = defaultSettings[key]; // Fallback for develop if not boolean
-                } else {
-                  mergedSettings[key] = parsedSettings[key];
-                }
-              }
-            }
-          }
-          // Validate numerical ranges
-          if (mergedSettings.weight < 20 || mergedSettings.weight > 300) mergedSettings.weight = defaultSettings.weight;
-          // ... (其他数值验证)
-          if (mergedSettings.maxDailyCaffeine < 0 || mergedSettings.maxDailyCaffeine > 2000) mergedSettings.maxDailyCaffeine = defaultSettings.maxDailyCaffeine;
-          if (mergedSettings.recommendedDosePerKg < 1 || mergedSettings.recommendedDosePerKg > 10) mergedSettings.recommendedDosePerKg = defaultSettings.recommendedDosePerKg;
-          if (mergedSettings.safeSleepThresholdConcentration < 0 || mergedSettings.safeSleepThresholdConcentration > 10) mergedSettings.safeSleepThresholdConcentration = defaultSettings.safeSleepThresholdConcentration;
-          if (mergedSettings.volumeOfDistribution < 0.1 || mergedSettings.volumeOfDistribution > 1.5) mergedSettings.volumeOfDistribution = defaultSettings.volumeOfDistribution;
-          if (mergedSettings.caffeineHalfLifeHours < 1 || mergedSettings.caffeineHalfLifeHours > 24) mergedSettings.caffeineHalfLifeHours = defaultSettings.caffeineHalfLifeHours;
-
-          loadedSettings = mergedSettings;
-        } else {
-          localStorage.removeItem('caffeineSettings');
+        if (drinks.length > 0) { // 仅当有饮品时才保存
+          await Preferences.set({ key: 'caffeineDrinks', value: JSON.stringify(drinks) });
         }
-      } else if (isNativePlatform) { // Default to light for native on first load
-        loadedSettings.themeMode = 'light';
+      } catch (error) {
+        console.error('Error saving data to Preferences:', error);
       }
-
-      // 加载饮品
-      const savedDrinks = localStorage.getItem('caffeineDrinks');
-      if (savedDrinks) {
-        const parsedDrinks = JSON.parse(savedDrinks);
-        loadedDrinks = processLoadedDrinks(parsedDrinks);
-      } else {
-        loadedDrinks = [...initialPresetDrinks];
-      }
-
-    } catch (error) {
-      console.error('Error loading data from localStorage:', error);
-      loadedRecords = [];
-      loadedSettings = { ...defaultSettings };
-      // 移除这行代码，让原生平台默认使用 auto 模式
-      // if (isNativePlatform) loadedSettings.themeMode = 'light';
-      loadedDrinks = [...initialPresetDrinks];
-    } finally {
-      setRecords(loadedRecords.sort((a, b) => b.timestamp - a.timestamp));
-      setUserSettings(loadedSettings);
-      setDrinks(loadedDrinks);
-      if (loadedSettings.webdavEnabled && loadedSettings.webdavSyncFrequency === 'startup') {
-        setTimeout(() => {
-          performWebDAVSync(loadedSettings, loadedRecords, loadedDrinks);
-        }, 1000);
-      }
+    };
+    // 只有在 records, userSettings, drinks 实际存在时才尝试保存，避免应用初始化时写入空状态
+    if (records.length > 0 || Object.keys(userSettings).length > 0 || drinks.length > 0) {
+        saveData();
     }
-  }, [isNativePlatform]); // Add isNativePlatform dependency
+  }, [records, userSettings, drinks]);
 
   useEffect(() => {
     const calculateCurrentStatus = () => {
@@ -449,7 +371,7 @@ const CaffeineTracker = () => {
             const validDrinks = drinksToProcess.filter(d => d && typeof d.id !== 'undefined' && typeof d.name === 'string');
             const savedDrinkIds = new Set(validDrinks.map(d => d.id));
             const newPresetsToAdd = initialPresetDrinks.filter(p => !savedDrinkIds.has(p.id));
-            
+
             const validatedSavedDrinks = validDrinks.map(d => {
               const isOriginalPreset = originalPresetDrinkIds.has(d.id);
               const originalPresetData = isOriginalPreset ? initialPresetDrinks.find(p => p.id === d.id) : {};
@@ -463,11 +385,11 @@ const CaffeineTracker = () => {
               } else { // per100ml
                 cc = (d.caffeineContent !== undefined && d.caffeineContent !== null) ? d.caffeineContent : (originalPresetData?.caffeineContent ?? 0);
               }
-              
-              return { 
-                ...d, 
-                category: d.category || (isOriginalPreset ? originalPresetData.category : DEFAULT_CATEGORY), 
-                isPreset: d.isPreset ?? isOriginalPreset, 
+
+              return {
+                ...d,
+                category: d.category || (isOriginalPreset ? originalPresetData.category : DEFAULT_CATEGORY),
+                isPreset: d.isPreset ?? isOriginalPreset,
                 defaultVolume: d.defaultVolume !== undefined ? d.defaultVolume : (originalPresetData?.defaultVolume ?? null),
                 calculationMode: mode,
                 caffeineContent: cc,
@@ -507,7 +429,7 @@ const CaffeineTracker = () => {
       setSyncStatus({ inProgress: false, lastSyncTime: new Date(), lastSyncResult: { success: false, message: error.message || "同步时发生未知错误" } });
     }
     setTimeout(() => { setShowSyncBadge(false); }, 5000);
-  }, [appConfig.latest_version, isNativePlatform]); 
+  }, [appConfig.latest_version, isNativePlatform]);
 
   // 添加 SplashScreen 隐藏逻辑
   useEffect(() => {
@@ -520,7 +442,7 @@ const CaffeineTracker = () => {
           console.log('页面加载完成，隐藏启动屏幕');
           SplashScreen.hide().catch(err => console.error('隐藏启动屏幕时出错:', err));
         }, 300);
-        
+
         return () => clearTimeout(timer);
       }
     }
@@ -546,43 +468,38 @@ const CaffeineTracker = () => {
 
 
   // --- 事件处理程序 ---
-  const handleAddRecord = useCallback((record) => {
-    const newRecord = { ...record };
-    // Ensure volume is saved, even if null
-    if (!newRecord.hasOwnProperty('volume')) {
-      newRecord.volume = null;
-    } else if (newRecord.volume === '') {
-      newRecord.volume = null;
-    } else {
-      newRecord.volume = parseFloat(newRecord.volume);
-    }
-    setRecords(prevRecords => [...prevRecords, newRecord].sort((a, b) => b.timestamp - a.timestamp));
+  const handleAddRecord = useCallback(async (record) => { // Added async
+    setRecords(prevRecords => {
+      const newRecords = [...prevRecords, record].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      // await Preferences.set({ key: 'caffeineRecords', value: JSON.stringify(newRecords) }); // 保存移至useEffect
+      return newRecords;
+    });
   }, []);
 
-  const handleEditRecord = useCallback((updatedRecord) => {
-    const newRecord = { ...updatedRecord };
-    if (!newRecord.hasOwnProperty('volume')) {
-      newRecord.volume = null;
-    } else if (newRecord.volume === '') {
-      newRecord.volume = null;
-    } else {
-      newRecord.volume = parseFloat(newRecord.volume);
-    }
-    setRecords(prevRecords => prevRecords.map(record => record.id === newRecord.id ? newRecord : record).sort((a, b) => b.timestamp - a.timestamp));
+  const handleEditRecord = useCallback(async (updatedRecord) => { // Added async
+    setRecords(prevRecords => {
+      const newRecords = prevRecords.map(r => r.id === updatedRecord.id ? updatedRecord : r);
+      // await Preferences.set({ key: 'caffeineRecords', value: JSON.stringify(newRecords) }); // 保存移至useEffect
+      return newRecords;
+    });
   }, []);
 
-  const handleDeleteRecord = useCallback((id) => {
-    if (window.confirm('确定要删除这条记录吗？')) {
-      setRecords(prevRecords => prevRecords.filter(record => record.id !== id));
-    }
+  const handleDeleteRecord = useCallback(async (id) => { // Added async
+    setRecords(prevRecords => {
+      const newRecords = prevRecords.filter(r => r.id !== id);
+      // await Preferences.set({ key: 'caffeineRecords', value: JSON.stringify(newRecords) }); // 保存移至useEffect
+      return newRecords;
+    });
   }, []);
 
-  const handleUpdateSettings = useCallback((newSettings) => {
-    if (newSettings.hasOwnProperty('develop') && typeof newSettings.develop !== 'boolean') {
-      console.warn("尝试更新 'develop' 设置为非布尔值，已阻止。");
-      delete newSettings.develop;
-    }
-    setUserSettings(prevSettings => ({ ...prevSettings, ...newSettings }));
+  const handleUpdateSettings = useCallback(async (newSettings) => { // Added async
+    setUserSettings(prevSettings => {
+      const updatedSettings = { ...prevSettings, ...newSettings };
+      // const settingsToSave = { ...updatedSettings };
+      // delete settingsToSave.webdavPassword;
+      // await Preferences.set({ key: 'caffeineSettings', value: JSON.stringify(settingsToSave) }); // 保存移至useEffect
+      return updatedSettings;
+    });
   }, []);
 
   const toggleThemeMode = useCallback(() => {
@@ -602,37 +519,12 @@ const CaffeineTracker = () => {
 
   // --- 渲染 ---
   return (
-    // 使用 HelmetProvider (已移至 main.jsx)
     // 使用语义化 div 和动态背景/文本颜色
     <div
       className={`min-h-screen font-sans transition-colors duration-300 ${effectiveTheme === 'dark' ? 'dark' : ''
         }`}
       style={{ backgroundColor: colors.bgBase, color: colors.textPrimary }}
     >
-      {/* --- SEO: 添加默认 Helmet 配置 --- */}
-      <Helmet>
-        <title>咖啡因追踪器 - 科学管理您的咖啡因摄入</title>
-        <meta name="description" content="使用咖啡因追踪器科学管理您的每日咖啡因摄入量，获取代谢预测、健康建议和睡眠时间优化。" />
-        <script type="application/ld+json">
-          {JSON.stringify({ ...schemaData, url: window.location.origin, image: `${window.location.origin}/og-image.png` })}
-        </script>
-        <meta name="keywords" content="咖啡因, 追踪器, 计算器, 代谢, 睡眠, 健康, 咖啡, 茶" />
-        <meta name="robots" content="index, follow" />
-        <link rel="canonical" href="https://ct.jerryz.com.cn" />
-        <meta name="author" content="Jerry Zhou" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta property="og:title" content="咖啡因追踪器 - 科学管理您的咖啡因摄入" />
-        <meta property="og:description" content="使用咖啡因追踪器科学管理您的每日咖啡因摄入量，获取代谢预测、健康建议和睡眠时间优化。" />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content={window.location.origin} />
-        <meta property="og:image" content={`${window.location.origin}/og-image.png`} />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="咖啡因追踪器 - 科学管理您的咖啡因摄入" />
-        <meta name="twitter:description" content="使用咖啡因追踪器科学管理您的每日咖啡因摄入量，获取代谢预测、健康建议和睡眠时间优化。" />
-        <meta name="twitter:image" content="https://ct.jerryz.com.cn/og-image.png" />
-      </Helmet>
 
       {/* 使用 header 语义标签 */}
       <header className="max-w-md mx-auto px-4 pt-6 pb-2 text-center relative">
@@ -674,8 +566,8 @@ const CaffeineTracker = () => {
             aria-label={`切换主题模式 (当前: ${userSettings.themeMode})`} // SEO & A11y: 添加 aria-label
           >
             {userSettings.themeMode === 'auto' ? <Laptop size={20} /> :
-             userSettings.themeMode === 'light' ? <Sun size={20} /> :
-             <Moon size={20} />}
+              userSettings.themeMode === 'light' ? <Sun size={20} /> :
+                <Moon size={20} />}
           </button>
         </div>
 
@@ -834,9 +726,9 @@ const CaffeineTracker = () => {
             </p>
           )}
           <p>负责任地跟踪您的咖啡因摄入量。本应用提供的数据和建议基于科学模型估算，仅供参考，不能替代专业医疗意见。</p>
-          <p className="mt-1">&copy; {new Date().getFullYear()} 咖啡因追踪器 App v{appConfig.latest_version}</p>
+          <p className="mt-1">咖啡因追踪器 App v{appConfig.latest_version}</p>
           <p className="mt-1">
-            Copyright &copy; 2025 <a href="https://jerryz.com.cn" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: colors.accent }}>Jerry Zhou</a>. All Rights Reserved.
+            Copyright &copy; {new Date().getFullYear()} <a href="https://jerryz.com.cn" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: colors.accent }}>Jerry Zhou</a>. All Rights Reserved.
           </p>
         </footer>
       </main>

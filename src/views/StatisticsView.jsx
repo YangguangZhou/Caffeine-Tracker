@@ -1,6 +1,4 @@
 import React, { useCallback, useMemo } from 'react';
-// 导入 Helmet 用于设置页面头部信息
-import { Helmet } from 'react-helmet-async';
 import {
   BarChart2, ChevronLeft, ChevronRight,
   PieChart, Heart, Award, Clock, Info, Calendar
@@ -223,12 +221,6 @@ const StatisticsView = ({
 
   return (
     <>
-      {/* SEO: 设置此视图特定的 Title 和 Description */}
-      <Helmet>
-        <title>数据统计 - 咖啡因追踪器</title>
-        <meta name="description" content={`查看 ${formatStatsPeriod()} 期间的咖啡因摄入总量、日均摄入、摄入来源分布和健康分析。`} />
-      </Helmet>
-
       {/* 时间范围选择器 - 使用 section 或 nav */}
       <section
         aria-labelledby="stats-period-heading"

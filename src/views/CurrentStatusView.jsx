@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-// 导入 Helmet 用于设置页面头部信息
-import { Helmet } from 'react-helmet-async';
 import {
   Activity, Clock, Edit, Trash2, Plus,
   AlertCircle, Moon, Calendar, Droplet
@@ -102,14 +100,7 @@ const CurrentStatusView = ({
   };
 
   return (
-    // 使用 React Fragment 或 div 包裹，因为 Helmet 需要是顶级元素之一
     <>
-      {/* SEO: 设置此视图特定的 Title 和 Description */}
-      <Helmet>
-        <title>当前咖啡因状态 - 咖啡因追踪器</title>
-        <meta name="description" content="实时查看您当前的咖啡因含量、代谢曲线预测、健康建议以及建议的睡眠时间。" />
-      </Helmet>
-
       {/* 使用 section 语义标签包裹主要内容块 */}
       <section
         aria-labelledby="current-status-heading" // A11y: 为 section 添加标签引用

@@ -1,6 +1,4 @@
 import React, { useState, useCallback } from 'react'; // 添加 useCallback
-// 导入 Helmet 用于设置页面头部信息
-import { Helmet } from 'react-helmet-async';
 import {
     User, Weight, Target, Sliders, Clock, Moon,
     Droplet, Coffee, Plus, X, Save, Edit, Trash2,
@@ -9,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem'; // For Capacitor export
+import { Preferences } from '@capacitor/preferences'; // <--- 从 @capacitor/preferences 导入 Preferences
 import { formatDatetimeLocal } from '../utils/timeUtils';
 import { initialPresetDrinks, DRINK_CATEGORIES, DEFAULT_CATEGORY, defaultSettings } from '../utils/constants'; // Import defaultSettings
 // 动态导入 WebDAVClient
@@ -241,118 +240,67 @@ const SettingsView = ({
         }
     }, [records, userSettings, drinks, appConfig.latest_version, isNativePlatform]);
 
-    // 导入数据 (使用 useCallback)
-    const importData = useCallback((event) => {
-        const file = event.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = JSON.parse(e.target.result);
-                if (data && Array.isArray(data.records) && typeof data.userSettings === 'object' && data.userSettings !== null && Array.isArray(data.drinks)) {
-                    if (data.drinks.length > 0) {
-                        const firstDrink = data.drinks[0];
-                        if (!firstDrink || typeof firstDrink.id === 'undefined' || typeof firstDrink.name === 'undefined' || typeof firstDrink.caffeineContent === 'undefined') {
-                            throw new Error("饮品列表格式不正确。");
-                        }
-                    }
-                    if (window.confirm('导入数据将覆盖当前所有记录、设置和饮品列表。确定要继续吗？')) {
-                        const importedSettings = { ...defaultSettings }; // 从默认设置开始
-                        const settingsFromImport = data.userSettings;
-
-                        // Merge imported settings into defaultSettings structure
-                        for (const key in defaultSettings) {
-                            if (settingsFromImport.hasOwnProperty(key)) {
-                                if (typeof settingsFromImport[key] === typeof defaultSettings[key] || (key === 'develop' && typeof settingsFromImport[key] === 'boolean')) {
-                                     importedSettings[key] = settingsFromImport[key];
-                                } else if (key === 'develop' && typeof settingsFromImport[key] !== 'boolean') {
-                                    // if develop is present but not boolean, use default
-                                    importedSettings[key] = defaultSettings.develop;
-                                }
-                                // For other type mismatches, defaultSettings value for 'key' is already there
-                            }
-                        }
-                        // Ensure WebDAV password from current settings is preserved if not in import
-                        if (userSettings.webdavPassword && !settingsFromImport.webdavPassword) {
-                            importedSettings.webdavPassword = userSettings.webdavPassword;
-                        } else if (settingsFromImport.webdavPassword) { // If import has a password, use it
-                            importedSettings.webdavPassword = settingsFromImport.webdavPassword;
-                        }
-
-
-                        // Validate and process drinks
-                        const processImportedDrinks = (drinksToProcess) => {
-                            if (!Array.isArray(drinksToProcess)) return [...initialPresetDrinks];
-                            const validDrinks = drinksToProcess.filter(d => d && typeof d.id !== 'undefined' && typeof d.name === 'string' && typeof d.caffeineContent === 'number')
-                                .map(d => ({ // Ensure all fields expected by app are present, with defaults
-                                    id: d.id,
-                                    name: d.name,
-                                    caffeineContent: d.caffeineContent,
-                                    defaultVolume: typeof d.defaultVolume === 'number' ? d.defaultVolume : null,
-                                    category: DRINK_CATEGORIES.includes(d.category) ? d.category : DEFAULT_CATEGORY,
-                                    isPreset: d.isPreset === true, // Coerce to boolean, default false
-                                }));
-
-                            const importedDrinkIds = new Set(validDrinks.map(d => d.id));
-                            const newPresetsToAdd = initialPresetDrinks.filter(p => !importedDrinkIds.has(p.id));
-                            
-                            // For existing presets in import, ensure they are marked as presets if their ID matches
-                            const validatedImportedDrinks = validDrinks.map(d => {
-                                const isOriginal = originalPresetDrinkIds.has(d.id);
-                                return {
-                                    ...d,
-                                    isPreset: d.isPreset ?? isOriginal // If isPreset is undefined, determine from originalPresetDrinkIds
-                                };
-                            });
-
-                            return [...validatedImportedDrinks, ...newPresetsToAdd].sort((a,b) => a.name.localeCompare(b.name));
-                        };
-                        
-                        const finalImportedDrinks = processImportedDrinks(data.drinks);
-
-                        setRecords(data.records.sort((a, b) => b.timestamp - a.timestamp));
-                        onUpdateSettings(importedSettings);
-                        setDrinks(finalImportedDrinks);
-                        alert('数据导入成功！');
-                    }
-                } else {
-                    alert('导入失败：数据格式不正确或缺少必要部分 (需要 records, userSettings, drinks)。');
-                }
-            } catch (error) {
-                alert(`导入失败：无法解析文件或文件格式错误。错误: ${error.message}`);
-                console.error('导入错误:', error);
-            } finally {
-                event.target.value = null;
-            }
-        };
-        reader.onerror = () => {
-            alert('读取文件时出错。');
-            console.error('File reading error:', reader.error);
-            event.target.value = null;
-        };
-        reader.readAsText(file);
-    }, [setRecords, onUpdateSettings, setDrinks, userSettings.lastSyncTimestamp, userSettings.webdavPassword, originalPresetDrinkIds]); // Added userSettings.webdavPassword and originalPresetDrinkIds
-
     // 清除所有数据 (使用 useCallback)
-    const clearAllData = useCallback(() => {
-        if (window.confirm('警告：确定要清除所有本地存储的数据吗？此操作无法撤销！')) {
-            setRecords([]);
-            onUpdateSettings({ ...defaultSettings, lastSyncTimestamp: null }); // 重置为默认设置
-            setDrinks([...initialPresetDrinks]);
-            localStorage.removeItem('caffeineRecords');
-            localStorage.removeItem('caffeineSettings');
-            localStorage.removeItem('caffeineDrinks');
-            alert('所有本地数据已清除！');
+    const clearAllData = useCallback(async () => { // Added async
+        if (window.confirm("您确定要清除所有本地数据吗？此操作不可撤销。")) {
+            try {
+                await Preferences.remove({ key: 'caffeineRecords' });
+                await Preferences.remove({ key: 'caffeineSettings' });
+                await Preferences.remove({ key: 'caffeineDrinks' });
+                // 或者，如果想清除所有 Preferences 数据，可以使用 Preferences.clear()
+                // await Preferences.clear(); 
+                setRecords([]);
+                onUpdateSettings(defaultSettings); // 重置为默认设置
+                setDrinks(initialPresetDrinks); // 重置为预设饮品
+                alert("所有本地数据已清除。");
+            } catch (error) {
+                console.error("清除数据时出错:", error);
+                alert("清除数据失败，请稍后再试。");
+            }
         }
     }, [setRecords, onUpdateSettings, setDrinks]);
 
+    // 导入数据 (使用 useCallback)
+    const importData = useCallback(async (event) => { // Added async
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = async (e) => { // Added async
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (imported.records) {
+                        await Preferences.set({ key: 'caffeineRecords', value: JSON.stringify(imported.records) });
+                        setRecords(imported.records);
+                    }
+                    if (imported.userSettings) {
+                        const newSettings = { ...defaultSettings, ...userSettings, ...imported.userSettings };
+                        // 保留当前的 webdavPassword 和 lastSyncTimestamp，除非导入的数据中明确提供
+                        if (!imported.userSettings.webdavPassword && userSettings.webdavPassword) {
+                            newSettings.webdavPassword = userSettings.webdavPassword;
+                        }
+                        if (!imported.userSettings.lastSyncTimestamp && userSettings.lastSyncTimestamp) {
+                            newSettings.lastSyncTimestamp = userSettings.lastSyncTimestamp;
+                        }
+                        delete newSettings.webdavPassword; // 确保不直接保存密码到状态，除非它来自用户输入
+                        await Preferences.set({ key: 'caffeineSettings', value: JSON.stringify(newSettings) });
+                        onUpdateSettings(newSettings);
+                    }
+                    if (imported.drinks) {
+                        await Preferences.set({ key: 'caffeineDrinks', value: JSON.stringify(imported.drinks) });
+                        setDrinks(imported.drinks);
+                    }
+                    alert("数据导入成功！");
+                } catch (error) {
+                    console.error("导入数据时出错:", error);
+                    alert("导入数据失败。请确保文件格式正确。");
+                }
+            };
+            reader.readAsText(file);
+        }
+    }, [setRecords, onUpdateSettings, setDrinks, userSettings.lastSyncTimestamp, userSettings.webdavPassword, defaultSettings]); // Added defaultSettings
+
     return (
         <>
-            {/* SEO: 设置此视图特定的 Title 和 Description */}
-            <Helmet>
-                <title>设置 - 咖啡因追踪器</title>
-                <meta name="description" content="配置您的个人参数、代谢与睡眠设置、管理饮品列表以及进行数据同步和管理。" />
-            </Helmet>
 
             {/* 使用 section 语义标签包裹每个设置区域 */}
             <section
