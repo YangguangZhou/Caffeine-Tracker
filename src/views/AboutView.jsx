@@ -5,8 +5,7 @@ import {
   Share as ShareIcon, Copy, Check
 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
-import { Browser } from '@capacitor/browser';
-import { Share } from '@capacitor/share'; // 导入 Share API
+import { Share } from '@capacitor/share';
 
 
 /**
@@ -33,7 +32,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
       // More robust comparison might be needed for complex version strings
       if (remoteConfig.latest_version && remoteConfig.latest_version > appConfig.latest_version) {
         if (window.confirm(`发现新版本 ${remoteConfig.latest_version}！当前版本 ${appConfig.latest_version}。是否前往下载页面？`)) {
-          await Browser.open({ url: remoteConfig.download_url || appConfig.download_url });
+          window.open(remoteConfig.download_url || appConfig.download_url, '_blank');
           setUpdateCheckStatus(`有新版本: ${remoteConfig.latest_version}。正在打开下载链接...`);
         } else {
           setUpdateCheckStatus(`有新版本: ${remoteConfig.latest_version}。用户取消下载。`);

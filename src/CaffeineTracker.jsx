@@ -1,9 +1,8 @@
 // 导入 React 相关模块
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
-import { Helmet } from 'react-helmet-async';
 import { Coffee, Sun, Moon, RefreshCw, Code, Laptop, Loader2, TrendingUp, BarChart2, Settings as SettingsIcon, Info } from 'lucide-react'; // Renamed Settings to SettingsIcon
-import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar'; // 导入 StatusBar
-import { Preferences } from '@capacitor/preferences'; // <--- 从 @capacitor/preferences 导入 Preferences
+import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar';
+import { Preferences } from '@capacitor/preferences';
 import { Capacitor } from '@capacitor/core';
 import { SplashScreen } from '@capacitor/splash-screen';
 
@@ -40,7 +39,7 @@ const CaffeineTracker = () => {
   const [currentCaffeineConcentration, setCurrentCaffeineConcentration] = useState(0);
   const [optimalSleepTime, setOptimalSleepTime] = useState('');
   const [hoursUntilSafeSleep, setHoursUntilSafeSleep] = useState(null);
-  const [drinks, setDrinks] = useState([]);
+  const [drinks, setDrinks] = useState([]); // Initialize as empty, presets loaded in useEffect
   const [viewMode, setViewMode] = useState('current');
   const [statsView, setStatsView] = useState('week');
   const [statsDate, setStatsDate] = useState(new Date());
@@ -52,19 +51,21 @@ const CaffeineTracker = () => {
   });
   const [showSyncBadge, setShowSyncBadge] = useState(false);
   const [appConfig, setAppConfig] = useState({ latest_version: "loading...", download_url: "#" });
-  const [isNativePlatform, setIsNativePlatform] = useState(false);
+  const [isNativePlatform, setIsNativePlatform] = useState(null); // Initialize to null
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false); // Gatekeeper for saving
 
 
-  // --- 获取应用配置 (version.json) 和检查平台 ---
+  // --- 检查平台类型 ---
   useEffect(() => {
     setIsNativePlatform(Capacitor.isNativePlatform());
+  }, []);
 
+  // --- 获取应用配置 (version.json) ---
+  useEffect(() => {
     fetch('/version.json')
       .then(response => response.json())
       .then(data => {
         setAppConfig(data);
-        // 更新 schemaData 中的版本信息 (如果需要)
-        // schemaData.version = data.latest_version; // Example
       })
       .catch(error => console.error('Error fetching version.json:', error));
   }, []);
@@ -131,67 +132,91 @@ const CaffeineTracker = () => {
     [effectiveTheme]
   );
 
-  // 加载数据
+  // 加载数据 - 仅当 isNativePlatform 确定后执行一次
   useEffect(() => {
+    if (isNativePlatform === null) {
+      return; // 等待平台类型确定
+    }
+
     const loadData = async () => {
       try {
-        const { value: savedRecords } = await Preferences.get({ key: 'caffeineRecords' });
-        if (savedRecords) {
-          setRecords(JSON.parse(savedRecords));
+        // 尝试迁移旧的 @capacitor/storage 数据 (如果存在)
+        // 这应该只在应用首次从旧版本升级到使用 @capacitor/preferences 时运行一次
+        // 你可能需要一个标志来确保它只运行一次，例如检查 Preferences 中是否已存在一个特定的 "migration_complete" 标志
+        const migrationCheck = await Preferences.get({ key: 'capacitor_storage_migration_complete' });
+        if (!migrationCheck.value) {
+          const result = await Preferences.migrate();
+          console.log('Capacitor Storage migration result:', result);
+          if (result.migrated.length > 0 || result.existing.length > 0) {
+            await Preferences.removeOld(); // 清理旧的 _cap_ 前缀的键
+            console.log('Old Capacitor Storage keys removed after migration.');
+          }
+          await Preferences.set({ key: 'capacitor_storage_migration_complete', value: 'true' });
         }
-
+        
         const { value: savedSettings } = await Preferences.get({ key: 'caffeineSettings' });
         if (savedSettings) {
           const parsedSettings = JSON.parse(savedSettings);
-          // 合并加载的设置和默认设置，以确保所有键都存在
           setUserSettings(prev => ({ ...defaultSettings, ...prev, ...parsedSettings }));
         } else {
-          setUserSettings(defaultSettings); // 如果没有保存的设置，则使用默认设置
+          setUserSettings(defaultSettings);
+        }
+
+        const { value: savedRecords } = await Preferences.get({ key: 'caffeineRecords' });
+        if (savedRecords) {
+          setRecords(JSON.parse(savedRecords));
+        } else {
+          setRecords([]); // 确保是空数组
         }
 
         const { value: savedDrinks } = await Preferences.get({ key: 'caffeineDrinks' });
         if (savedDrinks) {
           setDrinks(JSON.parse(savedDrinks));
         } else {
-          // 如果没有保存的饮品，可以考虑加载预设饮品
-          // setDrinks(initialPresetDrinks); // 取消注释以加载预设
+          setDrinks(initialPresetDrinks); // 加载预设饮品
         }
       } catch (error) {
         console.error('Error loading data from Preferences:', error);
-        // 如果加载失败，确保设置了默认值
+        // 如果加载失败，回退到默认值
         setUserSettings(defaultSettings);
-        // setDrinks(initialPresetDrinks); // 取消注释以加载预设
+        setRecords([]);
+        setDrinks(initialPresetDrinks);
+      } finally {
+        setInitialDataLoaded(true); // 标记初始数据加载完成
       }
     };
 
     loadData();
-  }, [isNativePlatform]); // 依赖 isNativePlatform 确保在平台确定后加载
+  }, [isNativePlatform]); // 依赖 isNativePlatform (确保只在平台确定后运行)
 
   // 当 records, userSettings, 或 drinks 变化时保存数据
   useEffect(() => {
+    if (!initialDataLoaded) {
+      return; // 只有在初始数据加载完成后才保存
+    }
+
     const saveData = async () => {
       try {
-        if (records.length > 0) { // 仅当有记录时才保存，避免覆盖空数组
-          await Preferences.set({ key: 'caffeineRecords', value: JSON.stringify(records) });
-        }
-        // 总是保存设置，因为它包含默认值和用户修改
+        // 保存用户设置 (确保不保存密码)
         const settingsToSave = { ...userSettings };
-        delete settingsToSave.webdavPassword; // 确保不保存密码
+        delete settingsToSave.webdavPassword;
         await Preferences.set({ key: 'caffeineSettings', value: JSON.stringify(settingsToSave) });
 
-        if (drinks.length > 0) { // 仅当有饮品时才保存
-          await Preferences.set({ key: 'caffeineDrinks', value: JSON.stringify(drinks) });
-        }
+        // 保存记录
+        await Preferences.set({ key: 'caffeineRecords', value: JSON.stringify(records) });
+        
+        // 保存饮品列表
+        await Preferences.set({ key: 'caffeineDrinks', value: JSON.stringify(drinks) });
+
       } catch (error) {
         console.error('Error saving data to Preferences:', error);
       }
     };
-    // 只有在 records, userSettings, drinks 实际存在时才尝试保存，避免应用初始化时写入空状态
-    if (records.length > 0 || Object.keys(userSettings).length > 0 || drinks.length > 0) {
-        saveData();
-    }
-  }, [records, userSettings, drinks]);
+    
+    saveData();
+  }, [records, userSettings, drinks, initialDataLoaded]); // 添加 initialDataLoaded 作为依赖
 
+  // --- 计算当前状态 ---
   useEffect(() => {
     const calculateCurrentStatus = () => {
       const now = Date.now();
@@ -222,39 +247,13 @@ const CaffeineTracker = () => {
     return () => clearInterval(timer);
   }, [records, userSettings]);
 
+  // --- 生成代谢图表数据 ---
   useEffect(() => {
     const chartData = generateMetabolismChartData(records, userSettings.caffeineHalfLifeHours);
     setMetabolismChartData(chartData);
   }, [records, userSettings.caffeineHalfLifeHours]);
 
-  useEffect(() => {
-    if (records.length > 0 || localStorage.getItem('caffeineRecords') !== null) {
-      try {
-        localStorage.setItem('caffeineRecords', JSON.stringify(records));
-      } catch (error) {
-        console.error('Error saving records to localStorage:', error);
-      }
-    }
-  }, [records]);
-  useEffect(() => {
-    try {
-      const settingsToSave = { ...userSettings };
-      localStorage.setItem('caffeineSettings', JSON.stringify(settingsToSave));
-    } catch (error) {
-      console.error('Error saving settings to localStorage:', error);
-    }
-  }, [userSettings]);
-  useEffect(() => {
-    if (drinks.length > 0 || localStorage.getItem('caffeineDrinks') !== null) {
-      try {
-        const drinksToSave = drinks.map(({ id, name, caffeineContent, caffeinePerGram, calculationMode, defaultVolume, category, isPreset }) => ({ id, name, caffeineContent, caffeinePerGram, calculationMode, defaultVolume, category, isPreset }));
-        localStorage.setItem('caffeineDrinks', JSON.stringify(drinksToSave));
-      } catch (error) {
-        console.error('Error saving drinks list to localStorage:', error);
-      }
-    }
-  }, [drinks]);
-
+  // --- Umami 和 Adsense 脚本管理 ---
   useEffect(() => {
     const isDomainLocal = () => {
       if (isNativePlatform) return false;
@@ -287,7 +286,9 @@ const CaffeineTracker = () => {
       addScript(UMAMI_SCRIPT_ID, UMAMI_SRC, { defer: true, 'data-website-id': UMAMI_WEBSITE_ID });
       addScript(ADSENSE_SCRIPT_ID, ADSENSE_SRC, { crossorigin: 'anonymous', 'data-ad-client': ADSENSE_CLIENT });
     }
-  }, [userSettings.develop]);
+  }, [userSettings.develop, isNativePlatform]); // 添加 isNativePlatform
+
+  // --- 计算今日总摄入量 ---
   const getTodayTotal = useCallback(() => {
     const todayStart = getStartOfDay(new Date());
     const todayEnd = getEndOfDay(new Date());
@@ -347,24 +348,24 @@ const CaffeineTracker = () => {
   const todayTotal = useMemo(() => getTodayTotal(), [getTodayTotal]);
 
   // --- WebDAV同步 ---
-  const performWebDAVSync = useCallback(async (settings, currentRecords, currentDrinks) => {
-    if (!settings.webdavEnabled || !settings.webdavServer || !settings.webdavUsername || !settings.webdavPassword) {
+  const performWebDAVSync = useCallback(async (settingsToUse, currentRecords, currentDrinks) => {
+    if (!settingsToUse.webdavEnabled || !settingsToUse.webdavServer || !settingsToUse.webdavUsername || !settingsToUse.webdavPassword) {
       console.log("WebDAV sync not configured or disabled");
       setSyncStatus(prev => ({ ...prev, inProgress: false, lastSyncResult: { success: false, message: "WebDAV未配置" } }));
       setShowSyncBadge(true); setTimeout(() => setShowSyncBadge(false), 3000); return;
     }
     setSyncStatus(prev => ({ ...prev, inProgress: true })); setShowSyncBadge(true);
     try {
-      const webdavClient = new WebDAVClient(settings.webdavServer, settings.webdavUsername, settings.webdavPassword);
+      const webdavClient = new WebDAVClient(settingsToUse.webdavServer, settingsToUse.webdavUsername, settingsToUse.webdavPassword);
       const localData = {
         records: currentRecords,
         drinks: currentDrinks,
-        userSettings: { ...settings, webdavPassword: '' }, // Don't sync password to server
+        userSettings: { ...settingsToUse, webdavPassword: '' }, // Don't sync password to server
         version: appConfig.latest_version // Use app version from state
       };
       const result = await webdavClient.performSync(localData, initialPresetDrinks, originalPresetDrinkIds); // Pass presets for merge logic if needed there
       if (result.success) {
-        let updatedSettings = { ...settings }; // Start with current local settings
+        let updatedSettings = { ...settingsToUse }; // Start with current local settings
         if (result.data) {
           const processSyncedDrinks = (drinksToProcess) => {
             if (!Array.isArray(drinksToProcess)) return [...initialPresetDrinks];
@@ -409,10 +410,10 @@ const CaffeineTracker = () => {
             const syncedDevelop = result.data.userSettings.develop;
             // Merge synced settings over local, but keep local password
             updatedSettings = {
-              ...settings, // base
+              ...settingsToUse, // base
               ...result.data.userSettings, // synced settings
-              webdavPassword: settings.webdavPassword, // IMPORTANT: retain local password
-              develop: typeof syncedDevelop === 'boolean' ? syncedDevelop : settings.develop
+              webdavPassword: settingsToUse.webdavPassword, // IMPORTANT: retain local password
+              develop: typeof syncedDevelop === 'boolean' ? syncedDevelop : settingsToUse.develop
             };
             if (isNativePlatform && updatedSettings.themeMode === 'auto') {
               updatedSettings.themeMode = 'light'; // Ensure native doesn't go to auto
@@ -429,26 +430,16 @@ const CaffeineTracker = () => {
       setSyncStatus({ inProgress: false, lastSyncTime: new Date(), lastSyncResult: { success: false, message: error.message || "同步时发生未知错误" } });
     }
     setTimeout(() => { setShowSyncBadge(false); }, 5000);
-  }, [appConfig.latest_version, isNativePlatform]);
+  }, [appConfig.latest_version, isNativePlatform]); // 添加 isNativePlatform
 
-  // 添加 SplashScreen 隐藏逻辑
+  // --- SplashScreen 隐藏逻辑 ---
   useEffect(() => {
-    // 只在原生平台上处理启动屏幕
-    if (isNativePlatform) {
-      // 确保所有必要的数据都已加载和应用
-      if (records.length >= 0 && drinks.length >= 0 && Object.keys(userSettings).length > 0 && effectiveTheme) {
-        // 添加一个短暂延迟，确保UI已经完全渲染
-        const timer = setTimeout(() => {
-          console.log('页面加载完成，隐藏启动屏幕');
-          SplashScreen.hide().catch(err => console.error('隐藏启动屏幕时出错:', err));
-        }, 300);
-
-        return () => clearTimeout(timer);
-      }
+    if (isNativePlatform && initialDataLoaded) { // 确保数据加载完毕后再隐藏
+      SplashScreen.hide();
     }
-  }, [isNativePlatform, records, drinks, userSettings, effectiveTheme]);
+  }, [isNativePlatform, initialDataLoaded]); // 依赖 initialDataLoaded
 
-  // 定时同步
+  // --- 定时同步 ---
   useEffect(() => {
     let syncTimer = null; let dailyCheckTimeout = null;
     const clearTimers = () => { if (syncTimer) clearInterval(syncTimer); if (dailyCheckTimeout) clearTimeout(dailyCheckTimeout); };
@@ -464,8 +455,7 @@ const CaffeineTracker = () => {
       }
     }
     return () => clearTimers();
-  }, [userSettings.webdavEnabled, userSettings.webdavSyncFrequency, userSettings.lastSyncTimestamp, records, drinks, performWebDAVSync]); // 添加 performWebDAVSync 作为依赖
-
+  }, [userSettings.webdavEnabled, userSettings.webdavSyncFrequency, userSettings.lastSyncTimestamp, records, drinks, performWebDAVSync, initialDataLoaded]); // 添加 initialDataLoaded
 
   // --- 事件处理程序 ---
   const handleAddRecord = useCallback(async (record) => { // Added async
@@ -515,8 +505,7 @@ const CaffeineTracker = () => {
 
   const handleManualSync = useCallback(() => {
     performWebDAVSync(userSettings, records, drinks);
-  }, [userSettings, records, drinks, performWebDAVSync]); // 添加 performWebDAVSync 作为依赖
-
+  }, [userSettings, records, drinks, performWebDAVSync, initialDataLoaded]); // 添加 initialDataLoaded
   // --- 渲染 ---
   return (
     // 使用语义化 div 和动态背景/文本颜色
