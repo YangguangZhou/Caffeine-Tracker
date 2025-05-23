@@ -10,7 +10,7 @@ import { SplashScreen } from '@capacitor/splash-screen';
 import { getTotalCaffeineAtTime, estimateConcentration, estimateAmountFromConcentration, calculateHoursToReachTarget, generateMetabolismChartData } from './utils/caffeineCalculations';
 import { getStartOfDay, getEndOfDay, isToday, formatTime, formatDate } from './utils/timeUtils';
 // 导入常量和预设
-import { defaultSettings, initialPresetDrinks, originalPresetDrinkIds, COFFEE_COLORS, NIGHT_COLORS } from './utils/constants';
+import { defaultSettings, initialPresetDrinks, originalPresetDrinkIds, COFFEE_COLORS, NIGHT_COLORS, DRINK_CATEGORIES, DEFAULT_CATEGORY } from './utils/constants'; // Added DRINK_CATEGORIES, DEFAULT_CATEGORY
 // 导入WebDAV客户端
 import WebDAVClient from './utils/webdavSync';
 
@@ -52,7 +52,10 @@ const CaffeineTracker = () => {
   const [showSyncBadge, setShowSyncBadge] = useState(false);
   const [appConfig, setAppConfig] = useState({ latest_version: "loading...", download_url: "#" });
   const [isNativePlatform, setIsNativePlatform] = useState(null); // Initialize to null
-  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false); // Gatekeeper for saving
+
+  // 新增：WebDAV配置状态
+  const [webdavConfigured, setWebdavConfigured] = useState(false);
 
   // --- 检查平台类型 ---
   useEffect(() => {
@@ -252,11 +255,65 @@ const CaffeineTracker = () => {
 
   // 当 records, userSettings, 或 drinks 变化时保存数据
   useEffect(() => {
-    if (initialDataLoaded) {
-      console.log("Data changed (records, userSettings, or drinks), saving...");
-      saveData(records, userSettings, drinks, isNativePlatform);
+    if (!initialDataLoaded) {
+      return; // 只有在初始数据加载完成后才保存
     }
-  }, [records, userSettings, drinks, initialDataLoaded, isNativePlatform]);
+
+    const saveData = async () => {
+      try {
+        const settingsToStore = { ...userSettings };
+        // delete settingsToStore.webdavPassword; // Do not save password to Preferences - REMOVED THIS LINE
+        await Preferences.set({ key: 'caffeineSettings', value: JSON.stringify(settingsToStore) });
+        await Preferences.set({ key: 'caffeineRecords', value: JSON.stringify(records) });
+        await Preferences.set({ key: 'caffeineDrinks', value: JSON.stringify(drinks) });
+        
+        // If setUserSettings was called here, it would trigger this effect again.
+        // Instead, we ensure that userSettings already has the updated timestamp *before* this effect runs,
+        // or that this effect is the one place it's set before saving.
+        // The current setup: userSettings is a dependency. If we change it here, it re-runs.
+        // The most direct way is to update userSettings *outside* this effect when data changes,
+        // or ensure this effect is the *source* of the timestamp update before saving.
+
+        // Let's assume userSettings is updated with localLastModifiedTimestamp by the functions that change data.
+        // So, when this effect runs, userSettings *should* already have the correct timestamp.
+        // The loadData function initializes it. Other functions should update it.
+
+        // Re-evaluating: The `saveData` effect *is* the place to ensure the timestamp is current *for the save operation*.
+        // We are saving `userSettings`, `records`, `drinks`. If any of these change, we save all three
+        // and mark this "bundle" with a new timestamp.
+        // So, when `saveData` is triggered because `records`, `userSettings`, or `drinks` changed,
+        // we should update `userSettings.localLastModifiedTimestamp` *within the `userSettings` state itself*
+        // if it's not already the most current.
+
+        // The simplest way for now:
+        // When any of records, userSettings (excluding timestamp itself), or drinks change,
+        // we call `handleUpdateSettings` to set a new `localLastModifiedTimestamp`.
+        // This is done in `handleAddRecord`, `handleEditRecord`, `handleDeleteRecord`, `handleUpdateSettings` (for other settings),
+        // and when `setDrinks` is called (e.g., from SettingsView).
+
+        // The current `saveData` effect:
+        // It saves the current `userSettings`, `records`, `drinks`.
+        // The `userSettings.localLastModifiedTimestamp` should be updated by the functions
+        // that modify any of these pieces of data, *before* this effect runs.
+
+        // Let's ensure `handleUpdateSettings` and other data-mutating functions update `localLastModifiedTimestamp`.
+        // And `loadData` initializes it.
+
+        // For now, the `saveData` will just save what's in the state.
+        // The critical part is that `localLastModifiedTimestamp` is correctly set by other functions.
+        const settingsToPersist = { ...userSettings };
+        delete settingsToPersist.webdavPassword;
+        await Preferences.set({ key: 'caffeineSettings', value: JSON.stringify(settingsToPersist) });
+        await Preferences.set({ key: 'caffeineRecords', value: JSON.stringify(records) });
+        await Preferences.set({ key: 'caffeineDrinks', value: JSON.stringify(drinks) });
+
+      } catch (error) {
+        console.error('Error saving data to Preferences:', error);
+      }
+    };
+    
+    saveData();
+  }, [records, userSettings, drinks, initialDataLoaded]);
 
   // --- 计算当前状态 ---
   useEffect(() => {
@@ -391,70 +448,171 @@ const CaffeineTracker = () => {
 
   // --- WebDAV同步 ---
   const performWebDAVSync = useCallback(async (settingsToUse, currentRecords, currentDrinks) => {
-    if (!settingsToUse.webdavEnabled || !settingsToUse.webdavServer || !settingsToUse.webdavUsername || !settingsToUse.webdavPassword) {
-      console.log("WebDAV 未启用或配置不完整，跳过同步。");
-      setSyncStatus(prev => ({ ...prev, lastSyncResult: "WebDAV 未启用或配置不完整" }));
-      return { success: false, message: "WebDAV 未启用或配置不完整", data: null, timestamp: null };
+    console.log("=== performWebDAVSync 被调用 ===");
+    console.log("同步环境信息:", {
+      initialDataLoaded,
+      webdavEnabled: settingsToUse.webdavEnabled,
+      hasServer: !!settingsToUse.webdavServer,
+      hasUsername: !!settingsToUse.webdavUsername,
+      hasPassword: !!settingsToUse.webdavPassword,
+      platform: isNativePlatform ? 'native' : 'web',
+      recordsCount: currentRecords.length,
+      drinksCount: currentDrinks.length
+    });
+
+    if (!initialDataLoaded) {
+      console.log("初始数据未加载完成，跳过WebDAV同步");
+      return;
+    }
+    
+    if (!settingsToUse.webdavEnabled) {
+      console.log("WebDAV同步已禁用");
+      setSyncStatus(prev => ({ 
+        ...prev, 
+        inProgress: false, 
+        lastSyncResult: { success: false, message: "WebDAV同步已禁用" } 
+      }));
+      return;
     }
 
-    setSyncStatus({ inProgress: true, lastSyncTime: null, lastSyncResult: '正在同步...' });
-    setShowSyncBadge(true);
+    if (!settingsToUse.webdavServer || !settingsToUse.webdavUsername || !settingsToUse.webdavPassword) {
+      console.error("WebDAV配置不完整:", {
+        server: !!settingsToUse.webdavServer,
+        username: !!settingsToUse.webdavUsername,
+        password: !!settingsToUse.webdavPassword
+      });
+      setSyncStatus(prev => ({ 
+        ...prev, 
+        inProgress: false, 
+        lastSyncResult: { success: false, message: "WebDAV配置不完整" } 
+      }));
+      setShowSyncBadge(true); 
+      setTimeout(() => setShowSyncBadge(false), 3000); 
+      return;
+    }
 
-    let client;
+    setSyncStatus(prev => ({ ...prev, inProgress: true })); 
+    setShowSyncBadge(true);
+    
     try {
-      const WebDAVClientModule = await import('./utils/webdavSync');
-      client = new WebDAVClientModule.default(
-        settingsToUse.webdavServer,
-        settingsToUse.webdavUsername,
+      console.log("创建WebDAV客户端...");
+      const webdavClient = new WebDAVClient(
+        settingsToUse.webdavServer, 
+        settingsToUse.webdavUsername, 
         settingsToUse.webdavPassword
       );
-    } catch (error) {
-      console.error("加载 WebDAVClient 失败:", error);
-      setSyncStatus({ inProgress: false, lastSyncTime: Date.now(), lastSyncResult: `加载 WebDAV 客户端失败: ${error.message}` });
-      setShowSyncBadge(false);
-      return { success: false, message: `加载 WebDAV 客户端失败: ${error.message}`, data: null, timestamp: null };
-    }
-
-    const localData = {
-      records: currentRecords,
-      drinks: currentDrinks,
-      userSettings: settingsToUse, // Pass the complete userSettings
-      syncTimestamp: settingsToUse.lastSyncTimestamp || 0, // Use existing sync timestamp from settings
-      appVersion: appConfig.latest_version || 'unknown' // Include app version
-    };
-
-    try {
-      const result = await client.performSync(localData);
-      console.log("WebDAV 同步结果:", result);
-
+      
+      const localData = {
+        records: currentRecords,
+        drinks: currentDrinks,
+        userSettings: { ...settingsToUse, webdavPassword: '' },
+        syncTimestamp: settingsToUse.localLastModifiedTimestamp || Date.now(),
+        version: appConfig.latest_version
+      };
+      
+      console.log("准备本地数据用于同步:", {
+        recordsCount: currentRecords.length,
+        drinksCount: currentDrinks.length,
+        syncTimestamp: localData.syncTimestamp,
+        version: localData.version
+      });
+      
+      const result = await webdavClient.performSync(localData, initialPresetDrinks, originalPresetDrinkIds);
+      console.log("WebDAV同步操作完成:", {
+        success: result.success,
+        message: result.message,
+        hasData: !!result.data,
+        timestamp: result.timestamp
+      });
+      
       if (result.success) {
+        let updatedSettings = { ...settingsToUse }; 
         if (result.data) {
-          // If data was merged or downloaded, update local state
-          setRecords(result.data.records || []);
-          setDrinks(result.data.drinks || []);
-          // Preserve local webdavPassword, and other sensitive or non-synced settings
-          const updatedSettings = {
-            ...result.data.userSettings,
-            webdavPassword: settingsToUse.webdavPassword, // Always keep local password
-            lastSyncTimestamp: result.timestamp, // Update with the new sync timestamp from merged data
-            localDataLastModified: result.timestamp // Also update localDataLastModified
+          const processSyncedDrinks = (drinksToProcess) => {
+            if (!Array.isArray(drinksToProcess)) return [...initialPresetDrinks];
+            const validDrinks = drinksToProcess.filter(d => d && typeof d.id !== 'undefined' && typeof d.name === 'string');
+            const savedDrinkIds = new Set(validDrinks.map(d => d.id));
+            const newPresetsToAdd = initialPresetDrinks.filter(p => !savedDrinkIds.has(p.id));
+
+            const validatedSavedDrinks = validDrinks.map(d => {
+              const isOriginalPreset = originalPresetDrinkIds.has(d.id);
+              const originalPresetData = isOriginalPreset ? initialPresetDrinks.find(p => p.id === d.id) : {};
+
+              const mode = d.calculationMode || originalPresetData?.calculationMode || 'per100ml';
+              let cc = null;
+              let cpg = null;
+
+              if (mode === 'perGram') {
+                cpg = (d.caffeinePerGram !== undefined && d.caffeinePerGram !== null) ? d.caffeinePerGram : (originalPresetData?.caffeinePerGram ?? 0);
+              } else { // per100ml
+                cc = (d.caffeineContent !== undefined && d.caffeineContent !== null) ? d.caffeineContent : (originalPresetData?.caffeineContent ?? 0);
+              }
+
+              return {
+                ...d,
+                category: d.category || (isOriginalPreset ? originalPresetData.category : DEFAULT_CATEGORY),
+                isPreset: d.isPreset ?? isOriginalPreset,
+                defaultVolume: d.defaultVolume !== undefined ? d.defaultVolume : (originalPresetData?.defaultVolume ?? null),
+                calculationMode: mode,
+                caffeineContent: cc,
+                caffeinePerGram: cpg
+              };
+            });
+            return [...validatedSavedDrinks, ...newPresetsToAdd].sort((a, b) => a.name.localeCompare(b.name));
           };
-          setUserSettings(updatedSettings);
-          console.log("本地数据已使用同步数据更新。新时间戳:", result.timestamp);
+
+          if (result.data.records && Array.isArray(result.data.records)) {
+            console.log(`更新记录: ${result.data.records.length} 条`);
+            setRecords(result.data.records.sort((a, b) => b.timestamp - a.timestamp));
+          }
+          if (result.data.drinks && Array.isArray(result.data.drinks)) {
+            console.log(`更新饮品: ${result.data.drinks.length} 种`);
+            setDrinks(processSyncedDrinks(result.data.drinks));
+          }
+          if (result.data.userSettings) {
+            const syncedDevelop = result.data.userSettings.develop;
+            updatedSettings = {
+              ...settingsToUse, 
+              ...result.data.userSettings, 
+              webdavPassword: settingsToUse.webdavPassword, 
+              develop: typeof syncedDevelop === 'boolean' ? syncedDevelop : settingsToUse.develop,
+            };
+            if (isNativePlatform && updatedSettings.themeMode === 'auto') {
+              updatedSettings.themeMode = 'light';
+            }
+            console.log("同步后更新设置完成");
+          }
         }
-        setSyncStatus({ inProgress: false, lastSyncTime: Date.now(), lastSyncResult: result.message });
-      } else {
-        setSyncStatus({ inProgress: false, lastSyncTime: Date.now(), lastSyncResult: `同步失败: ${result.message}` });
+        updatedSettings.lastSyncTimestamp = result.timestamp;
+        setUserSettings(updatedSettings);
+        setSyncStatus({ 
+          inProgress: false, 
+          lastSyncTime: new Date(result.timestamp), 
+          lastSyncResult: { success: true, message: result.message } 
+        });
+      } else { 
+        throw new Error(result.message); 
       }
-      setShowSyncBadge(false);
-      return result;
     } catch (error) {
-      console.error("WebDAV 同步期间出错:", error);
-      setSyncStatus({ inProgress: false, lastSyncTime: Date.now(), lastSyncResult: `同步错误: ${error.message}` });
-      setShowSyncBadge(false);
-      return { success: false, message: `同步错误: ${error.message}`, data: null, timestamp: null };
+      console.error("WebDAV同步过程中发生错误:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        platform: isNativePlatform ? 'native' : 'web'
+      });
+      setSyncStatus({ 
+        inProgress: false, 
+        lastSyncTime: new Date(), 
+        lastSyncResult: { 
+          success: false, 
+          message: error.message || "同步时发生未知错误" 
+        } 
+      });
+    } finally {
+      setTimeout(() => { setShowSyncBadge(false); }, 5000);
+      console.log("=== performWebDAVSync 完成 ===");
     }
-  }, [appConfig.latest_version, isNativePlatform]); // Removed setRecords, setDrinks, setUserSettings as direct dependencies
+  }, [appConfig.latest_version, isNativePlatform, initialDataLoaded]);
 
   // --- SplashScreen 隐藏逻辑 ---
   useEffect(() => {
@@ -483,70 +641,121 @@ const CaffeineTracker = () => {
 
   // --- 事件处理程序 ---
   const handleAddRecord = useCallback(async (record) => {
-    const newRecord = { ...record, id: uuidv4(), timestamp: Date.now() }; // Add creation and modification timestamp
-    setRecords(prevRecords => [newRecord, ...prevRecords]);
-    setUserSettings(prevSettings => ({ ...prevSettings, localDataLastModified: Date.now() }));
+    const newTimestamp = Date.now();
+    setRecords(prevRecords => {
+      const newRecord = { ...record, id: record.id || `record_${newTimestamp}`, updatedAt: newTimestamp };
+      const newRecords = [...prevRecords, newRecord].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort by intake time desc
+      return newRecords;
+    });
+    setUserSettings(prev => ({ ...prev, localLastModifiedTimestamp: newTimestamp }));
   }, []);
 
   const handleEditRecord = useCallback(async (updatedRecord) => {
     const newTimestamp = Date.now();
-    setRecords(prevRecords =>
-      prevRecords.map(r => (r.id === updatedRecord.id ? { ...updatedRecord, timestamp: newTimestamp } : r))
-    );
-    setUserSettings(prevSettings => ({ ...prevSettings, localDataLastModified: newTimestamp }));
+    setRecords(prevRecords => {
+      const newRecords = prevRecords.map(r => r.id === updatedRecord.id ? { ...updatedRecord, updatedAt: newTimestamp } : r)
+                                  .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort by intake time desc
+      return newRecords;
+    });
+    setUserSettings(prev => ({ ...prev, localLastModifiedTimestamp: newTimestamp }));
   }, []);
 
   const handleDeleteRecord = useCallback(async (id) => {
-    setRecords(prevRecords => prevRecords.filter(r => r.id !== id));
-    setUserSettings(prevSettings => ({ ...prevSettings, localDataLastModified: Date.now() }));
+    const newTimestamp = Date.now();
+    setRecords(prevRecords => {
+      const newRecords = prevRecords.filter(r => r.id !== id);
+      return newRecords;
+    });
+    setUserSettings(prev => ({ ...prev, localLastModifiedTimestamp: newTimestamp }));
   }, []);
 
-  const handleUpdateSettings = useCallback(async (newSettings) => {
-    // If newSettings is a function, it's an updater function
-    if (typeof newSettings === 'function') {
-        setUserSettings(prevSettings => {
-            const updated = newSettings(prevSettings);
-            return { ...updated, localDataLastModified: Date.now() };
-        });
-    } else {
-        setUserSettings(prevSettings => ({ 
-            ...prevSettings, 
-            ...newSettings, 
-            localDataLastModified: Date.now() 
-        }));
-    }
+  const handleUpdateSettings = useCallback(async (keyOrSettingsObject, value) => {
+    setUserSettings(prevSettings => {
+      let newSettings = {};
+      if (typeof keyOrSettingsObject === 'string') {
+        // Called as onUpdateSettings(key, value)
+        newSettings = {
+          ...prevSettings,
+          [keyOrSettingsObject]: value,
+        };
+      } else if (typeof keyOrSettingsObject === 'object' && keyOrSettingsObject !== null) {
+        // Called as onUpdateSettings(settingsObject)
+        // This will also handle calls like onUpdateSettings(mergedSettings, null, true)
+        // where keyOrSettingsObject is the mergedSettings object.
+        newSettings = {
+          ...prevSettings,
+          ...keyOrSettingsObject,
+        };
+      } else {
+        // Invalid call, return previous settings
+        console.warn("Invalid call to handleUpdateSettings", keyOrSettingsObject, value);
+        return prevSettings;
+      }
+      
+      // Ensure localLastModifiedTimestamp is updated
+      // It might be part of keyOrSettingsObject if it's a full settings object,
+      // otherwise, we set it.
+      if (!newSettings.hasOwnProperty('localLastModifiedTimestamp') || typeof keyOrSettingsObject === 'string') {
+        newSettings.localLastModifiedTimestamp = Date.now();
+      }
+      
+      return newSettings;
+    });
+    // Note: The logic to save settings to Preferences/FileSystem (which happens in a useEffect)
+    // will pick up this state change.
   }, []);
-
-  // Need to handle setDrinks to also update localLastModifiedTimestamp
-  // This is tricky because setDrinks is passed down.
-  // A wrapper function or direct update in SettingsView after setDrinks could work.
-  // For now, the main save effect will catch changes to `drinks` and `userSettings`
-  // and the `localLastModifiedTimestamp` on `userSettings` should be up-to-date
-  // if `handleUpdateSettings` is used for all direct setting changes.
-  // When `drinks` array is changed by `setDrinks` directly, the `saveData` useEffect
-  // will run. At that point, `userSettings.localLastModifiedTimestamp` might be stale
-  // if only `drinks` changed.
 
   // Let's create a new callback for updating drinks that also updates the timestamp.
   const handleSetDrinks = useCallback((newDrinksOrUpdater) => {
-    setDrinks(currentDrinks => {
-      const updatedDrinks = typeof newDrinksOrUpdater === 'function' ? newDrinksOrUpdater(currentDrinks) : newDrinksOrUpdater;
-      // Ensure all drinks have a lastModified timestamp
-      return updatedDrinks.map(drink => ({...drink, lastModified: drink.lastModified || Date.now() }));
-    });
-    setUserSettings(prevSettings => ({ ...prevSettings, localDataLastModified: Date.now() }));
+    setDrinks(newDrinksOrUpdater);
+    setUserSettings(prev => ({ ...prev, localLastModifiedTimestamp: Date.now() }));
   }, []);
+
+  const toggleThemeMode = useCallback(() => {
+    setUserSettings(prev => {
+      let nextMode;
+      // 修改切换主题逻辑，让原生平台也支持三种模式
+      if (prev.themeMode === 'auto') nextMode = 'light';
+      else if (prev.themeMode === 'light') nextMode = 'dark';
+      else nextMode = 'auto';
+      return { ...prev, themeMode: nextMode };
+    });
+  }, []);
+
+  // 修改：手动同步函数，添加详细日志
+  const handleManualSync = useCallback(() => {
+    console.log("=== 手动同步被触发 ===");
+    console.log("手动同步状态检查:", {
+      webdavConfigured,
+      inProgress: syncStatus.inProgress,
+      initialDataLoaded,
+      platform: isNativePlatform ? 'native' : 'web'
+    });
+    performWebDAVSync(userSettings, records, drinks);
+  }, [userSettings, records, drinks, performWebDAVSync, webdavConfigured, isNativePlatform]);
+
+  // 修改：监听WebDAV配置状态，移除对密码加载的依赖
+  useEffect(() => {
+    const configured = userSettings.webdavEnabled && 
+                      userSettings.webdavServer && 
+                      userSettings.webdavUsername && 
+                      userSettings.webdavPassword;
+    setWebdavConfigured(configured);
+    console.log("WebDAV配置状态更新:", {
+      enabled: userSettings.webdavEnabled,
+      hasServer: !!userSettings.webdavServer,
+      hasUsername: !!userSettings.webdavUsername,
+      hasPassword: !!userSettings.webdavPassword,
+      configured
+    });
+  }, [userSettings.webdavEnabled, userSettings.webdavServer, userSettings.webdavUsername, userSettings.webdavPassword]);
 
   // --- 渲染 ---
   return (
-    // 使用语义化 div 和动态背景/文本颜色
     <div
-      className={`min-h-screen font-sans transition-colors duration-300 ${effectiveTheme === 'dark' ? 'dark' : ''
-        }`}
+      className={`min-h-screen font-sans transition-colors duration-300 ${effectiveTheme === 'dark' ? 'dark' : ''}`}
       style={{ backgroundColor: colors.bgBase, color: colors.textPrimary }}
     >
-
-      {/* 使用 header 语义标签 */}
       <header className="max-w-md mx-auto px-4 pt-6 pb-2 text-center relative">
         <h1
           className="text-3xl font-bold flex justify-center items-center transition-colors"
@@ -564,15 +773,19 @@ const CaffeineTracker = () => {
 
         {/* Header Buttons Container */}
         <div className="absolute top-4 right-4 flex items-center space-x-2" style={{ marginTop: '5%' }}>
-          {/* Sync Button */}
+          {/* 修改：Sync Button */}
           {userSettings.webdavEnabled && (
             <button
               onClick={handleManualSync}
-              disabled={syncStatus.inProgress}
-              className={`p-2 rounded-full transition-all duration-300 ${syncStatus.inProgress ? 'animate-spin text-blue-500' : ''
-                }`}
+              disabled={!webdavConfigured || syncStatus.inProgress}
+              className={`p-2 rounded-full transition-all duration-300 ${
+                syncStatus.inProgress ? 'animate-spin text-blue-500' : ''
+              } ${
+                !webdavConfigured ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200'
+              }`}
               style={{ color: colors.textSecondary }}
-              aria-label="手动同步 WebDAV 数据" // SEO & A11y: 添加 aria-label
+              aria-label="手动同步 WebDAV 数据"
+              title={!webdavConfigured ? 'WebDAV配置不完整' : '手动同步'}
             >
               <RefreshCw size={20} />
             </button>
@@ -591,15 +804,21 @@ const CaffeineTracker = () => {
           </button>
         </div>
 
+        {/* 修改：同步状态显示 */}
         {showSyncBadge && (
           <div
-            className={`absolute top-14 right-4 mt-1 py-1 px-2 rounded-full text-xs z-10 ${syncStatus.lastSyncResult?.success ? 'bg-green-100 text-green-700 border border-green-200' :
-              syncStatus.lastSyncResult?.message === "WebDAV未配置" ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
+            className={`absolute top-14 right-4 mt-1 py-1 px-2 rounded-full text-xs z-10 ${
+              syncStatus.lastSyncResult?.success 
+                ? 'bg-green-100 text-green-700 border border-green-200' :
+              syncStatus.lastSyncResult?.message?.includes("配置") || syncStatus.lastSyncResult?.message?.includes("禁用")
+                ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
                 'bg-red-100 text-red-700 border border-red-200'
-              } flex items-center shadow-sm`}
+            } flex items-center shadow-sm`}
             style={{ marginTop: '5%' }}
           >
-            {syncStatus.inProgress ? '同步中...' : syncStatus.lastSyncResult?.success ? '同步成功' : syncStatus.lastSyncResult?.message || '同步失败'}
+            {syncStatus.inProgress ? '同步中...' : 
+             syncStatus.lastSyncResult?.success ? '同步成功' : 
+             syncStatus.lastSyncResult?.message || '同步失败'}
           </div>
         )}
       </header>
@@ -717,7 +936,7 @@ const CaffeineTracker = () => {
               userSettings={userSettings}
               onUpdateSettings={handleUpdateSettings}
               drinks={drinks}
-              setDrinks={handleSetDrinks}
+              setDrinks={handleSetDrinks} // This already updates localLastModifiedTimestamp
               originalPresetDrinkIds={originalPresetDrinkIds}
               onManualSync={handleManualSync}
               syncStatus={syncStatus}

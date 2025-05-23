@@ -2,10 +2,19 @@
   "appId": "com.jerryz.caffeine",
   "appName": "咖啡因追踪",
   "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "allowNavigation": [
+      "*"
+    ]
+  },
   "plugins": {
     "SplashScreen": {
       "launchShowDuration": 50000,
       "launchAutoHide": false
+    },
+    "CapacitorHttp": {
+      "enabled": true
     }
   }
 }

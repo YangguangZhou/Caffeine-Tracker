@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'; // 添加 useCallback
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
     User, Weight, Target, Sliders, Clock, Moon,
     Droplet, Coffee, Plus, X, Save, Edit, Trash2,
@@ -12,6 +12,8 @@ import { formatDatetimeLocal } from '../utils/timeUtils';
 import { initialPresetDrinks, DRINK_CATEGORIES, DEFAULT_CATEGORY, defaultSettings } from '../utils/constants'; // Import defaultSettings
 // 动态导入 WebDAVClient
 const WebDAVClientPromise = import('../utils/webdavSync');
+
+const WEBDAV_PASSWORD_KEY = 'webdavPassword';
 
 /**
  * 设置视图组件
@@ -46,9 +48,37 @@ const SettingsView = ({
     const [testingWebDAV, setTestingWebDAV] = useState(false);
     const [webDAVTestResult, setWebDAVTestResult] = useState(null);
 
+    // 修改：密码加载逻辑，移除状态跟踪
+    useEffect(() => {
+        const loadPersistedPassword = async () => {
+            try {
+                const { value } = await Preferences.get({ key: WEBDAV_PASSWORD_KEY });
+                if (value && value !== userSettings.webdavPassword) {
+                    onUpdateSettings('webdavPassword', value, true);
+                }
+            } catch (error) {
+                console.error("加载 WebDAV 密码失败:", error);
+            }
+            // 移除：不再设置 passwordLoaded 状态
+        };
+        loadPersistedPassword();
+    }, []);
+
     // 处理设置变更
-    const handleSettingChange = useCallback((key, value) => {
-        onUpdateSettings(prev => ({ ...prev, [key]: value }));
+    const handleSettingChange = useCallback(async (key, value) => { // 修改为异步函数
+        onUpdateSettings(key, value);
+        // 如果更改的是 WebDAV 密码，则持久化存储
+        if (key === 'webdavPassword') {
+            try {
+                if (value) {
+                    await Preferences.set({ key: WEBDAV_PASSWORD_KEY, value });
+                } else {
+                    await Preferences.remove({ key: WEBDAV_PASSWORD_KEY });
+                }
+            } catch (error) {
+                console.error("保存 WebDAV 密码失败:", error);
+            }
+        }
     }, [onUpdateSettings]);
 
     // 验证数值输入范围
@@ -74,62 +104,62 @@ const SettingsView = ({
 
     // 处理添加/更新饮品 (使用 useCallback)
     const handleAddOrUpdateDrink = useCallback(() => {
-        if (!newDrinkName.trim()) {
+        const name = newDrinkName.trim();
+        const volume = newDrinkVolume.trim() === '' ? null : parseFloat(newDrinkVolume);
+        const category = newDrinkCategory || DEFAULT_CATEGORY;
+
+        let caffeineContentValue = null;
+        let caffeinePerGramValue = null;
+
+        if (newDrinkCalculationMode === 'per100ml') {
+            caffeineContentValue = parseFloat(newDrinkCaffeineContent);
+            if (isNaN(caffeineContentValue) || caffeineContentValue < 0) {
+                alert("每100ml咖啡因含量必须是大于或等于 0 的数字。");
+                return;
+            }
+        } else { // perGram
+            caffeinePerGramValue = parseFloat(newDrinkCaffeinePerGram);
+            if (isNaN(caffeinePerGramValue) || caffeinePerGramValue < 0) {
+                alert("每克咖啡豆咖啡因含量必须是大于或等于 0 的数字。");
+                return;
+            }
+        }
+
+        if (name === '') {
             alert("饮品名称不能为空。");
             return;
         }
-        // Validate caffeine content based on calculation mode
-        let caffeineValue;
-        if (newDrinkCalculationMode === 'per100ml') {
-            caffeineValue = parseFloat(newDrinkCaffeineContent);
-            if (isNaN(caffeineValue) || caffeineValue <= 0) {
-                alert("每100毫升咖啡因含量必须是正数。");
-                return;
-            }
-        } else if (newDrinkCalculationMode === 'perGram') {
-            caffeineValue = parseFloat(newDrinkCaffeinePerGram);
-            if (isNaN(caffeineValue) || caffeineValue <= 0) {
-                alert("每克咖啡豆咖啡因含量必须是正数。");
-                return;
-            }
+        if (volume !== null && (isNaN(volume) || volume <= 0)) {
+            alert(`默认${newDrinkCalculationMode === 'perGram' ? '用量(g)' : '容量(ml)'}必须是大于 0 的数字，或留空。`);
+            return;
         }
-
-        const volume = parseFloat(newDrinkVolume);
-        if (isNaN(volume) || volume <= 0) {
-            alert("默认容量/用量必须是正数。");
+        const existingDrink = drinks.find(drink =>
+            drink.name.toLowerCase() === name.toLowerCase() &&
+            drink.id !== editingDrink?.id
+        );
+        if (existingDrink) {
+            alert(`名称为 "${name}" 的饮品已存在。请使用不同的名称。`);
             return;
         }
 
-        const now = Date.now();
+        const newDrinkData = {
+            id: editingDrink?.id || `custom-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            name: name,
+            calculationMode: newDrinkCalculationMode,
+            caffeineContent: caffeineContentValue,
+            caffeinePerGram: caffeinePerGramValue,
+            defaultVolume: volume,
+            category: category,
+            isPreset: editingDrink?.isPreset ?? false,
+            updatedAt: Date.now(), // Add/update timestamp
+        };
+
         if (editingDrink) {
-            setDrinks(drinks.map(d => 
-                d.id === editingDrink.id ? {
-                    ...d,
-                    name: newDrinkName,
-                    caffeinePer100ml: newDrinkCalculationMode === 'per100ml' ? caffeineValue : undefined,
-                    caffeinePerGram: newDrinkCalculationMode === 'perGram' ? caffeineValue : undefined,
-                    calculationMode: newDrinkCalculationMode,
-                    defaultVolume: volume,
-                    category: newDrinkCategory,
-                    lastModified: now // Update lastModified timestamp
-                } : d
-            ));
+            setDrinks(prevDrinks => prevDrinks.map(drink => drink.id === editingDrink.id ? newDrinkData : drink));
         } else {
-            const newDrink = {
-                id: `custom-${Date.now()}`,
-                name: newDrinkName,
-                caffeinePer100ml: newDrinkCalculationMode === 'per100ml' ? caffeineValue : undefined,
-                caffeinePerGram: newDrinkCalculationMode === 'perGram' ? caffeineValue : undefined,
-                calculationMode: newDrinkCalculationMode,
-                defaultVolume: volume,
-                category: newDrinkCategory,
-                isPreset: false,
-                lastModified: now // Add lastModified timestamp
-            };
-            setDrinks([...drinks, newDrink]);
+            setDrinks(prevDrinks => [...prevDrinks, newDrinkData]);
         }
         resetDrinkForm();
-        setShowDrinkEditor(false);
     }, [
         newDrinkName, 
         // newDrinkCaffeine, // Replaced
@@ -146,13 +176,15 @@ const SettingsView = ({
 
     // 删除饮品 (使用 useCallback)
     const deleteDrink = useCallback((id) => {
-        if (originalPresetDrinkIds.includes(id)) {
-            alert("预设饮品不能删除。");
+        const drinkToDelete = drinks.find(drink => drink.id === id);
+        if (!drinkToDelete) return;
+        if (originalPresetDrinkIds.has(id)) {
+            alert("无法删除原始预设饮品。您可以编辑它或添加新的自定义饮品。");
             return;
         }
-        setDrinks(drinks.filter(d => d.id !== id));
-        // No need to call onUpdateSettings for localDataLastModified here,
-        // as setDrinks in CaffeineTracker will trigger it.
+        if (window.confirm(`确定要删除饮品 "${drinkToDelete.name}" 吗？`)) {
+            setDrinks(prevDrinks => prevDrinks.filter(drink => drink.id !== id));
+        }
     }, [drinks, setDrinks, originalPresetDrinkIds]);
 
     // 编辑饮品 (使用 useCallback)
@@ -170,27 +202,76 @@ const SettingsView = ({
 
     // 测试WebDAV连接 (使用 useCallback)
     const testWebDAVConnection = useCallback(async () => {
+        console.log("=== 开始WebDAV连接测试 ===");
         setTestingWebDAV(true);
         setWebDAVTestResult(null);
-        try {
-            const WebDAVClientModule = await WebDAVClientPromise; // 等待 Promise 解析
-            const WebDAVClient = WebDAVClientModule.default;
-            if (!WebDAVClient) throw new Error("无法加载WebDAV客户端。");
+        
+        // 检查基本配置
+        if (!userSettings.webdavServer || !userSettings.webdavUsername || !userSettings.webdavPassword) {
+            const errorMsg = "请确保已填写服务器地址、用户名和密码";
+            console.error("WebDAV配置不完整:", {
+                hasServer: !!userSettings.webdavServer,
+                hasUsername: !!userSettings.webdavUsername,
+                hasPassword: !!userSettings.webdavPassword
+            });
+            setWebDAVTestResult({ 
+                success: false, 
+                message: errorMsg 
+            });
+            setTestingWebDAV(false);
+            return;
+        }
 
+        try {
+            console.log("开始动态导入WebDAV模块...");
+            const WebDAVClientModule = await import('../utils/webdavSync');
+            const WebDAVClient = WebDAVClientModule.default;
+            
+            if (!WebDAVClient) {
+                throw new Error("无法加载WebDAV客户端模块");
+            }
+
+            console.log("创建WebDAV客户端实例...");
             const client = new WebDAVClient(
                 userSettings.webdavServer,
                 userSettings.webdavUsername,
                 userSettings.webdavPassword
             );
+            
+            console.log("开始测试WebDAV连接...", {
+                server: userSettings.webdavServer,
+                username: userSettings.webdavUsername,
+                hasPassword: !!userSettings.webdavPassword,
+                platform: isNativePlatform ? 'native' : 'web'
+            });
+            
             const result = await client.testConnection();
+            console.log("WebDAV测试结果:", result);
             setWebDAVTestResult(result);
         } catch (error) {
-            console.error("测试WebDAV连接时出错:", error);
-            setWebDAVTestResult({ success: false, message: `连接错误: ${error.message}` });
+            console.error("测试WebDAV连接时出现异常:", {
+                message: error.message,
+                stack: error.stack,
+                name: error.name,
+                platform: isNativePlatform ? 'native' : 'web'
+            });
+            setWebDAVTestResult({ 
+                success: false, 
+                message: `连接错误: ${error.message}` 
+            });
         } finally {
             setTestingWebDAV(false);
+            console.log("=== WebDAV连接测试结束 ===");
         }
-    }, [userSettings.webdavServer, userSettings.webdavUsername, userSettings.webdavPassword]);
+    }, [userSettings.webdavServer, userSettings.webdavUsername, userSettings.webdavPassword, isNativePlatform]);
+
+    // 修改：计算按钮是否可用，移除密码加载状态依赖
+    const isWebDAVConfigured = useMemo(() => {
+        return userSettings.webdavEnabled && 
+               userSettings.webdavServer && 
+               userSettings.webdavUsername && 
+               userSettings.webdavPassword;
+    }, [userSettings.webdavEnabled, userSettings.webdavServer, userSettings.webdavUsername, userSettings.webdavPassword]);
 
     // 导出数据 (使用 useCallback)
     const exportData = useCallback(async () => { // Make async for Capacitor
@@ -257,43 +338,66 @@ const SettingsView = ({
     }, [setRecords, onUpdateSettings, setDrinks]);
 
     // 导入数据 (使用 useCallback)
-    const importData = useCallback(async (event) => {
+    const importData = useCallback(async (event) => { // 确保密码在导入时也能正确处理
         const file = event.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
         reader.onload = async (e) => {
             try {
-                const imported = JSON.parse(e.target.result);
-                if (imported && imported.records && imported.drinks && imported.userSettings) {
-                    if (!confirm("导入数据将会覆盖当前所有数据（除了WebDAV密码），确定要继续吗？")) {
-                        return;
-                    }
-                    setRecords(imported.records || []);
-                    setDrinks((imported.drinks || []).map(d => ({...d, lastModified: d.lastModified || Date.now()}))); // Ensure lastModified
-                    
-                    // Preserve WebDAV password from current settings
-                    const currentWebdavPassword = userSettings.webdavPassword;
-                    const newSettings = { 
-                        ...defaultSettings, // Start with defaults
-                        ...imported.userSettings, // Apply imported settings
-                        webdavPassword: currentWebdavPassword, // Restore current password
-                        lastSyncTimestamp: 0, // Reset sync timestamp after import
-                        localDataLastModified: Date.now() // Set new modification timestamp
-                    };
-                    onUpdateSettings(newSettings);
-                    alert("数据导入成功！");
-                } else {
-                    alert("文件格式无效或缺少必要数据。");
+                const importedFullData = JSON.parse(e.target.result);
+                
+                // 确保导入的数据结构是预期的
+                if (!importedFullData || typeof importedFullData !== 'object') {
+                    alert("导入文件格式无效。");
+                    return;
                 }
+
+                const { records: importedRecords, drinks: importedDrinks, userSettings: importedUserSettings, version } = importedFullData;
+
+                if (!Array.isArray(importedRecords) || !Array.isArray(importedDrinks) || typeof importedUserSettings !== 'object') {
+                    alert("导入数据结构不完整或无效。");
+                    return;
+                }
+
+                // 合并设置，但保留当前的 WebDAV 凭据和同步频率等敏感或设备特定的设置
+                const currentWebDavPassword = userSettings.webdavPassword || (await Preferences.get({ key: WEBDAV_PASSWORD_KEY })).value;
+                const settingsToKeep = {
+                    webdavServer: userSettings.webdavServer,
+                    webdavUsername: userSettings.webdavUsername,
+                    webdavPassword: currentWebDavPassword, // 使用持久化的或当前的密码
+                    webdavEnabled: userSettings.webdavEnabled,
+                    webdavSyncFrequency: userSettings.webdavSyncFrequency,
+                    lastSyncTimestamp: userSettings.lastSyncTimestamp, // 保留本地的最后同步时间戳
+                    localLastModifiedTimestamp: Date.now(), // 更新为当前时间
+                    themeMode: userSettings.themeMode, // 保留当前主题
+                    // 可以根据需要添加其他要保留的设置
+                };
+
+                const mergedSettings = { 
+                    ...defaultSettings, // 从默认设置开始，以确保所有键都存在
+                    ...importedUserSettings, 
+                    ...settingsToKeep 
+                };
+
+                // 更新状态
+                setRecords(importedRecords || []);
+                setDrinks(importedDrinks || []);
+                onUpdateSettings(mergedSettings, null, true); // 批量更新设置，最后一个参数表示非单个字段更新
+
+                // 如果导入的设置中包含 webdavPassword，则不应覆盖我们特意保留的密码
+                // 上面的 mergedSettings 已经处理了这个问题
+                // 如果导入的设置中有密码，并且我们没有本地密码，可以选择是否使用它，但通常不建议
+
+                alert('数据导入成功！');
             } catch (error) {
-                console.error("导入数据失败:", error);
+                console.error("导入数据时出错:", error);
                 alert(`导入失败: ${error.message}`);
             }
         };
         reader.readAsText(file);
-        event.target.value = null; // Reset file input
-    }, [setRecords, onUpdateSettings, setDrinks, userSettings.webdavPassword, defaultSettings]);
+        event.target.value = null; // 重置文件输入，以便可以再次选择相同的文件
+    }, [setRecords, onUpdateSettings, setDrinks, userSettings]); // 从依赖项中移除 userSettings.lastSyncTimestamp 和 userSettings.webdavPassword，因为它们在回调内部动态获取或已包含在 userSettings 中
 
     return (
         <>
@@ -726,7 +830,7 @@ const SettingsView = ({
                         <button
                             onClick={testWebDAVConnection}
                             className="py-2 px-4 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors duration-200 text-sm shadow flex items-center justify-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={!userSettings.webdavEnabled || !userSettings.webdavServer || !userSettings.webdavUsername || !userSettings.webdavPassword || testingWebDAV}
+                            disabled={!isWebDAVConfigured || testingWebDAV}
                         >
                             <TestTubeDiagonal size={16} className="mr-1.5" aria-hidden="true" />
                             {testingWebDAV ? '测试中...' : '测试连接'}
@@ -734,12 +838,24 @@ const SettingsView = ({
                         <button
                             onClick={onManualSync}
                             className="py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors duration-200 text-sm shadow flex items-center justify-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={!userSettings.webdavEnabled || !userSettings.webdavServer || !userSettings.webdavUsername || !userSettings.webdavPassword || syncStatus.inProgress}
+                            disabled={!isWebDAVConfigured || syncStatus.inProgress}
                         >
                             <CloudDownload size={16} className="mr-1.5" aria-hidden="true" />
                             {syncStatus.inProgress ? '同步中...' : '立即同步'}
                         </button>
                     </div>
+
+                    {/* 修改：调试信息，移除密码加载状态 */}
+                    {userSettings.develop && (
+                        <div className="mt-3 p-2 bg-gray-100 rounded text-xs">
+                            <p>调试信息:</p>
+                            <p>WebDAV启用: {userSettings.webdavEnabled ? '是' : '否'}</p>
+                            <p>服务器: {userSettings.webdavServer || '未设置'}</p>
+                            <p>用户名: {userSettings.webdavUsername || '未设置'}</p>
+                            <p>密码: {userSettings.webdavPassword ? '已设置' : '未设置'}</p>
+                            <p>配置完整: {isWebDAVConfigured ? '是' : '否'}</p>
+                        </div>
+                    )}
 
                     {/* 测试结果 */}
                     {webDAVTestResult && (
