@@ -31,8 +31,8 @@ export default class WebDAVClient {
         // 确保服务器 URL 以 '/' 结尾，如果未提供则为空字符串
         this.server = server ? (server.endsWith('/') ? server : `${server}/`) : '';
         this.username = username;
-        this.password = password; // 在内部存储密码以供请求使用
-        this.fileName = 'caffeine-tracker-data.json'; // 数据文件名
+        this.password = password;
+        this.fileName = 'caffeine-tracker-data.json';
         // 仅当用户名和密码都存在时才构造 Authorization 头部
         this.authHeader = (username && password) ? 'Basic ' + btoa(`${username}:${password}`) : null;
     }
@@ -257,7 +257,7 @@ export default class WebDAVClient {
      * @returns {'local_newer' | 'remote_newer' | 'equal' | 'only_local' | 'only_remote' | 'no_timestamps'} 比较结果。
      */
     compareTimestamps(localTs, remoteTs) {
-        const localTimestamp = localTs || 0; // Treat null/undefined as 0 for comparison
+        const localTimestamp = localTs || 0;
         const remoteTimestamp = remoteTs || 0;
 
         if (localTimestamp === 0 && remoteTimestamp === 0) return 'no_timestamps';
@@ -272,117 +272,97 @@ export default class WebDAVClient {
     /**
      * 合并本地和远程数据。
      * 策略：
-     * 1. 合并记录和饮品：保留来自两个来源的所有唯一项（按 ID）。
-     * 2. 合并设置：对于已知键，优先使用具有较新整体时间戳的来源中的值。
-     * 3. 更新时间戳：为合并后的数据设置新的 syncTimestamp。
-     * @param {Object} localData 本地数据对象。
+     * 1. 记录和饮品：逐项比较，保留时间戳（`timestamp` for records, `lastModified` for drinks）最新的版本。
+     * 2. 设置：对于已知键，优先使用整体时间戳 (`syncTimestamp` 或 `localDataLastModified`) 更新的来源中的值。WebDAV密码始终从本地获取。
+     * 3. 更新时间戳：为合并后的数据设置新的 `syncTimestamp`。
+     * 4. 版本：合并后的数据版本采用当前应用版本。
+     * @param {Object} localData 本地数据对象 (includes appVersion)。
      * @param {Object} remoteData 远程数据对象。
      * @returns {Object} 合并后的数据对象。
      */
-    mergeData(localData, remoteData) { // Removed initialPresetDrinks, originalPresetDrinkIds as params
+    mergeData(localData, remoteData) {
         console.log("正在合并本地和远程数据...");
-        const localTs = localData?.syncTimestamp;
-        const remoteTs = remoteData?.syncTimestamp;
+        // Use localDataLastModified from userSettings if available, otherwise fallback to syncTimestamp
+        const localTs = localData?.userSettings?.localDataLastModified || localData?.syncTimestamp || 0;
+        const remoteTs = remoteData?.syncTimestamp || 0;
+        const currentAppVersion = localData?.appVersion || 'unknown'; // Current app version from localData
 
-        const comparison = this.compareTimestamps(localTs, remoteTs);
-        // Determine primary source based on newer timestamp. If equal or one is missing, local might be preferred or specific logic applied.
-        // For simplicity, if remote is newer, it's primary. Otherwise, local is primary (covers local_newer, only_local, equal, no_timestamps where local might have data).
-        const isRemotePrimary = comparison === 'remote_newer' || comparison === 'only_remote';
+        console.log(`Local timestamp: ${localTs}, Remote timestamp: ${remoteTs}, App version for merge: ${currentAppVersion}`);
 
-        const primarySource = isRemotePrimary ? remoteData : localData;
-        const secondarySource = isRemotePrimary ? localData : remoteData;
-        console.log(`合并的主要来源 (基于时间戳): ${isRemotePrimary ? '远程' : '本地'}`);
-
-        // --- 合并记录 ---
+        // --- 合并记录 (Records) ---
+        // Each record should have `id` and `timestamp` (as last modified time)
         const recordMap = new Map();
-        // 首先添加主要来源的记录
-        (primarySource?.records || []).forEach(record => {
-            if (record?.id) recordMap.set(record.id, record);
+        (localData?.records || []).forEach(record => {
+            recordMap.set(record.id, { ...record }); // Keep local by default
         });
-        // 添加次要来源中的唯一记录
-        (secondarySource?.records || []).forEach(record => {
-            if (record?.id && !recordMap.has(record.id)) {
-                recordMap.set(record.id, record);
+        (remoteData?.records || []).forEach(remoteRecord => {
+            const localRecord = recordMap.get(remoteRecord.id);
+            if (localRecord) {
+                if ((remoteRecord.timestamp || 0) > (localRecord.timestamp || 0)) {
+                    recordMap.set(remoteRecord.id, { ...remoteRecord }); // Remote is newer
+                }
+            } else {
+                recordMap.set(remoteRecord.id, { ...remoteRecord }); // Only in remote, add it
             }
         });
         const mergedRecords = Array.from(recordMap.values());
         console.log(`合并后的记录数: ${mergedRecords.length}`);
 
-        // --- 合并饮品 ---
-        // Strategy: The list of drinks from the primary data source (determined by the newer syncTimestamp)
-        // is considered authoritative. This ensures that additions, deletions, and modifications
-        // are consistently handled based on which dataset is considered more up-to-date.
-        const mergedDrinks = (primarySource?.drinks || [])
-            .filter(drink => {
-                // Basic validation, consistent with original logic for adding to map
-                const isValid = drink?.id && typeof drink.name === 'string' && typeof drink.caffeineContent === 'number';
-                if (!isValid) {
-                    console.warn("合并饮品时发现无效或不完整的饮品对象，已跳过:", drink);
+        // --- 合并饮品 (Drinks) ---
+        // Each drink should have `id` and `lastModified` timestamp
+        const drinkMap = new Map();
+        (localData?.drinks || []).forEach(drink => {
+            drinkMap.set(drink.id, { ...drink }); // Keep local by default
+        });
+        (remoteData?.drinks || []).forEach(remoteDrink => {
+            const localDrink = drinkMap.get(remoteDrink.id);
+            if (localDrink) {
+                if ((remoteDrink.lastModified || 0) > (localDrink.lastModified || 0)) {
+                    drinkMap.set(remoteDrink.id, { ...remoteDrink }); // Remote is newer
                 }
-                return isValid;
-            })
-            .map(drink => ({ ...drink })); // Clone valid drinks to avoid mutation issues
-
-        console.log(`合并后的饮品数 (来自 '${isRemotePrimary ? '远程' : '本地'}' 主要来源): ${mergedDrinks.length}`);
-
+            } else {
+                drinkMap.set(remoteDrink.id, { ...remoteDrink }); // Only in remote, add it
+            }
+        });
+        const mergedDrinks = Array.from(drinkMap.values());
+        console.log(`合并后的饮品数: ${mergedDrinks.length}`);
 
         // --- 合并用户设置 ---
-        const mergedSettings = {};
-        const primarySettings = primarySource?.userSettings || {};
-        const secondarySettings = secondarySource?.userSettings || {};
-
-        // 遍历已知键以确保结构并优先考虑主要来源
+        // Determine primary source for settings based on overall timestamps,
+        // but password is handled specially.
+        const comparison = this.compareTimestamps(localTs, remoteTs);
+        const isRemotePrimaryForSettings = comparison === 'remote_newer' || comparison === 'only_remote';
+        const primarySettingsSource = isRemotePrimaryForSettings ? remoteData?.userSettings : localData?.userSettings;
+        const secondarySettingsSource = isRemotePrimaryForSettings ? localData?.userSettings : remoteData?.userSettings;
+        
+        const mergedUserSettings = {};
         knownSettingKeys.forEach(key => {
-            // 显式跳过密码合并
-            if (key === 'webdavPassword') return; // Already handled below
-
-            // If primary source has the key and it's valid type (or it's 'develop')
-            if (primarySettings.hasOwnProperty(key)) {
-                if (key === 'develop' && typeof primarySettings[key] !== 'boolean') {
-                    // Try secondary if primary 'develop' is invalid
-                    if (secondarySettings.hasOwnProperty(key) && typeof secondarySettings[key] === 'boolean') {
-                        mergedSettings[key] = secondarySettings[key];
-                    } else {
-                        // Fallback to a default if both are invalid (e.g., false for develop)
-                        // This part depends on having defaultSettings available or hardcoding
-                        mergedSettings[key] = false; // Default for develop
-                    }
-                } else {
-                    mergedSettings[key] = primarySettings[key];
-                }
+            if (primarySettingsSource && primarySettingsSource[key] !== undefined) {
+                mergedUserSettings[key] = primarySettingsSource[key];
+            } else if (secondarySettingsSource && secondarySettingsSource[key] !== undefined) {
+                mergedUserSettings[key] = secondarySettingsSource[key];
             }
-            // Else if secondary source has the key and it's valid
-            else if (secondarySettings.hasOwnProperty(key)) {
-                 if (key === 'develop' && typeof secondarySettings[key] !== 'boolean') {
-                     // Fallback to default if secondary 'develop' is invalid
-                     mergedSettings[key] = false; // Default for develop
-                 } else {
-                    mergedSettings[key] = secondarySettings[key];
-                 }
-            }
-            // If key is missing in both, it won't be added unless defaultSettings are iterated here
         });
-        // Ensure local webdavPassword is preserved if it exists, as it's not synced from remote.
-        // It's stripped before upload and not expected from download.
+
+        // 特别处理 WebDAV 密码：始终保留本地密码（如果存在）
         if (localData?.userSettings?.webdavPassword) {
-             mergedSettings.webdavPassword = localData.userSettings.webdavPassword;
-        } else if (primarySettings.webdavPassword && primarySource === localData) { // If local was primary and had it
-            mergedSettings.webdavPassword = primarySettings.webdavPassword;
+            mergedUserSettings.webdavPassword = localData.userSettings.webdavPassword;
+            console.log("本地 WebDAV 密码已从 localData 保留。");
+        } else {
+            // 如果本地数据中没有密码，则确保合并后的设置中也不包含（不从远程获取）
+            delete mergedUserSettings.webdavPassword;
+            console.log("本地数据中无 WebDAV 密码，确保合并后设置中也不包含。");
         }
-
-
         console.log("设置已合并。");
 
-
-        // 创建最终的合并数据结构
         const mergedResult = {
             records: mergedRecords.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)),
             drinks: mergedDrinks,
-            userSettings: mergedSettings,
-            syncTimestamp: Date.now(), // 为合并后的数据设置新的时间戳
-            version: primarySource.version || secondarySource.version || 'unknown' // Preserve version from source
+            userSettings: mergedUserSettings,
+            syncTimestamp: Date.now(), // New timestamp for this sync operation
+            version: currentAppVersion // Use current app version
         };
-        console.log(`合并完成。新时间戳: ${mergedResult.syncTimestamp}`);
+        console.log(`合并完成。新时间戳: ${mergedResult.syncTimestamp}, 版本: ${mergedResult.version}`);
         return mergedResult;
     }
 

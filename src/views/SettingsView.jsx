@@ -48,7 +48,7 @@ const SettingsView = ({
 
     // 处理设置变更
     const handleSettingChange = useCallback((key, value) => {
-        onUpdateSettings({ [key]: value });
+        onUpdateSettings(prev => ({ ...prev, [key]: value }));
     }, [onUpdateSettings]);
 
     // 验证数值输入范围
@@ -74,64 +74,62 @@ const SettingsView = ({
 
     // 处理添加/更新饮品 (使用 useCallback)
     const handleAddOrUpdateDrink = useCallback(() => {
-        const name = newDrinkName.trim();
-        const volume = newDrinkVolume.trim() === '' ? null : parseFloat(newDrinkVolume);
-        const category = newDrinkCategory || DEFAULT_CATEGORY;
-
-        let caffeineContentValue = null;
-        let caffeinePerGramValue = null;
-
+        if (!newDrinkName.trim()) {
+            alert("饮品名称不能为空。");
+            return;
+        }
+        // Validate caffeine content based on calculation mode
+        let caffeineValue;
         if (newDrinkCalculationMode === 'per100ml') {
-            caffeineContentValue = parseFloat(newDrinkCaffeineContent);
-            if (isNaN(caffeineContentValue) || caffeineContentValue < 0) {
-                alert("请输入有效的咖啡因含量 (mg/100ml)，必须为非负数字。");
+            caffeineValue = parseFloat(newDrinkCaffeineContent);
+            if (isNaN(caffeineValue) || caffeineValue <= 0) {
+                alert("每100毫升咖啡因含量必须是正数。");
                 return;
             }
         } else if (newDrinkCalculationMode === 'perGram') {
-            caffeinePerGramValue = parseFloat(newDrinkCaffeinePerGram);
-            if (isNaN(caffeinePerGramValue) || caffeinePerGramValue < 0) {
-                alert("请输入有效的每克咖啡豆咖啡因含量 (mg/g)，必须为非负数字。");
+            caffeineValue = parseFloat(newDrinkCaffeinePerGram);
+            if (isNaN(caffeineValue) || caffeineValue <= 0) {
+                alert("每克咖啡豆咖啡因含量必须是正数。");
                 return;
             }
-        } else {
-            alert("请选择一个有效的计算模式。");
-            return;
         }
-        
-        if (!name) {
-            alert("请输入饮品名称。");
-            return;
-        }
-        if (volume !== null && (isNaN(volume) || volume <= 0)) {
-            alert(`默认${newDrinkCalculationMode === 'perGram' ? '用量(g)' : '容量(ml)'}必须是大于 0 的数字，或留空。`);
-            return;
-        }
-        const existingDrink = drinks.find(drink =>
-            drink.name.toLowerCase() === name.toLowerCase() &&
-            drink.id !== editingDrink?.id
-        );
-        if (existingDrink) {
-            alert(`名称为 "${name}" 的饮品已存在。请使用不同的名称。`);
+
+        const volume = parseFloat(newDrinkVolume);
+        if (isNaN(volume) || volume <= 0) {
+            alert("默认容量/用量必须是正数。");
             return;
         }
 
-        const newDrinkData = {
-            id: editingDrink?.id || `custom-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-            name: name,
-            calculationMode: newDrinkCalculationMode,
-            caffeineContent: caffeineContentValue,
-            caffeinePerGram: caffeinePerGramValue,
-            defaultVolume: volume,
-            category: category,
-            isPreset: editingDrink?.isPreset ?? false,
-        };
-
+        const now = Date.now();
         if (editingDrink) {
-            setDrinks(prevDrinks => prevDrinks.map(drink => drink.id === editingDrink.id ? newDrinkData : drink));
+            setDrinks(drinks.map(d => 
+                d.id === editingDrink.id ? {
+                    ...d,
+                    name: newDrinkName,
+                    caffeinePer100ml: newDrinkCalculationMode === 'per100ml' ? caffeineValue : undefined,
+                    caffeinePerGram: newDrinkCalculationMode === 'perGram' ? caffeineValue : undefined,
+                    calculationMode: newDrinkCalculationMode,
+                    defaultVolume: volume,
+                    category: newDrinkCategory,
+                    lastModified: now // Update lastModified timestamp
+                } : d
+            ));
         } else {
-            setDrinks(prevDrinks => [...prevDrinks, newDrinkData]);
+            const newDrink = {
+                id: `custom-${Date.now()}`,
+                name: newDrinkName,
+                caffeinePer100ml: newDrinkCalculationMode === 'per100ml' ? caffeineValue : undefined,
+                caffeinePerGram: newDrinkCalculationMode === 'perGram' ? caffeineValue : undefined,
+                calculationMode: newDrinkCalculationMode,
+                defaultVolume: volume,
+                category: newDrinkCategory,
+                isPreset: false,
+                lastModified: now // Add lastModified timestamp
+            };
+            setDrinks([...drinks, newDrink]);
         }
         resetDrinkForm();
+        setShowDrinkEditor(false);
     }, [
         newDrinkName, 
         // newDrinkCaffeine, // Replaced
@@ -148,15 +146,13 @@ const SettingsView = ({
 
     // 删除饮品 (使用 useCallback)
     const deleteDrink = useCallback((id) => {
-        const drinkToDelete = drinks.find(drink => drink.id === id);
-        if (!drinkToDelete) return;
-        if (originalPresetDrinkIds.has(id)) {
-            alert("无法删除原始预设饮品。您可以编辑它或添加新的自定义饮品。");
+        if (originalPresetDrinkIds.includes(id)) {
+            alert("预设饮品不能删除。");
             return;
         }
-        if (window.confirm(`确定要删除饮品 "${drinkToDelete.name}" 吗？`)) {
-            setDrinks(prevDrinks => prevDrinks.filter(drink => drink.id !== id));
-        }
+        setDrinks(drinks.filter(d => d.id !== id));
+        // No need to call onUpdateSettings for localDataLastModified here,
+        // as setDrinks in CaffeineTracker will trigger it.
     }, [drinks, setDrinks, originalPresetDrinkIds]);
 
     // 编辑饮品 (使用 useCallback)
@@ -261,43 +257,43 @@ const SettingsView = ({
     }, [setRecords, onUpdateSettings, setDrinks]);
 
     // 导入数据 (使用 useCallback)
-    const importData = useCallback(async (event) => { // Added async
+    const importData = useCallback(async (event) => {
         const file = event.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = async (e) => { // Added async
-                try {
-                    const imported = JSON.parse(e.target.result);
-                    if (imported.records) {
-                        await Preferences.set({ key: 'caffeineRecords', value: JSON.stringify(imported.records) });
-                        setRecords(imported.records);
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const imported = JSON.parse(e.target.result);
+                if (imported && imported.records && imported.drinks && imported.userSettings) {
+                    if (!confirm("导入数据将会覆盖当前所有数据（除了WebDAV密码），确定要继续吗？")) {
+                        return;
                     }
-                    if (imported.userSettings) {
-                        const newSettings = { ...defaultSettings, ...userSettings, ...imported.userSettings };
-                        // 保留当前的 webdavPassword 和 lastSyncTimestamp，除非导入的数据中明确提供
-                        if (!imported.userSettings.webdavPassword && userSettings.webdavPassword) {
-                            newSettings.webdavPassword = userSettings.webdavPassword;
-                        }
-                        if (!imported.userSettings.lastSyncTimestamp && userSettings.lastSyncTimestamp) {
-                            newSettings.lastSyncTimestamp = userSettings.lastSyncTimestamp;
-                        }
-                        delete newSettings.webdavPassword; // 确保不直接保存密码到状态，除非它来自用户输入
-                        await Preferences.set({ key: 'caffeineSettings', value: JSON.stringify(newSettings) });
-                        onUpdateSettings(newSettings);
-                    }
-                    if (imported.drinks) {
-                        await Preferences.set({ key: 'caffeineDrinks', value: JSON.stringify(imported.drinks) });
-                        setDrinks(imported.drinks);
-                    }
+                    setRecords(imported.records || []);
+                    setDrinks((imported.drinks || []).map(d => ({...d, lastModified: d.lastModified || Date.now()}))); // Ensure lastModified
+                    
+                    // Preserve WebDAV password from current settings
+                    const currentWebdavPassword = userSettings.webdavPassword;
+                    const newSettings = { 
+                        ...defaultSettings, // Start with defaults
+                        ...imported.userSettings, // Apply imported settings
+                        webdavPassword: currentWebdavPassword, // Restore current password
+                        lastSyncTimestamp: 0, // Reset sync timestamp after import
+                        localDataLastModified: Date.now() // Set new modification timestamp
+                    };
+                    onUpdateSettings(newSettings);
                     alert("数据导入成功！");
-                } catch (error) {
-                    console.error("导入数据时出错:", error);
-                    alert("导入数据失败。请确保文件格式正确。");
+                } else {
+                    alert("文件格式无效或缺少必要数据。");
                 }
-            };
-            reader.readAsText(file);
-        }
-    }, [setRecords, onUpdateSettings, setDrinks, userSettings.lastSyncTimestamp, userSettings.webdavPassword, defaultSettings]); // Added defaultSettings
+            } catch (error) {
+                console.error("导入数据失败:", error);
+                alert(`导入失败: ${error.message}`);
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = null; // Reset file input
+    }, [setRecords, onUpdateSettings, setDrinks, userSettings.webdavPassword, defaultSettings]);
 
     return (
         <>

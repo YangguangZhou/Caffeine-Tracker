@@ -52,8 +52,7 @@ const CaffeineTracker = () => {
   const [showSyncBadge, setShowSyncBadge] = useState(false);
   const [appConfig, setAppConfig] = useState({ latest_version: "loading...", download_url: "#" });
   const [isNativePlatform, setIsNativePlatform] = useState(null); // Initialize to null
-  const [initialDataLoaded, setInitialDataLoaded] = useState(false); // Gatekeeper for saving
-
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
 
   // --- 检查平台类型 ---
   useEffect(() => {
@@ -140,81 +139,124 @@ const CaffeineTracker = () => {
 
     const loadData = async () => {
       try {
-        // 尝试迁移旧的 @capacitor/storage 数据 (如果存在)
-        // 这应该只在应用首次从旧版本升级到使用 @capacitor/preferences 时运行一次
-        // 你可能需要一个标志来确保它只运行一次，例如检查 Preferences 中是否已存在一个特定的 "migration_complete" 标志
-        const migrationCheck = await Preferences.get({ key: 'capacitor_storage_migration_complete' });
-        if (!migrationCheck.value) {
+        // --- Capacitor/Storage to Preferences Migration (for native or if _cap_ keys exist) ---
+        const capacitorMigrationCheck = await Preferences.get({ key: 'capacitor_storage_migration_complete' });
+        if (!capacitorMigrationCheck.value) {
           const result = await Preferences.migrate();
           console.log('Capacitor Storage migration result:', result);
           if (result.migrated.length > 0 || result.existing.length > 0) {
-            await Preferences.removeOld(); // 清理旧的 _cap_ 前缀的键
+            await Preferences.removeOld();
             console.log('Old Capacitor Storage keys removed after migration.');
           }
           await Preferences.set({ key: 'capacitor_storage_migration_complete', value: 'true' });
         }
         
-        const { value: savedSettings } = await Preferences.get({ key: 'caffeineSettings' });
-        if (savedSettings) {
-          const parsedSettings = JSON.parse(savedSettings);
-          setUserSettings(prev => ({ ...defaultSettings, ...prev, ...parsedSettings }));
-        } else {
-          setUserSettings(defaultSettings);
+        // --- Attempt to load from Preferences ---
+        let settingsFromStore = null;
+        let recordsFromStore = null;
+        let drinksFromStore = null;
+
+        const { value: savedSettingsJson } = await Preferences.get({ key: 'caffeineSettings' });
+        if (savedSettingsJson) settingsFromStore = JSON.parse(savedSettingsJson);
+
+        const { value: savedRecordsJson } = await Preferences.get({ key: 'caffeineRecords' });
+        if (savedRecordsJson) recordsFromStore = JSON.parse(savedRecordsJson);
+
+        const { value: savedDrinksJson } = await Preferences.get({ key: 'caffeineDrinks' });
+        if (savedDrinksJson) drinksFromStore = JSON.parse(savedDrinksJson);
+
+        // --- Web localStorage to Preferences Migration (for web platform if data not in Preferences) ---
+        if (!isNativePlatform) {
+          const webMigrationCheck = await Preferences.get({ key: 'web_localstorage_migration_complete' });
+          if (!webMigrationCheck.value) {
+            let migratedWebData = false;
+            console.log("Web platform: Checking localStorage for legacy data...");
+
+            if (!settingsFromStore) {
+              const lsSettings = localStorage.getItem('caffeineSettings');
+              if (lsSettings) {
+                console.log("Found settings in localStorage, migrating...");
+                settingsFromStore = JSON.parse(lsSettings);
+                await Preferences.set({ key: 'caffeineSettings', value: lsSettings });
+                migratedWebData = true;
+              }
+            }
+            if (!recordsFromStore) {
+              const lsRecords = localStorage.getItem('caffeineRecords');
+              if (lsRecords) {
+                console.log("Found records in localStorage, migrating...");
+                recordsFromStore = JSON.parse(lsRecords);
+                await Preferences.set({ key: 'caffeineRecords', value: lsRecords });
+                migratedWebData = true;
+              }
+            }
+            if (!drinksFromStore) {
+              const lsDrinks = localStorage.getItem('caffeineDrinks');
+              if (lsDrinks) {
+                console.log("Found drinks in localStorage, migrating...");
+                drinksFromStore = JSON.parse(lsDrinks);
+                await Preferences.set({ key: 'caffeineDrinks', value: lsDrinks });
+                migratedWebData = true;
+              }
+            }
+            if (migratedWebData) {
+              console.log("Web localStorage data migrated to Preferences. Removing from localStorage.");
+              localStorage.removeItem('caffeineSettings');
+              localStorage.removeItem('caffeineRecords');
+              localStorage.removeItem('caffeineDrinks');
+              // Also remove other potential old localStorage items if any
+              localStorage.removeItem('lastSyncTimestamp'); // Example if it existed
+            }
+            await Preferences.set({ key: 'web_localstorage_migration_complete', value: 'true' });
+          }
         }
 
-        const { value: savedRecords } = await Preferences.get({ key: 'caffeineRecords' });
-        if (savedRecords) {
-          setRecords(JSON.parse(savedRecords));
+        // --- Apply loaded data or defaults ---
+        if (settingsFromStore) {
+          // Ensure localLastModifiedTimestamp exists, initialize if not
+          const newSettings = { 
+            ...defaultSettings, 
+            ...settingsFromStore,
+            localLastModifiedTimestamp: settingsFromStore.localLastModifiedTimestamp || Date.now()
+          };
+          setUserSettings(newSettings);
         } else {
-          setRecords([]); // 确保是空数组
+          setUserSettings({ ...defaultSettings, localLastModifiedTimestamp: Date.now() });
         }
 
-        const { value: savedDrinks } = await Preferences.get({ key: 'caffeineDrinks' });
-        if (savedDrinks) {
-          setDrinks(JSON.parse(savedDrinks));
+        if (recordsFromStore) {
+          setRecords(recordsFromStore);
         } else {
-          setDrinks(initialPresetDrinks); // 加载预设饮品
+          setRecords([]);
         }
+
+        if (drinksFromStore) {
+          setDrinks(drinksFromStore);
+        } else {
+          setDrinks(initialPresetDrinks);
+        }
+
       } catch (error) {
-        console.error('Error loading data from Preferences:', error);
-        // 如果加载失败，回退到默认值
-        setUserSettings(defaultSettings);
+        console.error('Error loading data:', error);
+        // Fallback to defaults with a fresh localLastModifiedTimestamp
+        setUserSettings({ ...defaultSettings, localLastModifiedTimestamp: Date.now() });
         setRecords([]);
         setDrinks(initialPresetDrinks);
       } finally {
-        setInitialDataLoaded(true); // 标记初始数据加载完成
+        setInitialDataLoaded(true);
       }
     };
 
     loadData();
-  }, [isNativePlatform]); // 依赖 isNativePlatform (确保只在平台确定后运行)
+  }, [isNativePlatform]);
 
   // 当 records, userSettings, 或 drinks 变化时保存数据
   useEffect(() => {
-    if (!initialDataLoaded) {
-      return; // 只有在初始数据加载完成后才保存
+    if (initialDataLoaded) {
+      console.log("Data changed (records, userSettings, or drinks), saving...");
+      saveData(records, userSettings, drinks, isNativePlatform);
     }
-
-    const saveData = async () => {
-      try {
-        // 保存用户设置 (确保不保存密码)
-        const settingsToSave = { ...userSettings };
-        delete settingsToSave.webdavPassword;
-        await Preferences.set({ key: 'caffeineSettings', value: JSON.stringify(settingsToSave) });
-
-        // 保存记录
-        await Preferences.set({ key: 'caffeineRecords', value: JSON.stringify(records) });
-        
-        // 保存饮品列表
-        await Preferences.set({ key: 'caffeineDrinks', value: JSON.stringify(drinks) });
-
-      } catch (error) {
-        console.error('Error saving data to Preferences:', error);
-      }
-    };
-    
-    saveData();
-  }, [records, userSettings, drinks, initialDataLoaded]); // 添加 initialDataLoaded 作为依赖
+  }, [records, userSettings, drinks, initialDataLoaded, isNativePlatform]);
 
   // --- 计算当前状态 ---
   useEffect(() => {
@@ -350,87 +392,69 @@ const CaffeineTracker = () => {
   // --- WebDAV同步 ---
   const performWebDAVSync = useCallback(async (settingsToUse, currentRecords, currentDrinks) => {
     if (!settingsToUse.webdavEnabled || !settingsToUse.webdavServer || !settingsToUse.webdavUsername || !settingsToUse.webdavPassword) {
-      console.log("WebDAV sync not configured or disabled");
-      setSyncStatus(prev => ({ ...prev, inProgress: false, lastSyncResult: { success: false, message: "WebDAV未配置" } }));
-      setShowSyncBadge(true); setTimeout(() => setShowSyncBadge(false), 3000); return;
+      console.log("WebDAV 未启用或配置不完整，跳过同步。");
+      setSyncStatus(prev => ({ ...prev, lastSyncResult: "WebDAV 未启用或配置不完整" }));
+      return { success: false, message: "WebDAV 未启用或配置不完整", data: null, timestamp: null };
     }
-    setSyncStatus(prev => ({ ...prev, inProgress: true })); setShowSyncBadge(true);
+
+    setSyncStatus({ inProgress: true, lastSyncTime: null, lastSyncResult: '正在同步...' });
+    setShowSyncBadge(true);
+
+    let client;
     try {
-      const webdavClient = new WebDAVClient(settingsToUse.webdavServer, settingsToUse.webdavUsername, settingsToUse.webdavPassword);
-      const localData = {
-        records: currentRecords,
-        drinks: currentDrinks,
-        userSettings: { ...settingsToUse, webdavPassword: '' }, // Don't sync password to server
-        version: appConfig.latest_version // Use app version from state
-      };
-      const result = await webdavClient.performSync(localData, initialPresetDrinks, originalPresetDrinkIds); // Pass presets for merge logic if needed there
-      if (result.success) {
-        let updatedSettings = { ...settingsToUse }; // Start with current local settings
-        if (result.data) {
-          const processSyncedDrinks = (drinksToProcess) => {
-            if (!Array.isArray(drinksToProcess)) return [...initialPresetDrinks];
-            const validDrinks = drinksToProcess.filter(d => d && typeof d.id !== 'undefined' && typeof d.name === 'string');
-            const savedDrinkIds = new Set(validDrinks.map(d => d.id));
-            const newPresetsToAdd = initialPresetDrinks.filter(p => !savedDrinkIds.has(p.id));
-
-            const validatedSavedDrinks = validDrinks.map(d => {
-              const isOriginalPreset = originalPresetDrinkIds.has(d.id);
-              const originalPresetData = isOriginalPreset ? initialPresetDrinks.find(p => p.id === d.id) : {};
-
-              const mode = d.calculationMode || originalPresetData?.calculationMode || 'per100ml';
-              let cc = null;
-              let cpg = null;
-
-              if (mode === 'perGram') {
-                cpg = (d.caffeinePerGram !== undefined && d.caffeinePerGram !== null) ? d.caffeinePerGram : (originalPresetData?.caffeinePerGram ?? 0);
-              } else { // per100ml
-                cc = (d.caffeineContent !== undefined && d.caffeineContent !== null) ? d.caffeineContent : (originalPresetData?.caffeineContent ?? 0);
-              }
-
-              return {
-                ...d,
-                category: d.category || (isOriginalPreset ? originalPresetData.category : DEFAULT_CATEGORY),
-                isPreset: d.isPreset ?? isOriginalPreset,
-                defaultVolume: d.defaultVolume !== undefined ? d.defaultVolume : (originalPresetData?.defaultVolume ?? null),
-                calculationMode: mode,
-                caffeineContent: cc,
-                caffeinePerGram: cpg
-              };
-            });
-            return [...validatedSavedDrinks, ...newPresetsToAdd].sort((a, b) => a.name.localeCompare(b.name));
-          };
-
-          if (result.data.records && Array.isArray(result.data.records)) {
-            setRecords(result.data.records.sort((a, b) => b.timestamp - a.timestamp));
-          }
-          if (result.data.drinks && Array.isArray(result.data.drinks)) {
-            setDrinks(processSyncedDrinks(result.data.drinks));
-          }
-          if (result.data.userSettings) {
-            const syncedDevelop = result.data.userSettings.develop;
-            // Merge synced settings over local, but keep local password
-            updatedSettings = {
-              ...settingsToUse, // base
-              ...result.data.userSettings, // synced settings
-              webdavPassword: settingsToUse.webdavPassword, // IMPORTANT: retain local password
-              develop: typeof syncedDevelop === 'boolean' ? syncedDevelop : settingsToUse.develop
-            };
-            if (isNativePlatform && updatedSettings.themeMode === 'auto') {
-              updatedSettings.themeMode = 'light'; // Ensure native doesn't go to auto
-            }
-            console.log("同步后合并的设置:", updatedSettings);
-          }
-        }
-        updatedSettings.lastSyncTimestamp = result.timestamp;
-        setUserSettings(updatedSettings);
-        setSyncStatus({ inProgress: false, lastSyncTime: new Date(result.timestamp), lastSyncResult: { success: true, message: result.message } });
-      } else { throw new Error(result.message); }
+      const WebDAVClientModule = await import('./utils/webdavSync');
+      client = new WebDAVClientModule.default(
+        settingsToUse.webdavServer,
+        settingsToUse.webdavUsername,
+        settingsToUse.webdavPassword
+      );
     } catch (error) {
-      console.error("WebDAV sync failed:", error);
-      setSyncStatus({ inProgress: false, lastSyncTime: new Date(), lastSyncResult: { success: false, message: error.message || "同步时发生未知错误" } });
+      console.error("加载 WebDAVClient 失败:", error);
+      setSyncStatus({ inProgress: false, lastSyncTime: Date.now(), lastSyncResult: `加载 WebDAV 客户端失败: ${error.message}` });
+      setShowSyncBadge(false);
+      return { success: false, message: `加载 WebDAV 客户端失败: ${error.message}`, data: null, timestamp: null };
     }
-    setTimeout(() => { setShowSyncBadge(false); }, 5000);
-  }, [appConfig.latest_version, isNativePlatform]); // 添加 isNativePlatform
+
+    const localData = {
+      records: currentRecords,
+      drinks: currentDrinks,
+      userSettings: settingsToUse, // Pass the complete userSettings
+      syncTimestamp: settingsToUse.lastSyncTimestamp || 0, // Use existing sync timestamp from settings
+      appVersion: appConfig.latest_version || 'unknown' // Include app version
+    };
+
+    try {
+      const result = await client.performSync(localData);
+      console.log("WebDAV 同步结果:", result);
+
+      if (result.success) {
+        if (result.data) {
+          // If data was merged or downloaded, update local state
+          setRecords(result.data.records || []);
+          setDrinks(result.data.drinks || []);
+          // Preserve local webdavPassword, and other sensitive or non-synced settings
+          const updatedSettings = {
+            ...result.data.userSettings,
+            webdavPassword: settingsToUse.webdavPassword, // Always keep local password
+            lastSyncTimestamp: result.timestamp, // Update with the new sync timestamp from merged data
+            localDataLastModified: result.timestamp // Also update localDataLastModified
+          };
+          setUserSettings(updatedSettings);
+          console.log("本地数据已使用同步数据更新。新时间戳:", result.timestamp);
+        }
+        setSyncStatus({ inProgress: false, lastSyncTime: Date.now(), lastSyncResult: result.message });
+      } else {
+        setSyncStatus({ inProgress: false, lastSyncTime: Date.now(), lastSyncResult: `同步失败: ${result.message}` });
+      }
+      setShowSyncBadge(false);
+      return result;
+    } catch (error) {
+      console.error("WebDAV 同步期间出错:", error);
+      setSyncStatus({ inProgress: false, lastSyncTime: Date.now(), lastSyncResult: `同步错误: ${error.message}` });
+      setShowSyncBadge(false);
+      return { success: false, message: `同步错误: ${error.message}`, data: null, timestamp: null };
+    }
+  }, [appConfig.latest_version, isNativePlatform]); // Removed setRecords, setDrinks, setUserSettings as direct dependencies
 
   // --- SplashScreen 隐藏逻辑 ---
   useEffect(() => {
@@ -458,54 +482,61 @@ const CaffeineTracker = () => {
   }, [userSettings.webdavEnabled, userSettings.webdavSyncFrequency, userSettings.lastSyncTimestamp, records, drinks, performWebDAVSync, initialDataLoaded]); // 添加 initialDataLoaded
 
   // --- 事件处理程序 ---
-  const handleAddRecord = useCallback(async (record) => { // Added async
-    setRecords(prevRecords => {
-      const newRecords = [...prevRecords, record].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-      // await Preferences.set({ key: 'caffeineRecords', value: JSON.stringify(newRecords) }); // 保存移至useEffect
-      return newRecords;
-    });
+  const handleAddRecord = useCallback(async (record) => {
+    const newRecord = { ...record, id: uuidv4(), timestamp: Date.now() }; // Add creation and modification timestamp
+    setRecords(prevRecords => [newRecord, ...prevRecords]);
+    setUserSettings(prevSettings => ({ ...prevSettings, localDataLastModified: Date.now() }));
   }, []);
 
-  const handleEditRecord = useCallback(async (updatedRecord) => { // Added async
-    setRecords(prevRecords => {
-      const newRecords = prevRecords.map(r => r.id === updatedRecord.id ? updatedRecord : r);
-      // await Preferences.set({ key: 'caffeineRecords', value: JSON.stringify(newRecords) }); // 保存移至useEffect
-      return newRecords;
-    });
+  const handleEditRecord = useCallback(async (updatedRecord) => {
+    const newTimestamp = Date.now();
+    setRecords(prevRecords =>
+      prevRecords.map(r => (r.id === updatedRecord.id ? { ...updatedRecord, timestamp: newTimestamp } : r))
+    );
+    setUserSettings(prevSettings => ({ ...prevSettings, localDataLastModified: newTimestamp }));
   }, []);
 
-  const handleDeleteRecord = useCallback(async (id) => { // Added async
-    setRecords(prevRecords => {
-      const newRecords = prevRecords.filter(r => r.id !== id);
-      // await Preferences.set({ key: 'caffeineRecords', value: JSON.stringify(newRecords) }); // 保存移至useEffect
-      return newRecords;
-    });
+  const handleDeleteRecord = useCallback(async (id) => {
+    setRecords(prevRecords => prevRecords.filter(r => r.id !== id));
+    setUserSettings(prevSettings => ({ ...prevSettings, localDataLastModified: Date.now() }));
   }, []);
 
-  const handleUpdateSettings = useCallback(async (newSettings) => { // Added async
-    setUserSettings(prevSettings => {
-      const updatedSettings = { ...prevSettings, ...newSettings };
-      // const settingsToSave = { ...updatedSettings };
-      // delete settingsToSave.webdavPassword;
-      // await Preferences.set({ key: 'caffeineSettings', value: JSON.stringify(settingsToSave) }); // 保存移至useEffect
-      return updatedSettings;
-    });
+  const handleUpdateSettings = useCallback(async (newSettings) => {
+    // If newSettings is a function, it's an updater function
+    if (typeof newSettings === 'function') {
+        setUserSettings(prevSettings => {
+            const updated = newSettings(prevSettings);
+            return { ...updated, localDataLastModified: Date.now() };
+        });
+    } else {
+        setUserSettings(prevSettings => ({ 
+            ...prevSettings, 
+            ...newSettings, 
+            localDataLastModified: Date.now() 
+        }));
+    }
   }, []);
 
-  const toggleThemeMode = useCallback(() => {
-    setUserSettings(prev => {
-      let nextMode;
-      // 修改切换主题逻辑，让原生平台也支持三种模式
-      if (prev.themeMode === 'auto') nextMode = 'light';
-      else if (prev.themeMode === 'light') nextMode = 'dark';
-      else nextMode = 'auto';
-      return { ...prev, themeMode: nextMode };
+  // Need to handle setDrinks to also update localLastModifiedTimestamp
+  // This is tricky because setDrinks is passed down.
+  // A wrapper function or direct update in SettingsView after setDrinks could work.
+  // For now, the main save effect will catch changes to `drinks` and `userSettings`
+  // and the `localLastModifiedTimestamp` on `userSettings` should be up-to-date
+  // if `handleUpdateSettings` is used for all direct setting changes.
+  // When `drinks` array is changed by `setDrinks` directly, the `saveData` useEffect
+  // will run. At that point, `userSettings.localLastModifiedTimestamp` might be stale
+  // if only `drinks` changed.
+
+  // Let's create a new callback for updating drinks that also updates the timestamp.
+  const handleSetDrinks = useCallback((newDrinksOrUpdater) => {
+    setDrinks(currentDrinks => {
+      const updatedDrinks = typeof newDrinksOrUpdater === 'function' ? newDrinksOrUpdater(currentDrinks) : newDrinksOrUpdater;
+      // Ensure all drinks have a lastModified timestamp
+      return updatedDrinks.map(drink => ({...drink, lastModified: drink.lastModified || Date.now() }));
     });
+    setUserSettings(prevSettings => ({ ...prevSettings, localDataLastModified: Date.now() }));
   }, []);
 
-  const handleManualSync = useCallback(() => {
-    performWebDAVSync(userSettings, records, drinks);
-  }, [userSettings, records, drinks, performWebDAVSync, initialDataLoaded]); // 添加 initialDataLoaded
   // --- 渲染 ---
   return (
     // 使用语义化 div 和动态背景/文本颜色
@@ -686,7 +717,7 @@ const CaffeineTracker = () => {
               userSettings={userSettings}
               onUpdateSettings={handleUpdateSettings}
               drinks={drinks}
-              setDrinks={setDrinks}
+              setDrinks={handleSetDrinks}
               originalPresetDrinkIds={originalPresetDrinkIds}
               onManualSync={handleManualSync}
               syncStatus={syncStatus}
