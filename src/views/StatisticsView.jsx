@@ -505,8 +505,8 @@ const StatisticsView = ({
                 : "您还没有添加任何摄入记录。"
               }
               {records.length > 0 && ` 您设定的每日推荐上限为 ${effectiveMaxDaily}mg (综合通用指南${userSettings.recommendedDosePerKg
-                  ? `和体重推荐 ${Math.round(userSettings.weight * userSettings.recommendedDosePerKg)}mg`
-                  : ''
+                ? `和体重推荐 ${Math.round(userSettings.weight * userSettings.recommendedDosePerKg)}mg`
+                : ''
                 })。本周您的日均摄入量约为 ${Math.round(getWeekTotal(new Date()) / 7)
                 }mg。请关注统计图表，了解您是否经常超过推荐量。`}
             </p>

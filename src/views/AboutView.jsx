@@ -27,7 +27,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
         throw new Error(`检查更新失败: ${response.status}`);
       }
       const remoteConfig = await response.json();
-      
+
       // Simple version comparison
       // More robust comparison might be needed for complex version strings
       if (remoteConfig.latest_version && remoteConfig.latest_version > appConfig.latest_version) {
@@ -118,14 +118,14 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
             <h3 className="text-lg font-semibold mb-1 transition-colors" style={{ color: colors.espresso }}>
               Jerry Zhou
             </h3>
-            
+
             <div className="flex flex-wrap justify-center sm:justify-start gap-3 text-sm">
               <a
                 href="https://jerryz.com.cn"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 px-3 py-1.5 rounded-full transition-colors"
-                style={{ 
+                style={{
                   backgroundColor: colors.bgBase,
                   color: colors.accent,
                   border: `1px solid ${colors.borderSubtle}`
@@ -133,11 +133,11 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
               >
                 <Globe size={14} aria-hidden="true" /> 个人网站
               </a>
-              
+
               <a
                 href="mailto:i@jerryz.com.cn"
                 className="flex items-center gap-1 px-3 py-1.5 rounded-full transition-colors"
-                style={{ 
+                style={{
                   backgroundColor: colors.bgBase,
                   color: colors.accent,
                   border: `1px solid ${colors.borderSubtle}`
@@ -145,13 +145,13 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
               >
                 <Mail size={14} aria-hidden="true" /> 联系我
               </a>
-              
+
               <a
                 href="https://github.com/YangguangZhou"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 px-3 py-1.5 rounded-full transition-colors"
-                style={{ 
+                style={{
                   backgroundColor: colors.bgBase,
                   color: colors.accent,
                   border: `1px solid ${colors.borderSubtle}`
@@ -184,23 +184,23 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
           <p>
             咖啡因追踪器提供网页版和Android客户端两种使用方式，选择最适合您的方式开始科学管理咖啡因摄入：
           </p>
-          
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-            <a 
-              href="https://ct.jerryz.com.cn" 
+            <a
+              href="https://ct.jerryz.com.cn"
               target="_blank"
               rel="noopener noreferrer"
               className="flex flex-col items-center justify-center p-5 rounded-lg border hover:shadow-md transition-all duration-300"
-              style={{ 
+              style={{
                 borderColor: colors.borderSubtle,
                 backgroundColor: colors.bgBase
               }}
             >
-              <Globe 
-                size={36} 
-                className="mb-3" 
-                style={{ color: colors.accent }} 
-                aria-hidden="true" 
+              <Globe
+                size={36}
+                className="mb-3"
+                style={{ color: colors.accent }}
+                aria-hidden="true"
               />
               <h3 className="font-semibold mb-2 transition-colors" style={{ color: colors.espresso }}>
                 网页版应用
@@ -212,29 +212,29 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
                 </span>
               </p>
             </a>
-            
-            <a 
+
+            <a
               href={appConfig.download_url} // Use dynamic download URL
               target="_blank"
               rel="noopener noreferrer"
               className="flex flex-col items-center justify-center p-5 rounded-lg border hover:shadow-md transition-all duration-300"
-              style={{ 
+              style={{
                 borderColor: colors.borderSubtle,
                 backgroundColor: colors.bgBase
               }}
             >
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                width="36" 
-                height="36" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                className="mb-3" 
-                style={{ color: colors.accent }} 
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="36"
+                height="36"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="mb-3"
+                style={{ color: colors.accent }}
                 aria-hidden="true"
               >
                 <rect x="5" y="2" width="14" height="20" rx="2" />
@@ -296,10 +296,10 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
             如果您觉得咖啡因追踪器对您有所帮助，请将它推荐给可能需要科学管理咖啡因摄入的朋友们！
             通过分享，您可以帮助更多人养成健康的咖啡因摄入习惯。
           </p>
-          
+
           <div className="flex flex-col items-center justify-center p-5 rounded-lg border transition-colors"
             style={{ borderColor: colors.borderSubtle, backgroundColor: colors.bgBase }}>
-            
+
             <div className="w-full max-w-md flex flex-col sm:flex-row items-center sm:justify-between gap-4">
               <div className="flex items-center">
                 <div className="mr-3 p-2 rounded-full" style={{ backgroundColor: colors.bgHighlight }}>
@@ -310,7 +310,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
                   <p className="text-xs">分享给您的朋友和社交圈</p>
                 </div>
               </div>
-              
+
               <button
                 onClick={handleShareApp}
                 className="py-2.5 px-4 text-white rounded-md transition-opacity duration-200 flex items-center justify-center text-sm shadow font-medium hover:opacity-90 w-full sm:w-auto"
@@ -320,7 +320,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
                 {isNativePlatform ? '立即分享' : (navigator.share ? '立即分享' : '复制链接')}
               </button>
             </div>
-            
+
             <div className="w-full border-t mt-5 pt-5" style={{ borderColor: colors.borderSubtle }}>
               <div className="flex flex-col sm:flex-row items-center gap-3 justify-between">
                 <div className="flex items-center">
@@ -329,11 +329,11 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
                     ct.jerryz.com.cn
                   </span>
                 </div>
-                
+
                 <button
                   onClick={handleCopyLink}
                   className="py-1.5 px-3 rounded-md transition-all duration-200 flex items-center text-xs border"
-                  style={{ 
+                  style={{
                     backgroundColor: linkCopied ? colors.successBg : 'transparent',
                     borderColor: linkCopied ? colors.successText : colors.borderSubtle,
                     color: linkCopied ? colors.successText : colors.textSecondary
@@ -378,7 +378,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
           <p>
             咖啡因追踪器是一款基于科学原理开发的Web应用，旨在帮助用户科学地管理每日咖啡因摄入量，提供代谢预测、健康建议和睡眠时间优化。
           </p>
-          
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="p-3 rounded-lg flex items-start gap-2 transition-colors" style={{ backgroundColor: colors.bgBase }}>
               <Sparkle size={18} className="mt-0.5 flex-shrink-0" style={{ color: colors.accent }} aria-hidden="true" />
@@ -387,7 +387,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
                 <p>简单易用，功能丰富，提供可视化的数据显示。</p>
               </div>
             </div>
-            
+
             <div className="p-3 rounded-lg flex items-start gap-2 transition-colors" style={{ backgroundColor: colors.bgBase }}>
               <Coffee size={18} className="mt-0.5 flex-shrink-0" style={{ color: colors.accent }} aria-hidden="true" />
               <div>
@@ -395,7 +395,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
                 <p>帮助咖啡爱好者更科学地管理咖啡因摄入，避免过量摄入影响健康和睡眠</p>
               </div>
             </div>
-            
+
             <div className="p-3 rounded-lg flex items-start gap-2 transition-colors" style={{ backgroundColor: colors.bgBase }}>
               <HeartPulse size={18} className="mt-0.5 flex-shrink-0" style={{ color: colors.accent }} aria-hidden="true" />
               <div>
@@ -403,7 +403,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
                 <p>基于科学研究提供个性化建议，促进健康的咖啡因摄入习惯</p>
               </div>
             </div>
-            
+
             <div className="p-3 rounded-lg flex items-start gap-2 transition-colors" style={{ backgroundColor: colors.bgBase }}>
               <Brain size={18} className="mt-0.5 flex-shrink-0" style={{ color: colors.accent }} aria-hidden="true" />
               <div>
@@ -520,7 +520,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
               <strong>通过个性化调整，您可以让应用的估算结果更贴合您的个人情况，但请始终记住这仍然是估算。</strong>
             </p>
           </div>
-          
+
         </div>
       </section>
 

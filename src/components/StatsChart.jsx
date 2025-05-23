@@ -12,28 +12,28 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, Res
  * @param {Function} props.formatYAxisTick - Y轴刻度格式化函数
  * @param {Object} props.colors - 颜色主题
  */
-const StatsChart = ({ 
-  data, 
-  view, 
-  effectiveMaxDaily, 
+const StatsChart = ({
+  data,
+  view,
+  effectiveMaxDaily,
   formatYAxisTick = (value) => Math.round(value),
   colors
 }) => {
   // 检查是否有数据
   const hasData = data && data.some(d => d.value > 0);
-  
+
   // 如果没有数据，显示提示信息
   if (!hasData) {
     return (
-      <div 
-        key="chart-no-data" 
-        className="flex items-center justify-center h-64 text-sm transition-colors" 
+      <div
+        key="chart-no-data"
+        className="flex items-center justify-center h-64 text-sm transition-colors"
         style={{ color: colors.textMuted }}
       >
-        {view === 'week' 
-          ? '本周没有数据' 
-          : view === 'month' 
-            ? '本月没有数据' 
+        {view === 'week'
+          ? '本周没有数据'
+          : view === 'month'
+            ? '本月没有数据'
             : '本年没有数据'
         }
       </div>
@@ -48,7 +48,7 @@ const StatsChart = ({
 
   // 找出数据中的最大值
   const maxValue = Math.max(...data.map(d => d.value));
-  
+
   // 根据视图类型确定Y轴最大值
   let yMax;
   if (view === 'week' || view === 'month') {
@@ -58,7 +58,7 @@ const StatsChart = ({
     // 年视图：基于月总量
     yMax = Math.ceil(maxValue * 1.1 / 100) * 100;
   }
-  
+
   // 设置Y轴域
   const yAxisDomain = [0, yMax];
 
@@ -73,7 +73,7 @@ const StatsChart = ({
 
   // 格式化tooltip值
   const formatTooltipValue = (value) => [
-    `${Math.round(value)} mg`, 
+    `${Math.round(value)} mg`,
     '摄入量'
   ];
 
@@ -101,76 +101,76 @@ const StatsChart = ({
 
   return (
     <>
-      <h3 
-        className="text-center text-sm font-medium transition-colors mb-3" 
+      <h3
+        className="text-center text-sm font-medium transition-colors mb-3"
         style={{ color: colors.textSecondary }}
       >
         {title}
       </h3>
-      
+
       <ResponsiveContainer width="100%" height={250}>
-        <BarChart 
-          data={data} 
+        <BarChart
+          data={data}
           margin={{ top: 5, right: 20, left: 15, bottom: 20 }}
         >
-          <CartesianGrid 
-            strokeDasharray="3 3" 
-            stroke={colors.grid} 
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke={colors.grid}
             opacity={0.7}
           />
-          
-          <XAxis 
-            dataKey="name" 
-            tick={{ fontSize: 10, fill: colors.textMuted }} 
+
+          <XAxis
+            dataKey="name"
+            tick={{ fontSize: 10, fill: colors.textMuted }}
             stroke={colors.textMuted}
           />
-          
-          <YAxis 
-            domain={yAxisDomain} 
-            tick={{ fontSize: 10, fill: colors.textMuted }} 
-            tickFormatter={formatYAxisTick} 
+
+          <YAxis
+            domain={yAxisDomain}
+            tick={{ fontSize: 10, fill: colors.textMuted }}
+            tickFormatter={formatYAxisTick}
             stroke={colors.textMuted}
           />
-          
+
           <Tooltip
-            contentStyle={{ 
-              backgroundColor: colors.tooltipBg, 
-              border: `1px solid ${colors.borderStrong}`, 
-              borderRadius: '8px', 
-              color: colors.tooltipText, 
-              boxShadow: '0 2px 5px rgba(0,0,0,0.1)' 
+            contentStyle={{
+              backgroundColor: colors.tooltipBg,
+              border: `1px solid ${colors.borderStrong}`,
+              borderRadius: '8px',
+              color: colors.tooltipText,
+              boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
             }}
             formatter={formatTooltipValue}
             labelFormatter={formatTooltipLabel}
             animationDuration={200}
           />
-          
+
           {/* 条件渲染参考线：仅在周/月视图中显示 */}
           {(view === 'week' || view === 'month') && (
-            <ReferenceLine 
-              y={effectiveMaxDaily} 
-              label={{ 
-                value: `上限 (${effectiveMaxDaily}mg)`, 
-                position: 'insideTopRight', 
-                fill: colors.danger, 
-                fontSize: 10 
-              }} 
-              stroke={colors.danger} 
-              strokeDasharray="3 3" 
+            <ReferenceLine
+              y={effectiveMaxDaily}
+              label={{
+                value: `上限 (${effectiveMaxDaily}mg)`,
+                position: 'insideTopRight',
+                fill: colors.danger,
+                fontSize: 10
+              }}
+              stroke={colors.danger}
+              strokeDasharray="3 3"
             />
           )}
-          
-          <Bar 
-            dataKey="value" 
-            name="摄入量" 
+
+          <Bar
+            dataKey="value"
+            name="摄入量"
             barSize={getBarSize()}
             animationDuration={750}
           >
             {data.map((entry, index) => (
-              <Cell 
-                key={`cell-${index}`} 
-                fill={getBarColor(entry)} 
-                radius={[4, 4, 0, 0]} 
+              <Cell
+                key={`cell-${index}`}
+                fill={getBarColor(entry)}
+                radius={[4, 4, 0, 0]}
               />
             ))}
           </Bar>

@@ -53,19 +53,22 @@ export default class WebDAVClient {
      * 创建标准化的fetch请求配置
      */
     createFetchOptions(method, additionalHeaders = {}, body = null) {
-        // 确保Authorization header正确设置
-        if (!this.authHeader) {
-            // console.error("createFetchOptions: 缺少认证头信息"); // 仅在实际请求失败时记录此信息
-        }
+        // 基于当前实例属性（用户名/密码）确定认证头
+        const currentAuthHeader = (this.username && this.password) ? 'Basic ' + btoa(`${this.username}:${this.password}`) : null;
 
         const headers = {
             'User-Agent': this.userAgent,
             ...additionalHeaders
         };
 
-        // 只有在有认证信息时才添加Authorization头
-        if (this.authHeader) {
-            headers['Authorization'] = this.authHeader;
+        // 条件性添加 Authorization 头:
+        // - 如果是原生平台且配置了认证信息，则添加。
+        // - 如果是Web平台，配置了认证信息且请求方法不是 OPTIONS，则添加。
+        //   (Web平台上手动发起的 OPTIONS 探测请求应保持“干净”，浏览器会自动处理预检请求中的认证相关头部)
+        if (currentAuthHeader) {
+            if (this.isNative || method !== 'OPTIONS') {
+                headers['Authorization'] = currentAuthHeader;
+            }
         }
 
         const fetchOptions = {
@@ -79,33 +82,19 @@ export default class WebDAVClient {
 
         // 根据平台设置不同的请求配置
         if (this.isNative) {
-            // 原生平台：不需要CORS设置，但需要确保认证
-            // console.log('原生平台请求配置'); // 通常不需要此日志
+            // 原生平台：不需要CORS设置。
+            // Authorization 头已在上面处理。
         } else {
             // Web平台：需要CORS设置
             fetchOptions.mode = 'cors';
             fetchOptions.credentials = 'omit'; // 不发送cookies，使用Basic认证
-
-            // 针对Web平台的额外设置
             fetchOptions.cache = 'no-cache'; // 避免缓存问题
 
-            // 对于Web平台，确保预检请求能通过
-            if (method === 'OPTIONS' || method === 'PUT' || method === 'DELETE') {
-
-                // 为了更好的CORS兼容性，简化headers
-                if (method !== 'OPTIONS') {
-                    // 保持必要的headers，移除可能导致预检失败的headers
-                    const simplifiedHeaders = {
-                        'Authorization': headers['Authorization']
-                    };
-
-                    if (additionalHeaders['Content-Type']) {
-                        simplifiedHeaders['Content-Type'] = additionalHeaders['Content-Type'];
-                    }
-
-                    fetchOptions.headers = simplifiedHeaders;
-                }
-            }
+            // 对于Web平台，不再需要针对 PUT/DELETE/OPTIONS 的特殊头部简化逻辑。
+            // 上述 Authorization 头的条件性添加已处理了 OPTIONS 探测请求的主要考虑。
+            // 对于其他方法（如 PUT, DELETE, 或带 Authorization 的 GET），
+            // 浏览器会在必要时发起预检 OPTIONS 请求。
+            // 服务器必须正确响应这些预检请求，并在 Access-Control-Allow-Headers 中允许 'Authorization' 和 'Content-Type'。
         }
 
         return fetchOptions;

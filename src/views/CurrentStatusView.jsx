@@ -235,9 +235,9 @@ const CurrentStatusView = ({
           style={{
             backgroundColor: colors.infoBg,
             color: colors.infoText,
-            borderColor: colors.infoText, 
-            borderWidth: '1px', 
-            borderStyle: 'solid', 
+            borderColor: colors.infoText,
+            borderWidth: '1px',
+            borderStyle: 'solid',
           }}
         >
           <p className="flex items-center justify-center">

@@ -153,7 +153,7 @@ const CaffeineTracker = () => {
           }
           await Preferences.set({ key: 'capacitor_storage_migration_complete', value: 'true' });
         }
-        
+
         // --- Attempt to load from Preferences ---
         let settingsFromStore = null;
         let recordsFromStore = null;
@@ -168,7 +168,7 @@ const CaffeineTracker = () => {
 
         const { value: savedDrinksJson } = await Preferences.get({ key: 'caffeineDrinks' });
         if (savedDrinksJson) drinksFromStore = JSON.parse(savedDrinksJson);
-        
+
         // 从 Preferences 加载 WebDAV 密码 (使用与 SettingsView.jsx 相同的键)
         const { value: webdavPasswordFromPrefs } = await Preferences.get({ key: 'webdavPassword' });
         if (webdavPasswordFromPrefs) {
@@ -226,8 +226,8 @@ const CaffeineTracker = () => {
           // 确保 localLastModifiedTimestamp 存在，初始化如果不存在
           // 合并密码：如果 settingsFromStore 中没有密码，但从 'webdavPassword'键 加载到了，则使用它
           const finalPassword = settingsFromStore.webdavPassword || persistedPassword || null;
-          const newSettings = { 
-            ...defaultSettings, 
+          const newSettings = {
+            ...defaultSettings,
             ...settingsFromStore,
             webdavPassword: finalPassword, // 确保密码被设置
             localLastModifiedTimestamp: settingsFromStore.localLastModifiedTimestamp || Date.now()
@@ -283,7 +283,7 @@ const CaffeineTracker = () => {
         console.error('Error saving data to Preferences:', error);
       }
     };
-    
+
     saveData();
   }, [records, userSettings, drinks, initialDataLoaded]);
 
@@ -436,13 +436,13 @@ const CaffeineTracker = () => {
       console.log("初始数据未加载完成，跳过WebDAV同步");
       return;
     }
-    
+
     if (!settingsToUse.webdavEnabled) {
       console.log("WebDAV同步已禁用");
-      setSyncStatus(prev => ({ 
-        ...prev, 
-        inProgress: false, 
-        lastSyncResult: { success: false, message: "WebDAV同步已禁用" } 
+      setSyncStatus(prev => ({
+        ...prev,
+        inProgress: false,
+        lastSyncResult: { success: false, message: "WebDAV同步已禁用" }
       }));
       return;
     }
@@ -453,26 +453,26 @@ const CaffeineTracker = () => {
         username: !!settingsToUse.webdavUsername,
         password: !!settingsToUse.webdavPassword
       });
-      setSyncStatus(prev => ({ 
-        ...prev, 
-        inProgress: false, 
-        lastSyncResult: { success: false, message: "WebDAV配置不完整" } 
+      setSyncStatus(prev => ({
+        ...prev,
+        inProgress: false,
+        lastSyncResult: { success: false, message: "WebDAV配置不完整" }
       }));
-      setShowSyncBadge(true); 
-      setTimeout(() => setShowSyncBadge(false), 3000); 
+      setShowSyncBadge(true);
+      setTimeout(() => setShowSyncBadge(false), 3000);
       return;
     }
 
-    setSyncStatus(prev => ({ ...prev, inProgress: true })); 
+    setSyncStatus(prev => ({ ...prev, inProgress: true }));
     setShowSyncBadge(true);
-    
+
     try {
       const webdavClient = new WebDAVClient(
-        settingsToUse.webdavServer, 
-        settingsToUse.webdavUsername, 
+        settingsToUse.webdavServer,
+        settingsToUse.webdavUsername,
         settingsToUse.webdavPassword
       );
-      
+
       const localData = {
         records: currentRecords,
         drinks: currentDrinks,
@@ -480,14 +480,14 @@ const CaffeineTracker = () => {
         syncTimestamp: settingsToUse.localLastModifiedTimestamp || Date.now(),
         version: appConfig.latest_version
       };
-      
+
       console.log("准备本地数据用于同步:", {
         recordsCount: currentRecords.length,
         drinksCount: currentDrinks.length,
         syncTimestamp: localData.syncTimestamp,
         version: localData.version
       });
-      
+
       const result = await webdavClient.performSync(localData, initialPresetDrinks, originalPresetDrinkIds);
       console.log("WebDAV同步操作完成:", {
         success: result.success,
@@ -495,9 +495,9 @@ const CaffeineTracker = () => {
         hasData: !!result.data,
         timestamp: result.timestamp
       });
-      
+
       if (result.success) {
-        let updatedSettings = { ...settingsToUse }; 
+        let updatedSettings = { ...settingsToUse };
         if (result.data) {
           const processSyncedDrinks = (drinksToProcess) => {
             if (!Array.isArray(drinksToProcess)) return [...initialPresetDrinks];
@@ -543,9 +543,9 @@ const CaffeineTracker = () => {
           if (result.data.userSettings) {
             const syncedDevelop = result.data.userSettings.develop;
             updatedSettings = {
-              ...settingsToUse, 
-              ...result.data.userSettings, 
-              webdavPassword: settingsToUse.webdavPassword, 
+              ...settingsToUse,
+              ...result.data.userSettings,
+              webdavPassword: settingsToUse.webdavPassword,
               develop: typeof syncedDevelop === 'boolean' ? syncedDevelop : settingsToUse.develop,
             };
             if (isNativePlatform && updatedSettings.themeMode === 'auto') {
@@ -556,13 +556,13 @@ const CaffeineTracker = () => {
         }
         updatedSettings.lastSyncTimestamp = result.timestamp;
         setUserSettings(updatedSettings);
-        setSyncStatus({ 
-          inProgress: false, 
-          lastSyncTime: new Date(result.timestamp), 
-          lastSyncResult: { success: true, message: result.message } 
+        setSyncStatus({
+          inProgress: false,
+          lastSyncTime: new Date(result.timestamp),
+          lastSyncResult: { success: true, message: result.message }
         });
-      } else { 
-        throw new Error(result.message); 
+      } else {
+        throw new Error(result.message);
       }
     } catch (error) {
       console.error("WebDAV同步过程中发生错误:", {
@@ -571,13 +571,13 @@ const CaffeineTracker = () => {
         name: error.name,
         platform: isNativePlatform ? 'native' : 'web'
       });
-      setSyncStatus({ 
-        inProgress: false, 
-        lastSyncTime: new Date(), 
-        lastSyncResult: { 
-          success: false, 
-          message: error.message || "同步时发生未知错误" 
-        } 
+      setSyncStatus({
+        inProgress: false,
+        lastSyncTime: new Date(),
+        lastSyncResult: {
+          success: false,
+          message: error.message || "同步时发生未知错误"
+        }
       });
     } finally {
       setTimeout(() => { setShowSyncBadge(false); }, 5000);
@@ -657,7 +657,7 @@ const CaffeineTracker = () => {
     const newTimestamp = Date.now();
     setRecords(prevRecords => {
       const newRecords = prevRecords.map(r => r.id === updatedRecord.id ? { ...updatedRecord, updatedAt: newTimestamp } : r)
-                                  .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort by intake time desc
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort by intake time desc
       return newRecords;
     });
     setUserSettings(prev => ({ ...prev, localLastModifiedTimestamp: newTimestamp }));
@@ -694,14 +694,14 @@ const CaffeineTracker = () => {
         console.warn("Invalid call to handleUpdateSettings", keyOrSettingsObject, value);
         return prevSettings;
       }
-      
+
       // Ensure localLastModifiedTimestamp is updated
       // It might be part of keyOrSettingsObject if it's a full settings object,
       // otherwise, we set it.
       if (!newSettings.hasOwnProperty('localLastModifiedTimestamp') || typeof keyOrSettingsObject === 'string') {
         newSettings.localLastModifiedTimestamp = Date.now();
       }
-      
+
       return newSettings;
     });
     // Note: The logic to save settings to Preferences/FileSystem (which happens in a useEffect)
@@ -739,10 +739,10 @@ const CaffeineTracker = () => {
 
   // 修改：监听WebDAV配置状态，移除对密码加载的依赖
   useEffect(() => {
-    const configured = userSettings.webdavEnabled && 
-                      userSettings.webdavServer && 
-                      userSettings.webdavUsername && 
-                      userSettings.webdavPassword;
+    const configured = userSettings.webdavEnabled &&
+      userSettings.webdavServer &&
+      userSettings.webdavUsername &&
+      userSettings.webdavPassword;
     setWebdavConfigured(configured);
   }, [userSettings.webdavEnabled, userSettings.webdavServer, userSettings.webdavUsername, userSettings.webdavPassword]);
 
@@ -774,11 +774,9 @@ const CaffeineTracker = () => {
             <button
               onClick={handleManualSync}
               disabled={!webdavConfigured || syncStatus.inProgress}
-              className={`p-2 rounded-full transition-all duration-300 ${
-                syncStatus.inProgress ? 'animate-spin text-blue-500' : ''
-              } ${
-                !webdavConfigured ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200'
-              }`}
+              className={`p-2 rounded-full transition-all duration-300 ${syncStatus.inProgress ? 'animate-spin text-blue-500' : ''
+                } ${!webdavConfigured ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200'
+                }`}
               style={{ color: colors.textSecondary }}
               aria-label="手动同步 WebDAV 数据"
               title={!webdavConfigured ? 'WebDAV配置不完整' : '手动同步'}
@@ -803,18 +801,17 @@ const CaffeineTracker = () => {
         {/* 修改：同步状态显示 */}
         {showSyncBadge && (
           <div
-            className={`absolute top-14 right-4 mt-1 py-1 px-2 rounded-full text-xs z-10 ${
-              syncStatus.lastSyncResult?.success 
+            className={`absolute top-14 right-4 mt-1 py-1 px-2 rounded-full text-xs z-10 ${syncStatus.lastSyncResult?.success
                 ? 'bg-green-100 text-green-700 border border-green-200' :
-              syncStatus.lastSyncResult?.message?.includes("配置") || syncStatus.lastSyncResult?.message?.includes("禁用")
-                ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
-                'bg-red-100 text-red-700 border border-red-200'
-            } flex items-center shadow-sm`}
+                syncStatus.lastSyncResult?.message?.includes("配置") || syncStatus.lastSyncResult?.message?.includes("禁用")
+                  ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
+                  'bg-red-100 text-red-700 border border-red-200'
+              } flex items-center shadow-sm`}
             style={{ marginTop: '5%' }}
           >
-            {syncStatus.inProgress ? '同步中...' : 
-             syncStatus.lastSyncResult?.success ? '同步成功' : 
-             syncStatus.lastSyncResult?.message || '同步失败'}
+            {syncStatus.inProgress ? '同步中...' :
+              syncStatus.lastSyncResult?.success ? '同步成功' :
+                syncStatus.lastSyncResult?.message || '同步失败'}
           </div>
         )}
       </header>

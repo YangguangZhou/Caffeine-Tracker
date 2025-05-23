@@ -16,12 +16,12 @@ import { DEFAULT_CATEGORY, DRINK_CATEGORIES } from '../utils/constants';
  * @param {Object} props.initialValues - 初始值（用于编辑模式）
  * @param {Object} props.colors - 颜色主题
  */
-const IntakeForm = ({ 
-  drinks, 
-  onSubmit, 
-  onCancel, 
+const IntakeForm = ({
+  drinks,
+  onSubmit,
+  onCancel,
   initialValues = null,
-  colors 
+  colors
 }) => {
   // 表单状态
   const [selectedDrinkId, setSelectedDrinkId] = useState('');
@@ -29,12 +29,12 @@ const IntakeForm = ({
   const [customAmount, setCustomAmount] = useState('');
   const [entryName, setEntryName] = useState('');
   const [intakeTime, setIntakeTime] = useState(formatDatetimeLocal(new Date()));
-  
+
   // 选中的饮品
   const selectedDrink = drinks.find(d => d.id === selectedDrinkId);
-  
+
   // 计算的咖啡因量（基于体积或重量）
-  const calculatedAmount = selectedDrink && drinkVolume 
+  const calculatedAmount = selectedDrink && drinkVolume
     ? calculateCaffeineAmount(selectedDrink, parseFloat(drinkVolume))
     : null;
 
@@ -57,7 +57,7 @@ const IntakeForm = ({
         setDrinkVolume(drink.defaultVolume?.toString() ?? '');
         setEntryName(drink.name);
         // 清除自定义量，因为选择了预设饮品，其计算方式已确定
-        setCustomAmount(''); 
+        setCustomAmount('');
       }
     }
   }, [selectedDrinkId, drinks, initialValues]);
@@ -104,20 +104,20 @@ const IntakeForm = ({
     // 如果没有自定义量，且选择了饮品，则根据体积计算
     else if (selectedDrinkId && drinkVolume) {
       const drink = drinks.find(d => d.id === selectedDrinkId);
-      if (!drink) { 
-        alert("选择的饮品无效。"); 
-        return; 
+      if (!drink) {
+        alert("选择的饮品无效。");
+        return;
       }
-      
+
       const caffeineContent = drink.caffeineContent; // This specific variable might not be directly used if calculateCaffeineAmount takes the whole drink object
       const parsedVolume = parseFloat(drinkVolume);
-      
+
       if (!isNaN(parsedVolume) && parsedVolume > 0) { // caffeineContent check is now inside calculateCaffeineAmount
         caffeineAmount = calculateCaffeineAmount(drink, parsedVolume);
         volume = parsedVolume;
         drinkIdForRecord = drink.id;
         nameForRecord = finalEntryName || drink.name;
-        
+
         // 仅当自定义名称与基础饮品名称不同时，才存储自定义名称
         if (finalEntryName && finalEntryName !== drink.name) {
           customNameValue = finalEntryName;
@@ -138,10 +138,10 @@ const IntakeForm = ({
     try {
       timestamp = new Date(intakeTime).getTime();
       if (isNaN(timestamp)) throw new Error("Invalid date format");
-    } catch (e) { 
-      alert("请输入有效的摄入时间。"); 
-      console.error("Invalid date/time value:", intakeTime); 
-      return; 
+    } catch (e) {
+      alert("请输入有效的摄入时间。");
+      console.error("Invalid date/time value:", intakeTime);
+      return;
     }
 
     // 创建记录对象
@@ -161,8 +161,8 @@ const IntakeForm = ({
   };
 
   const volumeInputLabel = selectedDrink?.calculationMode === 'perGram' ? "咖啡豆用量 (g):" : "容量 (ml):";
-  const volumeInputPlaceholder = selectedDrink?.calculationMode === 'perGram' 
-    ? `例如: ${selectedDrink?.defaultVolume ?? '15'}` 
+  const volumeInputPlaceholder = selectedDrink?.calculationMode === 'perGram'
+    ? `例如: ${selectedDrink?.defaultVolume ?? '15'}`
     : `例如: ${selectedDrink?.defaultVolume ?? '250'}`;
   const volumeInputMin = "1";
   const volumeHelpText = selectedDrink?.calculationMode === 'perGram'
@@ -171,8 +171,8 @@ const IntakeForm = ({
 
   return (
     <div className="transition-all">
-      <h2 
-        className="text-xl font-semibold mb-4 transition-colors" 
+      <h2
+        className="text-xl font-semibold mb-4 transition-colors"
         style={{ color: colors.espresso }}
       >
         {initialValues ? '编辑咖啡因摄入记录' : '添加咖啡因摄入记录'}
@@ -198,52 +198,52 @@ const IntakeForm = ({
 
       {/* 摄入时间输入 */}
       <div className="mb-4">
-        <label 
-          htmlFor="intakeTime" 
-          className="block mb-1 font-medium text-sm transition-colors" 
+        <label
+          htmlFor="intakeTime"
+          className="block mb-1 font-medium text-sm transition-colors"
           style={{ color: colors.textSecondary }}
         >
           摄入时间:
         </label>
-        <input 
-          id="intakeTime" 
-          type="datetime-local" 
-          className="w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm transition-colors" 
-          style={{ 
-            borderColor: colors.borderStrong, 
+        <input
+          id="intakeTime"
+          type="datetime-local"
+          className="w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm transition-colors"
+          style={{
+            borderColor: colors.borderStrong,
             backgroundColor: colors.bgBase,
             color: colors.textPrimary
           }}
-          value={intakeTime} 
-          onChange={(e) => setIntakeTime(e.target.value)} 
-          max={formatDatetimeLocal(new Date())} 
+          value={intakeTime}
+          onChange={(e) => setIntakeTime(e.target.value)}
+          max={formatDatetimeLocal(new Date())}
         />
       </div>
 
       {/* 记录名称输入 */}
       <div className="mb-4">
-        <label 
-          htmlFor="entryName" 
-          className="block mb-1 font-medium text-sm transition-colors" 
+        <label
+          htmlFor="entryName"
+          className="block mb-1 font-medium text-sm transition-colors"
           style={{ color: colors.textSecondary }}
         >
           记录名称:
         </label>
-        <input 
-          id="entryName" 
-          type="text" 
-          className="w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm transition-colors" 
-          style={{ 
-            borderColor: colors.borderStrong, 
+        <input
+          id="entryName"
+          type="text"
+          className="w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm transition-colors"
+          style={{
+            borderColor: colors.borderStrong,
             backgroundColor: colors.bgBase,
             color: colors.textPrimary
           }}
-          value={entryName} 
-          onChange={(e) => setEntryName(e.target.value)} 
-          placeholder={selectedDrink ? selectedDrink.name : "例如：午后提神咖啡"} 
+          value={entryName}
+          onChange={(e) => setEntryName(e.target.value)}
+          placeholder={selectedDrink ? selectedDrink.name : "例如：午后提神咖啡"}
         />
-        <p 
-          className="text-xs mt-1 transition-colors" 
+        <p
+          className="text-xs mt-1 transition-colors"
           style={{ color: colors.textMuted }}
         >
           {selectedDrinkId ? "可修改名称用于本次记录。" : "输入本次摄入的名称。"}
@@ -253,43 +253,43 @@ const IntakeForm = ({
       {/* 容量/重量输入（条件渲染） */}
       {selectedDrinkId && (
         <div className="mb-4">
-          <label 
-            htmlFor="drinkVolume" 
-            className="block mb-1 font-medium text-sm transition-colors" 
+          <label
+            htmlFor="drinkVolume"
+            className="block mb-1 font-medium text-sm transition-colors"
             style={{ color: colors.textSecondary }}
           >
             {volumeInputLabel}
           </label>
-          <input 
-            id="drinkVolume" 
-            type="number" 
-            className="w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm transition-colors" 
-            style={{ 
-              borderColor: colors.borderStrong, 
+          <input
+            id="drinkVolume"
+            type="number"
+            className="w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm transition-colors"
+            style={{
+              borderColor: colors.borderStrong,
               backgroundColor: colors.bgBase,
               color: colors.textPrimary
             }}
-            value={drinkVolume} 
+            value={drinkVolume}
             onChange={(e) => {
               setDrinkVolume(e.target.value);
               // 当通过容量/重量输入时，清除自定义摄入量
               if (e.target.value.trim() !== '') {
                 setCustomAmount('');
               }
-            }} 
-            placeholder={volumeInputPlaceholder} 
-            min={volumeInputMin} 
+            }}
+            placeholder={volumeInputPlaceholder}
+            min={volumeInputMin}
           />
           {calculatedAmount !== null && (
-            <div 
-              className="mt-1 text-xs transition-colors" 
+            <div
+              className="mt-1 text-xs transition-colors"
               style={{ color: colors.textMuted }}
             >
               预计咖啡因摄入量: {calculatedAmount} mg
             </div>
           )}
-          <p 
-            className="text-xs mt-1 transition-colors" 
+          <p
+            className="text-xs mt-1 transition-colors"
             style={{ color: colors.textMuted }}
           >
             {volumeHelpText}
@@ -299,38 +299,38 @@ const IntakeForm = ({
 
       {/* 自定义量输入 */}
       <div className="mb-4">
-        <label 
-          htmlFor="customAmount" 
-          className="block mb-1 font-medium text-sm transition-colors" 
+        <label
+          htmlFor="customAmount"
+          className="block mb-1 font-medium text-sm transition-colors"
           style={{ color: colors.textSecondary }}
         >
           摄入量 (mg):
         </label>
-        <input 
-          id="customAmount" 
-          type="number" 
-          className="w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm transition-colors" 
-          style={{ 
-            borderColor: colors.borderStrong, 
+        <input
+          id="customAmount"
+          type="number"
+          className="w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm transition-colors"
+          style={{
+            borderColor: colors.borderStrong,
             backgroundColor: colors.bgBase,
             color: colors.textPrimary
           }}
-          value={customAmount} 
+          value={customAmount}
           onChange={(e) => {
             setCustomAmount(e.target.value);
             // 当用户开始输入自定义含量时，如果之前选择了饮品，则清除饮品选择和用量/体积
             // 这样可以避免混淆：是按饮品计算还是按自定义含量计算
             if (e.target.value.trim() !== '' && selectedDrinkId) {
-                //保留饮品选择，让用户可以基于某个饮品手动调整总量
-                //setSelectedDrinkId(''); 
-                //setDrinkVolume('');
+              //保留饮品选择，让用户可以基于某个饮品手动调整总量
+              //setSelectedDrinkId(''); 
+              //setDrinkVolume('');
             }
-          }} 
-          placeholder="直接输入咖啡因毫克数" 
-          min="0" 
+          }}
+          placeholder="直接输入咖啡因毫克数"
+          min="0"
         />
-        <p 
-          className="text-xs mt-1 transition-colors" 
+        <p
+          className="text-xs mt-1 transition-colors"
           style={{ color: colors.textMuted }}
         >
           {selectedDrinkId
@@ -341,19 +341,19 @@ const IntakeForm = ({
 
       {/* 表单按钮 */}
       <div className="flex space-x-3 mt-6">
-        <button 
-          onClick={handleSubmit} 
-          className="flex-1 py-2.5 px-4 text-white rounded-md hover:opacity-90 transition-opacity duration-200 flex items-center justify-center shadow-md text-sm font-medium" 
+        <button
+          onClick={handleSubmit}
+          className="flex-1 py-2.5 px-4 text-white rounded-md hover:opacity-90 transition-opacity duration-200 flex items-center justify-center shadow-md text-sm font-medium"
           style={{ backgroundColor: colors.accent }}
         >
           <Save size={16} className="mr-1.5" />
           {initialValues ? '保存修改' : '添加记录'}
         </button>
-        <button 
-          onClick={onCancel} 
-          className="py-2.5 px-4 border rounded-md hover:bg-gray-100 transition-colors duration-200 flex items-center justify-center text-sm font-medium" 
-          style={{ 
-            borderColor: colors.borderStrong, 
+        <button
+          onClick={onCancel}
+          className="py-2.5 px-4 border rounded-md hover:bg-gray-100 transition-colors duration-200 flex items-center justify-center text-sm font-medium"
+          style={{
+            borderColor: colors.borderStrong,
             color: colors.textSecondary
           }}
         >

@@ -14,10 +14,10 @@ import { Search, Filter, Coffee, CupSoda, Leaf, Star, Droplet, Sun, X, Beer, Win
  * @param {Array} props.DRINK_CATEGORIES - 饮品分类列表
  * @param {Object} props.colors - 颜色主题
  */
-const DrinkSelector = ({ 
-  drinks, 
-  selectedDrinkId, 
-  onSelectDrink, 
+const DrinkSelector = ({
+  drinks,
+  selectedDrinkId,
+  onSelectDrink,
   onClearSelection,
   DEFAULT_CATEGORY = '其他',
   DRINK_CATEGORIES = ['通用', '连锁咖啡', '茶饮', '速溶', '其他'],
@@ -86,55 +86,55 @@ const DrinkSelector = ({
   const getDrinkIcon = (drink) => {
     const nameLower = drink.name.toLowerCase();
     const category = drink.category || DEFAULT_CATEGORY;
-    
+
     // 根据分类选择图标
-    switch(category) {
+    switch (category) {
       case '手工咖啡':
-        if (nameLower.includes('拿铁') || nameLower.includes('卡布奇诺')) 
+        if (nameLower.includes('拿铁') || nameLower.includes('卡布奇诺'))
           return <Coffee size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-orange-600' : colors.customDrinkText}`} />;
         return <Coffee size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-amber-800' : colors.customDrinkText}`} />;
-      
+
       case '连锁品牌':
       case '精品咖啡':
-        if (nameLower.includes('拿铁')) 
+        if (nameLower.includes('拿铁'))
           return <Coffee size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-orange-500' : colors.customDrinkText}`} />;
         return <Coffee size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-amber-700' : colors.customDrinkText}`} />;
-      
+
       case '瓶装茶饮':
         return <Leaf size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-green-600' : colors.customDrinkText}`} />;
-      
+
       case '速溶咖啡':
         return <Coffee size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-amber-600' : colors.customDrinkText}`} />;
-      
+
       case '碳酸饮料':
         return <CupSoda size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-blue-500' : colors.customDrinkText}`} />;
-      
+
       case '功能饮料':
         return <Sun size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-yellow-500' : colors.customDrinkText}`} />;
-      
+
       default:
         // 其他根据名称选择图标
-        if (nameLower.includes('巧克力')) 
+        if (nameLower.includes('巧克力'))
           return <Star size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-yellow-900' : colors.customDrinkText}`} />;
-        if (nameLower.includes('咖啡')) 
+        if (nameLower.includes('咖啡'))
           return <Coffee size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-gray-700' : colors.customDrinkText}`} />;
-        if (nameLower.includes('茶')) 
+        if (nameLower.includes('茶'))
           return <Leaf size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-green-700' : colors.customDrinkText}`} />;
-        if (nameLower.includes('可乐') || nameLower.includes('苏打')) 
+        if (nameLower.includes('可乐') || nameLower.includes('苏打'))
           return <CupSoda size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-blue-600' : colors.customDrinkText}`} />;
-        if (nameLower.includes('酒') || nameLower.includes('wine')) 
+        if (nameLower.includes('酒') || nameLower.includes('wine'))
           return <Wine size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-red-600' : colors.customDrinkText}`} />;
-        if (nameLower.includes('啤酒') || nameLower.includes('beer')) 
+        if (nameLower.includes('啤酒') || nameLower.includes('beer'))
           return <Beer size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-amber-500' : colors.customDrinkText}`} />;
-        if (nameLower.includes('奶') || nameLower.includes('milk')) 
+        if (nameLower.includes('奶') || nameLower.includes('milk'))
           return <Milk size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-slate-300' : colors.customDrinkText}`} />;
         return <Droplet size={18} className={`mb-1 transition-colors ${drink.isPreset ? 'text-gray-500' : colors.customDrinkText}`} />;
     }
   };
 
   return (
-    <div className="mb-4 border rounded-lg p-3 transition-colors" style={{ 
-      borderColor: colors.borderSubtle, 
+    <div className="mb-4 border rounded-lg p-3 transition-colors" style={{
+      borderColor: colors.borderSubtle,
       backgroundColor: `${colors.bgCard}80` // 添加透明度
     }}>
       <div className="flex flex-col sm:flex-row gap-2 mb-3">
@@ -146,7 +146,7 @@ const DrinkSelector = ({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full p-2 pl-8 border rounded-md focus:outline-none focus:ring-1 text-sm transition-colors"
-            style={{ 
+            style={{
               backgroundColor: colors.bgBase,
               color: colors.textPrimary,
               borderColor: colors.borderStrong,
@@ -160,7 +160,7 @@ const DrinkSelector = ({
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
             className="w-full sm:w-auto p-2 pl-8 border rounded-md focus:outline-none focus:ring-1 text-sm appearance-none transition-colors"
-            style={{ 
+            style={{
               backgroundColor: colors.bgBase,
               color: colors.textPrimary,
               borderColor: colors.borderStrong,
@@ -180,10 +180,10 @@ const DrinkSelector = ({
       </div>
 
       {/* 饮品网格 */}
-      <div className="max-h-60 overflow-y-auto space-y-3 pr-1 scrollbar-thin scrollbar-thumb-rounded-full scrollbar-track-rounded-full transition-colors" 
-           style={{ 
-             scrollbarColor: `${colors.borderStrong} transparent`,
-           }}>
+      <div className="max-h-60 overflow-y-auto space-y-3 pr-1 scrollbar-thin scrollbar-thumb-rounded-full scrollbar-track-rounded-full transition-colors"
+        style={{
+          scrollbarColor: `${colors.borderStrong} transparent`,
+        }}>
         {groupedDrinks.length > 0 ? groupedDrinks.map(({ category, items }) => (
           <div key={category}>
             <h4 className="text-sm font-semibold mb-1.5 transition-colors" style={{ color: colors.textSecondary }}>{category}</h4>
@@ -196,23 +196,23 @@ const DrinkSelector = ({
                               focus:outline-none focus:ring-2 focus:ring-offset-1 flex flex-col items-center justify-center h-20 
                               shadow-sm hover:shadow-md`}
                   style={{
-                    backgroundColor: selectedDrinkId === drink.id 
+                    backgroundColor: selectedDrinkId === drink.id
                       ? colors.accent + "40" // 选中状态
                       : drink.isPreset
                         ? colors.bgBase // 预设饮品
                         : colors.customDrinkBg, // 自定义饮品
-                    color: selectedDrinkId === drink.id 
+                    color: selectedDrinkId === drink.id
                       ? colors.textPrimary
                       : drink.isPreset
                         ? colors.textPrimary
                         : colors.customDrinkText,
-                    borderColor: selectedDrinkId === drink.id 
+                    borderColor: selectedDrinkId === drink.id
                       ? colors.accent
                       : drink.isPreset
                         ? colors.borderSubtle
                         : colors.customDrinkBorder,
-                    boxShadow: selectedDrinkId === drink.id 
-                      ? `0 0 0 2px ${colors.accent}40` 
+                    boxShadow: selectedDrinkId === drink.id
+                      ? `0 0 0 2px ${colors.accent}40`
                       : 'none',
                   }}
                   title={`${drink.name} (${drink.caffeineContent}mg/100ml${drink.defaultVolume ? `, ${drink.defaultVolume}ml` : ''})`}
@@ -229,13 +229,13 @@ const DrinkSelector = ({
           </p>
         )}
       </div>
-      
+
       {/* 清除选择按钮 */}
       {selectedDrinkId && (
         <button
           onClick={onClearSelection}
           className="mt-3 w-full py-1.5 px-3 text-xs border rounded-md transition-colors duration-200 flex items-center justify-center"
-          style={{ 
+          style={{
             borderColor: colors.borderSubtle,
             color: colors.textSecondary,
             backgroundColor: `${colors.bgBase}80`

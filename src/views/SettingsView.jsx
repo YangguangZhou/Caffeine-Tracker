@@ -161,16 +161,16 @@ const SettingsView = ({
         }
         resetDrinkForm();
     }, [
-        newDrinkName, 
+        newDrinkName,
         // newDrinkCaffeine, // Replaced
         newDrinkCaffeineContent,
         newDrinkCaffeinePerGram,
         newDrinkCalculationMode,
-        newDrinkVolume, 
-        newDrinkCategory, 
-        editingDrink, 
-        drinks, 
-        setDrinks, 
+        newDrinkVolume,
+        newDrinkCategory,
+        editingDrink,
+        drinks,
+        setDrinks,
         resetDrinkForm
     ]);
 
@@ -205,7 +205,7 @@ const SettingsView = ({
         console.log("=== 开始WebDAV连接测试 ===");
         setTestingWebDAV(true);
         setWebDAVTestResult(null);
-        
+
         // 详细的配置检查
         const configCheck = {
             hasServer: !!userSettings.webdavServer,
@@ -213,14 +213,14 @@ const SettingsView = ({
             hasPassword: !!userSettings.webdavPassword,
             serverValid: userSettings.webdavServer && userSettings.webdavServer.startsWith('http')
         };
-        
-        
+
+
         if (!configCheck.hasServer || !configCheck.hasUsername || !configCheck.hasPassword) {
             const errorMsg = "请确保已填写服务器地址、用户名和密码";
             console.error("WebDAV配置不完整:", configCheck);
-            setWebDAVTestResult({ 
-                success: false, 
-                message: errorMsg 
+            setWebDAVTestResult({
+                success: false,
+                message: errorMsg
             });
             setTestingWebDAV(false);
             return;
@@ -229,9 +229,9 @@ const SettingsView = ({
         if (!configCheck.serverValid) {
             const errorMsg = "服务器地址必须以 http:// 或 https:// 开头";
             console.error("服务器地址格式错误:", userSettings.webdavServer);
-            setWebDAVTestResult({ 
-                success: false, 
-                message: errorMsg 
+            setWebDAVTestResult({
+                success: false,
+                message: errorMsg
             });
             setTestingWebDAV(false);
             return;
@@ -241,7 +241,7 @@ const SettingsView = ({
             console.log("开始动态导入WebDAV模块...");
             const WebDAVClientModule = await import('../utils/webdavSync');
             const WebDAVClient = WebDAVClientModule.default;
-            
+
             if (!WebDAVClient) {
                 throw new Error("无法加载WebDAV客户端模块");
             }
@@ -252,12 +252,12 @@ const SettingsView = ({
                 userSettings.webdavUsername,
                 userSettings.webdavPassword
             );
-            
+
             // 验证客户端配置
             if (!client.isConfigured()) {
                 throw new Error("WebDAV客户端配置无效");
             }
-            
+
             console.log("开始测试WebDAV连接...", {
                 server: userSettings.webdavServer,
                 username: userSettings.webdavUsername,
@@ -265,18 +265,18 @@ const SettingsView = ({
                 platform: isNativePlatform ? 'native' : 'web',
                 userAgent: navigator.userAgent.substring(0, 50) + '...'
             });
-            
+
             const result = await client.testConnection();
             console.log("WebDAV测试结果:", result);
             setWebDAVTestResult(result);
-            
+
             // 如果连接成功，可以进行额外的检查
             if (result.success) {
                 console.log("连接测试成功，WebDAV服务器可用");
             } else {
                 console.error("连接测试失败:", result.message);
             }
-            
+
         } catch (error) {
             console.error("测试WebDAV连接时出现异常:", {
                 message: error.message,
@@ -285,22 +285,22 @@ const SettingsView = ({
                 platform: isNativePlatform ? 'native' : 'web',
                 configCheck: configCheck
             });
-            
+
             let errorMessage = `连接错误: ${error.message}`;
-            
+
             // 根据错误类型提供更有用的提示
             if (error.message.includes('Failed to fetch')) {
-                errorMessage += isNativePlatform 
-                    ? " (请检查网络连接和服务器地址)" 
+                errorMessage += isNativePlatform
+                    ? " (请检查网络连接和服务器地址)"
                     : " (请检查网络连接、服务器地址和CORS配置)";
             } else if (error.message.includes('CORS')) {
                 errorMessage += " (跨域问题：请在WebDAV服务器配置允许跨域访问)";
             } else if (error.message.includes('SSL') || error.message.includes('certificate')) {
                 errorMessage += " (SSL证书问题：请检查HTTPS配置)";
             }
-            
-            setWebDAVTestResult({ 
-                success: false, 
+
+            setWebDAVTestResult({
+                success: false,
                 message: errorMessage
             });
         } finally {
@@ -311,10 +311,10 @@ const SettingsView = ({
 
     // 修改：计算按钮是否可用，移除密码加载状态依赖
     const isWebDAVConfigured = useMemo(() => {
-        return userSettings.webdavEnabled && 
-               userSettings.webdavServer && 
-               userSettings.webdavUsername && 
-               userSettings.webdavPassword;
+        return userSettings.webdavEnabled &&
+            userSettings.webdavServer &&
+            userSettings.webdavUsername &&
+            userSettings.webdavPassword;
     }, [userSettings.webdavEnabled, userSettings.webdavServer, userSettings.webdavUsername, userSettings.webdavPassword]);
 
     // 导出数据 (使用 useCallback)
@@ -390,7 +390,7 @@ const SettingsView = ({
         reader.onload = async (e) => {
             try {
                 const importedFullData = JSON.parse(e.target.result);
-                
+
                 // 确保导入的数据结构是预期的
                 if (!importedFullData || typeof importedFullData !== 'object') {
                     alert("导入文件格式无效。");
@@ -418,10 +418,10 @@ const SettingsView = ({
                     // 可以根据需要添加其他要保留的设置
                 };
 
-                const mergedSettings = { 
+                const mergedSettings = {
                     ...defaultSettings, // 从默认设置开始，以确保所有键都存在
-                    ...importedUserSettings, 
-                    ...settingsToKeep 
+                    ...importedUserSettings,
+                    ...settingsToKeep
                 };
 
                 // 更新状态
@@ -772,12 +772,20 @@ const SettingsView = ({
                             disabled={!userSettings.webdavEnabled}
                             autoComplete="off" // 避免浏览器自动填充
                         />
-                         <p
+                        <p
                             className="text-xs mt-1 transition-colors"
                             style={{ color: colors.textMuted }}
                         >
                             输入完整的WebDAV服务器URL。
                         </p>
+                        {userSettings.webdavServer && userSettings.webdavServer.includes('dav.jianguoyun.com') && (
+                            <p
+                                className="text-xs mt-1 transition-colors"
+                                style={{ color: colors.accent }} // 使用强调色
+                            >
+                                提示：坚果云用户，请确保路径包含您的同步文件夹名，例如：https://dav.jianguoyun.com/dav/我的坚果云/
+                            </p>
+                        )}
                     </div>
 
                     {/* 用户名 */}
@@ -903,15 +911,13 @@ const SettingsView = ({
 
                     {/* 测试结果 - 增强显示 */}
                     {webDAVTestResult && (
-                        <div className={`p-3 rounded-lg text-sm border ${
-                            webDAVTestResult.success 
-                                ? 'bg-green-50 text-green-800 border-green-200' 
+                        <div className={`p-3 rounded-lg text-sm border ${webDAVTestResult.success
+                                ? 'bg-green-50 text-green-800 border-green-200'
                                 : 'bg-red-50 text-red-800 border-red-200'
-                        }`}>
+                            }`}>
                             <div className="flex items-start">
-                                <div className={`flex-shrink-0 w-4 h-4 rounded-full mt-0.5 mr-2 ${
-                                    webDAVTestResult.success ? 'bg-green-500' : 'bg-red-500'
-                                }`} />
+                                <div className={`flex-shrink-0 w-4 h-4 rounded-full mt-0.5 mr-2 ${webDAVTestResult.success ? 'bg-green-500' : 'bg-red-500'
+                                    }`} />
                                 <div className="flex-1">
                                     <p className="font-medium">
                                         {webDAVTestResult.success ? '连接成功' : '连接失败'}
@@ -943,9 +949,9 @@ const SettingsView = ({
                             {syncStatus.lastSyncResult && ` (${syncStatus.lastSyncResult.success ? '成功' : '失败'}: ${syncStatus.lastSyncResult.message})`}
                         </p>
                     )}
-                     {!syncStatus.lastSyncTime && userSettings.webdavEnabled && (
+                    {!syncStatus.lastSyncTime && userSettings.webdavEnabled && (
                         <p className="text-sm transition-colors" style={{ color: colors.textMuted }}>
-                           尚未同步过。
+                            尚未同步过。
                         </p>
                     )}
                 </div>
@@ -1096,7 +1102,7 @@ const SettingsView = ({
                                 />
                             </div>
                         )}
-                        
+
                         {/* 默认容量/用量 */}
                         <div className="mb-3">
                             <label
@@ -1259,8 +1265,8 @@ const SettingsView = ({
                                                     <Tag size={12} className="mr-0.5" aria-hidden="true" />{drink.category || DEFAULT_CATEGORY}
                                                 </span>
                                                 <span>
-                                                    {drink.calculationMode === 'perGram' 
-                                                        ? `${drink.caffeinePerGram ?? 0}mg/g` 
+                                                    {drink.calculationMode === 'perGram'
+                                                        ? `${drink.caffeinePerGram ?? 0}mg/g`
                                                         : `${drink.caffeineContent ?? 0}mg/100ml`}
                                                 </span>
                                                 {drink.defaultVolume && (
