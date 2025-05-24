@@ -156,8 +156,8 @@ const MetabolismChart = ({
                   position: "insideBottomRight",
                   fill: colors.chartSleepLine,
                   fontSize: 10,
-                  dy: 10,
-                  dx: -5
+                  dy: 0,
+                  dx: 0
                 }}
               />
             )}

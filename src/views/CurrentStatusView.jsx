@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Activity, Clock, Edit, Trash2, Plus,
-  AlertCircle, Moon, Calendar, Droplet
+  AlertCircle, Moon, Calendar, Droplet, TrendingUp, TrendingDown,
+  Zap, Target, BarChart3, Minus, Timer
 } from 'lucide-react';
 import MetabolismChart from '../components/MetabolismChart';
 import IntakeForm from '../components/IntakeForm';
-import { formatTime, formatDate } from '../utils/timeUtils';
+import { formatTime, formatDate, getStartOfWeek, getEndOfWeek, getStartOfDay, getEndOfDay } from '../utils/timeUtils';
 
 /**
  * 当前状态视图组件
@@ -34,6 +35,139 @@ const CurrentStatusView = ({
 }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
+
+  // 计算本周数据
+  const weekData = useMemo(() => {
+    const now = new Date();
+    const weekStart = getStartOfWeek(now);
+    const weekEnd = getEndOfWeek(now);
+    
+    const weekRecords = records.filter(record => 
+      record.timestamp >= weekStart && record.timestamp <= weekEnd
+    );
+    
+    const weekTotal = weekRecords.reduce((sum, record) => sum + record.amount, 0);
+    const weekAverage = weekRecords.length > 0 ? weekTotal / 7 : 0;
+    
+    // 计算趋势（与上周比较）
+    const lastWeekStart = new Date(weekStart);
+    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+    const lastWeekEnd = new Date(weekEnd);
+    lastWeekEnd.setDate(lastWeekEnd.getDate() - 7);
+    
+    const lastWeekRecords = records.filter(record => 
+      record.timestamp >= lastWeekStart && record.timestamp <= lastWeekEnd
+    );
+    const lastWeekTotal = lastWeekRecords.reduce((sum, record) => sum + record.amount, 0);
+    const lastWeekAverage = lastWeekRecords.length > 0 ? lastWeekTotal / 7 : 0;
+    
+    const trend = weekAverage - lastWeekAverage;
+    
+    return {
+      total: Math.round(weekTotal),
+      average: Math.round(weekAverage),
+      trend: Math.round(trend),
+      recordCount: weekRecords.length
+    };
+  }, [records]);
+
+  // 计算代谢信息
+  const metabolismInfo = useMemo(() => {
+    if (currentCaffeineAmount <= 0) return null;
+    
+    const halfLife = userSettings.caffeineHalfLifeHours;
+    const clearanceRate = Math.log(2) / halfLife;
+    const currentClearanceRate = currentCaffeineAmount * clearanceRate;
+    
+    // 估算达到峰值浓度的时间（假设摄入后1小时达到峰值）
+    const lastRecord = records.length > 0 ? records[0] : null;
+    const timeSinceLastIntake = lastRecord ? (Date.now() - lastRecord.timestamp) / (1000 * 60 * 60) : 0;
+    
+    // 估算完全清除时间（降至5mg以下）
+    const timeToClear = currentCaffeineAmount > 5 ? 
+      Math.log(currentCaffeineAmount / 5) / clearanceRate : 0;
+    
+    return {
+      clearanceRate: Math.round(currentClearanceRate * 10) / 10,
+      timeSinceLastIntake: Math.round(timeSinceLastIntake * 10) / 10,
+      timeToClear: Math.round(timeToClear * 10) / 10,
+      halfLife: halfLife
+    };
+  }, [currentCaffeineAmount, userSettings.caffeineHalfLifeHours, records]);
+
+  // 计算今日详细数据
+  const todayData = useMemo(() => {
+    const today = new Date();
+    const dayStart = getStartOfDay(today);
+    const dayEnd = getEndOfDay(today);
+    
+    const todayRecords = records.filter(record => 
+      record.timestamp >= dayStart && record.timestamp <= dayEnd
+    );
+    
+    const firstIntake = todayRecords.length > 0 ? 
+      formatTime(Math.max(...todayRecords.map(r => r.timestamp))) : null;
+    const lastIntake = todayRecords.length > 0 ? 
+      formatTime(Math.min(...todayRecords.map(r => r.timestamp))) : null;
+    
+    // 计算平均摄入间隔
+    let averageInterval = 0;
+    if (todayRecords.length > 1) {
+      const sortedTimes = todayRecords.map(r => r.timestamp).sort();
+      let totalInterval = 0;
+      for (let i = 1; i < sortedTimes.length; i++) {
+        totalInterval += (sortedTimes[i] - sortedTimes[i-1]) / (1000 * 60 * 60);
+      }
+      averageInterval = totalInterval / (sortedTimes.length - 1);
+    }
+    
+    return {
+      recordCount: todayRecords.length,
+      firstIntake,
+      lastIntake,
+      averageInterval: Math.round(averageInterval * 10) / 10,
+      percentOfLimit: Math.round((todayTotal / effectiveMaxDaily) * 100)
+    };
+  }, [records, todayTotal, effectiveMaxDaily]);
+
+  // 计算历史统计
+  const historicalStats = useMemo(() => {
+    if (records.length === 0) return null;
+
+    // 计算总记录天数
+    const dates = [...new Set(records.map(r => new Date(r.timestamp).toDateString()))];
+    const totalDays = dates.length;
+    
+    // 计算最高单日摄入
+    const dailyTotals = {};
+    records.forEach(record => {
+      const dateKey = new Date(record.timestamp).toDateString();
+      dailyTotals[dateKey] = (dailyTotals[dateKey] || 0) + record.amount;
+    });
+    const maxDaily = Math.max(...Object.values(dailyTotals));
+    
+    // 计算平均每日摄入（仅统计有记录的天数）
+    const totalAmount = records.reduce((sum, record) => sum + record.amount, 0);
+    const avgDaily = totalAmount / totalDays;
+    
+    // 计算最常摄入的饮品
+    const drinkCounts = {};
+    records.forEach(record => {
+      const drinkName = record.name || '未知';
+      drinkCounts[drinkName] = (drinkCounts[drinkName] || 0) + 1;
+    });
+    const mostFrequent = Object.keys(drinkCounts).reduce((a, b) => 
+      drinkCounts[a] > drinkCounts[b] ? a : b, '');
+
+    return {
+      totalDays,
+      totalRecords: records.length,
+      maxDaily: Math.round(maxDaily),
+      avgDaily: Math.round(avgDaily),
+      mostFrequent,
+      totalAmount: Math.round(totalAmount)
+    };
+  }, [records]);
 
   const handleAddRecordClick = () => {
     setEditingRecord(null);
@@ -182,9 +316,9 @@ const CurrentStatusView = ({
           </aside>
         </div>
 
-        {/* 摘要统计 */}
+        {/* 核心数据统计 */}
         <div
-          className="grid grid-cols-2 gap-3 text-sm mt-4 pt-4 border-t transition-colors"
+          className="grid grid-cols-2 gap-2 text-xs mt-4 pt-4 border-t transition-colors"
           style={{
             color: colors.textSecondary,
             borderColor: colors.borderSubtle
@@ -194,36 +328,94 @@ const CurrentStatusView = ({
             className="text-center p-2 rounded transition-colors"
             style={{ backgroundColor: colors.bgBase }}
           >
-            今日总摄入: <br />
+            <div className="flex items-center justify-center mb-1">
+              <Target size={12} className="mr-1" />
+              <span className="text-xs">今日摄入</span>
+            </div>
             <span
-              className="font-semibold text-base transition-colors"
+              className="font-semibold text-sm block transition-colors"
               style={{ color: colors.espresso }}
             >
               {todayTotal} mg
             </span>
+            <span className="text-xs">
+              {todayData.percentOfLimit}% 限额
+            </span>
           </div>
+
           <div
             className="text-center p-2 rounded transition-colors"
             style={{ backgroundColor: colors.bgBase }}
           >
-            每日推荐上限: <br />
+            <div className="flex items-center justify-center mb-1">
+              <BarChart3 size={12} className="mr-1" />
+              <span className="text-xs">推荐上限</span>
+            </div>
             <span
-              className="font-semibold text-base transition-colors"
+              className="font-semibold text-sm block transition-colors"
               style={{ color: colors.espresso }}
             >
               {effectiveMaxDaily} mg
             </span>
             {personalizedRecommendation && effectiveMaxDaily !== personalizedRecommendation && (
-              <span className="text-xs block">
-                ({personalizedRecommendation}mg 基于体重)
+              <span className="text-xs truncate">
+                个性化 {personalizedRecommendation}mg
               </span>
+            )}
+          </div>
+
+          <div
+            className="text-center p-2 rounded transition-colors"
+            style={{ backgroundColor: colors.bgBase }}
+          >
+            <div className="flex items-center justify-center mb-1">
+              {weekData.trend > 0 ? (
+                <TrendingUp size={12} className="mr-1 text-orange-500" />
+              ) : weekData.trend < 0 ? (
+                <TrendingDown size={12} className="mr-1 text-green-500" />
+              ) : (
+                <Minus size={12} className="mr-1" />
+              )}
+              <span className="text-xs">本周趋势</span>
+            </div>
+            <span
+              className="font-semibold text-sm block transition-colors"
+              style={{ color: colors.espresso }}
+            >
+              {weekData.average} mg
+            </span>
+            <span className={`text-xs ${weekData.trend > 0 ? 'text-orange-500' : weekData.trend < 0 ? 'text-green-500' : ''}`}>
+              {weekData.trend > 0 ? '+' : ''}{weekData.trend} vs上周
+            </span>
+          </div>
+
+          <div
+            className="text-center p-2 rounded transition-colors"
+            style={{ backgroundColor: colors.bgBase }}
+          >
+            <div className="flex items-center justify-center mb-1">
+              <Zap size={12} className="mr-1" />
+              <span className="text-xs">摄入次数</span>
+            </div>
+            <span
+              className="font-semibold text-sm block transition-colors"
+              style={{ color: colors.espresso }}
+            >
+              {todayData.recordCount} 次
+            </span>
+            {todayData.averageInterval > 0 ? (
+              <span className="text-xs">
+                间隔 {todayData.averageInterval}h
+              </span>
+            ) : (
+              <span className="text-xs">今日首次</span>
             )}
           </div>
         </div>
 
         {/* 最佳睡眠时间 */}
         <div
-          className="mt-3 text-sm text-center p-3 rounded-lg border"
+          className="mt-4 text-sm text-center p-3 rounded-lg border"
           style={{
             backgroundColor: colors.infoBg,
             color: colors.infoText,
@@ -245,6 +437,135 @@ const CurrentStatusView = ({
             <p className="text-xs mt-1">
               (约 {hoursUntilSafeSleep.toFixed(1)} 小时后达到安全阈值)
             </p>
+          )}
+        </div>
+      </section>
+
+      {/* 代谢与历史数据卡片 */}
+      <section
+        aria-labelledby="detailed-stats-heading"
+        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        style={{
+          backgroundColor: colors.bgCard,
+          borderColor: colors.borderSubtle
+        }}
+      >
+        <h2
+          id="detailed-stats-heading"
+          className="text-lg font-semibold mb-4 flex items-center transition-colors"
+          style={{ color: colors.espresso }}
+        >
+          <Activity size={18} className="mr-2" /> 详细统计
+        </h2>
+
+        <div className="grid grid-cols-2 gap-6">
+          {/* 代谢信息 */}
+          {metabolismInfo && (
+            <div>
+              <h3 className="font-medium mb-3 text-sm flex items-center" style={{ color: colors.espresso }}>
+                <Timer size={16} className="mr-1.5" />
+                代谢状态
+              </h3>
+              <div className="space-y-3 text-xs">
+                <div
+                  className="p-3 rounded transition-colors"
+                  style={{ backgroundColor: colors.bgBase }}
+                >
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: colors.textMuted }}>当前清除速率</span>
+                    <span className="font-medium" style={{ color: colors.espresso }}>
+                      {metabolismInfo.clearanceRate} mg/h
+                    </span>
+                  </div>
+                  <div className="text-xs mt-1" style={{ color: colors.textMuted }}>
+                    半衰期: {metabolismInfo.halfLife}h
+                  </div>
+                </div>
+                
+                <div
+                  className="p-3 rounded transition-colors"
+                  style={{ backgroundColor: colors.bgBase }}
+                >
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: colors.textMuted }}>距上次摄入</span>
+                    <span className="font-medium" style={{ color: colors.espresso }}>
+                      {metabolismInfo.timeSinceLastIntake} 小时
+                    </span>
+                  </div>
+                </div>
+                
+                <div
+                  className="p-3 rounded transition-colors"
+                  style={{ backgroundColor: colors.bgBase }}
+                >
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: colors.textMuted }}>预计清除时间</span>
+                    <span className="font-medium" style={{ color: colors.espresso }}>
+                      {metabolismInfo.timeToClear} 小时
+                    </span>
+                  </div>
+                  <div className="text-xs mt-1" style={{ color: colors.textMuted }}>
+                    降至 5mg 以下
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 历史统计 */}
+          {historicalStats && (
+            <div>
+              <h3 className="font-medium mb-3 text-sm flex items-center" style={{ color: colors.espresso }}>
+                <BarChart3 size={16} className="mr-1.5" />
+                历史数据
+              </h3>
+              <div className="space-y-3 text-xs">
+                <div
+                  className="p-3 rounded transition-colors"
+                  style={{ backgroundColor: colors.bgBase }}
+                >
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: colors.textMuted }}>记录天数</span>
+                    <span className="font-medium" style={{ color: colors.espresso }}>
+                      {historicalStats.totalDays} 天
+                    </span>
+                  </div>
+                  <div className="text-xs mt-1" style={{ color: colors.textMuted }}>
+                    总记录: {historicalStats.totalRecords} 次
+                  </div>
+                </div>
+                
+                <div
+                  className="p-3 rounded transition-colors"
+                  style={{ backgroundColor: colors.bgBase }}
+                >
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: colors.textMuted }}>最高单日</span>
+                    <span className="font-medium" style={{ color: colors.espresso }}>
+                      {historicalStats.maxDaily} mg
+                    </span>
+                  </div>
+                  <div className="text-xs mt-1" style={{ color: colors.textMuted }}>
+                    日均: {historicalStats.avgDaily} mg
+                  </div>
+                </div>
+                
+                <div
+                  className="p-3 rounded transition-colors"
+                  style={{ backgroundColor: colors.bgBase }}
+                >
+                  <div className="flex justify-between items-center">
+                    <span style={{ color: colors.textMuted }}>最常饮品</span>
+                    <span className="font-medium truncate ml-2 max-w-20" style={{ color: colors.espresso }} title={historicalStats.mostFrequent}>
+                      {historicalStats.mostFrequent}
+                    </span>
+                  </div>
+                  <div className="text-xs mt-1" style={{ color: colors.textMuted }}>
+                    累计: {historicalStats.totalAmount} mg
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </section>

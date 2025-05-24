@@ -766,14 +766,14 @@ const SettingsView = ({
                             className="text-xs mt-1 transition-colors"
                             style={{ color: colors.textMuted }}
                         >
-                            输入完整的WebDAV服务器URL。
+                            输入您的WebDAV服务器完整URL地址。
                         </p>
                         {userSettings.webdavServer && userSettings.webdavServer.includes('dav.jianguoyun.com') && (
                             <p
                                 className="text-xs mt-1 transition-colors"
                                 style={{ color: colors.accent }}
                             >
-                                提示：坚果云用户，请确保路径包含您的同步文件夹名，例如：https://dav.jianguoyun.com/dav/我的坚果云/
+                                坚果云用户请确保路径包含同步文件夹，如：https://dav.jianguoyun.com/dav/我的坚果云/
                             </p>
                         )}
                     </div>
@@ -832,7 +832,7 @@ const SettingsView = ({
                             className="text-xs mt-1 transition-colors"
                             style={{ color: colors.textMuted }}
                         >
-                            建议使用应用专用密码。密码将安全地存储在本地。
+                            建议使用应用专用密码，密码将安全存储在本地。
                         </p>
                     </div>
 
