@@ -6,10 +6,11 @@ import {
     CloudDownload, Server, Lock, Activity, TestTubeDiagonal, Database
 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory, Encoding } from '@capacitor/filesystem'; // For Capacitor export
-import { Preferences } from '@capacitor/preferences'; // <--- 从 @capacitor/preferences 导入 Preferences
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Preferences } from '@capacitor/preferences';
 import { formatDatetimeLocal } from '../utils/timeUtils';
-import { initialPresetDrinks, DRINK_CATEGORIES, DEFAULT_CATEGORY, defaultSettings } from '../utils/constants'; // Import defaultSettings
+import { initialPresetDrinks, DRINK_CATEGORIES, DEFAULT_CATEGORY, defaultSettings } from '../utils/constants';
+
 // 动态导入 WebDAVClient
 const WebDAVClientPromise = import('../utils/webdavSync');
 
@@ -30,16 +31,15 @@ const SettingsView = ({
     records,
     setRecords,
     colors,
-    appConfig, // Receive appConfig
-    isNativePlatform // Receive platform info
+    appConfig,
+    isNativePlatform
 }) => {
     // 饮品编辑状态
     const [showDrinkEditor, setShowDrinkEditor] = useState(false);
     const [editingDrink, setEditingDrink] = useState(null);
     const [newDrinkName, setNewDrinkName] = useState('');
-    // const [newDrinkCaffeine, setNewDrinkCaffeine] = useState(''); // Replaced by specific fields
-    const [newDrinkCaffeineContent, setNewDrinkCaffeineContent] = useState(''); // mg/100ml
-    const [newDrinkCaffeinePerGram, setNewDrinkCaffeinePerGram] = useState(''); // mg/g
+    const [newDrinkCaffeineContent, setNewDrinkCaffeineContent] = useState('');
+    const [newDrinkCaffeinePerGram, setNewDrinkCaffeinePerGram] = useState('');
     const [newDrinkCalculationMode, setNewDrinkCalculationMode] = useState('per100ml');
     const [newDrinkVolume, setNewDrinkVolume] = useState('');
     const [newDrinkCategory, setNewDrinkCategory] = useState(DEFAULT_CATEGORY);
@@ -48,7 +48,7 @@ const SettingsView = ({
     const [testingWebDAV, setTestingWebDAV] = useState(false);
     const [webDAVTestResult, setWebDAVTestResult] = useState(null);
 
-    // 修改：密码加载逻辑，移除状态跟踪
+    // 加载持久化的 WebDAV 密码
     useEffect(() => {
         const loadPersistedPassword = async () => {
             try {
@@ -59,13 +59,12 @@ const SettingsView = ({
             } catch (error) {
                 console.error("加载 WebDAV 密码失败:", error);
             }
-            // 移除：不再设置 passwordLoaded 状态
         };
         loadPersistedPassword();
     }, []);
 
     // 处理设置变更
-    const handleSettingChange = useCallback(async (key, value) => { // 修改为异步函数
+    const handleSettingChange = useCallback(async (key, value) => {
         onUpdateSettings(key, value);
         // 如果更改的是 WebDAV 密码，则持久化存储
         if (key === 'webdavPassword') {
@@ -94,7 +93,6 @@ const SettingsView = ({
         setShowDrinkEditor(false);
         setEditingDrink(null);
         setNewDrinkName('');
-        // setNewDrinkCaffeine(''); // Replaced
         setNewDrinkCaffeineContent('');
         setNewDrinkCaffeinePerGram('');
         setNewDrinkCalculationMode('per100ml');
@@ -102,7 +100,7 @@ const SettingsView = ({
         setNewDrinkCategory(DEFAULT_CATEGORY);
     }, []);
 
-    // 处理添加/更新饮品 (使用 useCallback)
+    // 处理添加/更新饮品
     const handleAddOrUpdateDrink = useCallback(() => {
         const name = newDrinkName.trim();
         const volume = newDrinkVolume.trim() === '' ? null : parseFloat(newDrinkVolume);
@@ -117,7 +115,7 @@ const SettingsView = ({
                 alert("每100ml咖啡因含量必须是大于或等于 0 的数字。");
                 return;
             }
-        } else { // perGram
+        } else {
             caffeinePerGramValue = parseFloat(newDrinkCaffeinePerGram);
             if (isNaN(caffeinePerGramValue) || caffeinePerGramValue < 0) {
                 alert("每克咖啡豆咖啡因含量必须是大于或等于 0 的数字。");
@@ -151,7 +149,7 @@ const SettingsView = ({
             defaultVolume: volume,
             category: category,
             isPreset: editingDrink?.isPreset ?? false,
-            updatedAt: Date.now(), // Add/update timestamp
+            updatedAt: Date.now(),
         };
 
         if (editingDrink) {
@@ -162,7 +160,6 @@ const SettingsView = ({
         resetDrinkForm();
     }, [
         newDrinkName,
-        // newDrinkCaffeine, // Replaced
         newDrinkCaffeineContent,
         newDrinkCaffeinePerGram,
         newDrinkCalculationMode,
@@ -174,7 +171,7 @@ const SettingsView = ({
         resetDrinkForm
     ]);
 
-    // 删除饮品 (使用 useCallback)
+    // 删除饮品
     const deleteDrink = useCallback((id) => {
         const drinkToDelete = drinks.find(drink => drink.id === id);
         if (!drinkToDelete) return;
@@ -187,7 +184,7 @@ const SettingsView = ({
         }
     }, [drinks, setDrinks, originalPresetDrinkIds]);
 
-    // 编辑饮品 (使用 useCallback)
+    // 编辑饮品
     const editDrink = useCallback((drink) => {
         setEditingDrink(drink);
         setNewDrinkName(drink.name);
@@ -200,7 +197,7 @@ const SettingsView = ({
         setShowDrinkEditor(true);
     }, []);
 
-    // 测试WebDAV连接 (使用 useCallback)
+    // 测试WebDAV连接
     const testWebDAVConnection = useCallback(async () => {
         console.log("=== 开始WebDAV连接测试 ===");
         setTestingWebDAV(true);
@@ -213,7 +210,6 @@ const SettingsView = ({
             hasPassword: !!userSettings.webdavPassword,
             serverValid: userSettings.webdavServer && userSettings.webdavServer.startsWith('http')
         };
-
 
         if (!configCheck.hasServer || !configCheck.hasUsername || !configCheck.hasPassword) {
             const errorMsg = "请确保已填写服务器地址、用户名和密码";
@@ -309,7 +305,7 @@ const SettingsView = ({
         }
     }, [userSettings.webdavServer, userSettings.webdavUsername, userSettings.webdavPassword, isNativePlatform]);
 
-    // 修改：计算按钮是否可用，移除密码加载状态依赖
+    // 计算按钮是否可用
     const isWebDAVConfigured = useMemo(() => {
         return userSettings.webdavEnabled &&
             userSettings.webdavServer &&
@@ -317,18 +313,18 @@ const SettingsView = ({
             userSettings.webdavPassword;
     }, [userSettings.webdavEnabled, userSettings.webdavServer, userSettings.webdavUsername, userSettings.webdavPassword]);
 
-    // 导出数据 (使用 useCallback)
-    const exportData = useCallback(async () => { // Make async for Capacitor
+    // 导出数据
+    const exportData = useCallback(async () => {
         try {
             const settingsToExport = { ...userSettings };
-            delete settingsToExport.webdavPassword; // Don't export password
+            delete settingsToExport.webdavPassword;
 
             const exportDataObject = {
                 records,
                 userSettings: settingsToExport,
                 drinks,
                 exportTimestamp: Date.now(),
-                version: appConfig.latest_version // Use version from appConfig
+                version: appConfig.latest_version
             };
             const dataStr = JSON.stringify(exportDataObject, null, 2);
             const exportFileDefaultName = `caffeine-tracker-data-${new Date().toISOString().slice(0, 10)}.json`;
@@ -361,18 +357,16 @@ const SettingsView = ({
         }
     }, [records, userSettings, drinks, appConfig.latest_version, isNativePlatform]);
 
-    // 清除所有数据 (使用 useCallback)
-    const clearAllData = useCallback(async () => { // Added async
+    // 清除所有数据
+    const clearAllData = useCallback(async () => {
         if (window.confirm("您确定要清除所有本地数据吗？此操作不可撤销。")) {
             try {
                 await Preferences.remove({ key: 'caffeineRecords' });
                 await Preferences.remove({ key: 'caffeineSettings' });
                 await Preferences.remove({ key: 'caffeineDrinks' });
-                // 或者，如果想清除所有 Preferences 数据，可以使用 Preferences.clear()
-                // await Preferences.clear(); 
                 setRecords([]);
-                onUpdateSettings(defaultSettings); // 重置为默认设置
-                setDrinks(initialPresetDrinks); // 重置为预设饮品
+                onUpdateSettings(defaultSettings);
+                setDrinks(initialPresetDrinks);
                 alert("所有本地数据已清除。");
             } catch (error) {
                 console.error("清除数据时出错:", error);
@@ -381,8 +375,8 @@ const SettingsView = ({
         }
     }, [setRecords, onUpdateSettings, setDrinks]);
 
-    // 导入数据 (使用 useCallback)
-    const importData = useCallback(async (event) => { // 确保密码在导入时也能正确处理
+    // 导入数据
+    const importData = useCallback(async (event) => {
         const file = event.target.files[0];
         if (!file) return;
 
@@ -409,17 +403,16 @@ const SettingsView = ({
                 const settingsToKeep = {
                     webdavServer: userSettings.webdavServer,
                     webdavUsername: userSettings.webdavUsername,
-                    webdavPassword: currentWebDavPassword, // 使用持久化的或当前的密码
+                    webdavPassword: currentWebDavPassword,
                     webdavEnabled: userSettings.webdavEnabled,
                     webdavSyncFrequency: userSettings.webdavSyncFrequency,
-                    lastSyncTimestamp: userSettings.lastSyncTimestamp, // 保留本地的最后同步时间戳
-                    localLastModifiedTimestamp: Date.now(), // 更新为当前时间
-                    themeMode: userSettings.themeMode, // 保留当前主题
-                    // 可以根据需要添加其他要保留的设置
+                    lastSyncTimestamp: userSettings.lastSyncTimestamp,
+                    localLastModifiedTimestamp: Date.now(),
+                    themeMode: userSettings.themeMode,
                 };
 
                 const mergedSettings = {
-                    ...defaultSettings, // 从默认设置开始，以确保所有键都存在
+                    ...defaultSettings,
                     ...importedUserSettings,
                     ...settingsToKeep
                 };
@@ -427,11 +420,7 @@ const SettingsView = ({
                 // 更新状态
                 setRecords(importedRecords || []);
                 setDrinks(importedDrinks || []);
-                onUpdateSettings(mergedSettings, null, true); // 批量更新设置，最后一个参数表示非单个字段更新
-
-                // 如果导入的设置中包含 webdavPassword，则不应覆盖我们特意保留的密码
-                // 上面的 mergedSettings 已经处理了这个问题
-                // 如果导入的设置中有密码，并且我们没有本地密码，可以选择是否使用它，但通常不建议
+                onUpdateSettings(mergedSettings, null, true);
 
                 alert('数据导入成功！');
             } catch (error) {
@@ -440,13 +429,12 @@ const SettingsView = ({
             }
         };
         reader.readAsText(file);
-        event.target.value = null; // 重置文件输入，以便可以再次选择相同的文件
-    }, [setRecords, onUpdateSettings, setDrinks, userSettings]); // 从依赖项中移除 userSettings.lastSyncTimestamp 和 userSettings.webdavPassword，因为它们在回调内部动态获取或已包含在 userSettings 中
+        event.target.value = null;
+    }, [setRecords, onUpdateSettings, setDrinks, userSettings]);
 
     return (
         <>
-
-            {/* 使用 section 语义标签包裹每个设置区域 */}
+            {/* 个人参数设置 */}
             <section
                 aria-labelledby="personal-settings-heading"
                 className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
@@ -460,7 +448,7 @@ const SettingsView = ({
                     className="text-xl font-semibold mb-4 flex items-center transition-colors"
                     style={{ color: colors.espresso }}
                 >
-                    <User size={20} className="mr-2" aria-hidden="true" /> 个人参数
+                    <User size={20} className="mr-2" /> 个人参数
                 </h2>
                 <div className="space-y-4">
                     {/* 体重 */}
@@ -470,7 +458,7 @@ const SettingsView = ({
                             className="block mb-1 font-medium text-sm transition-colors"
                             style={{ color: colors.textSecondary }}
                         >
-                            <Weight size={14} className="inline mr-1" aria-hidden="true" />体重 (kg):
+                            <Weight size={14} className="inline mr-1" />体重 (kg):
                         </label>
                         <input
                             id="userWeight"
@@ -503,7 +491,7 @@ const SettingsView = ({
                             className="block mb-1 font-medium text-sm transition-colors"
                             style={{ color: colors.textSecondary }}
                         >
-                            <Target size={14} className="inline mr-1" aria-hidden="true" />通用每日最大摄入量 (mg):
+                            <Target size={14} className="inline mr-1" />通用每日最大摄入量 (mg):
                         </label>
                         <input
                             id="maxDailyCaffeine"
@@ -536,7 +524,7 @@ const SettingsView = ({
                             className="block mb-1 font-medium text-sm transition-colors"
                             style={{ color: colors.textSecondary }}
                         >
-                            <Target size={14} className="inline mr-1" aria-hidden="true" />个性化推荐剂量 (mg/kg):
+                            <Target size={14} className="inline mr-1" />个性化推荐剂量 (mg/kg):
                         </label>
                         <input
                             id="recommendedDosePerKg"
@@ -565,6 +553,7 @@ const SettingsView = ({
                 </div>
             </section>
 
+            {/* 代谢与睡眠设置 */}
             <section
                 aria-labelledby="metabolism-settings-heading"
                 className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
@@ -578,7 +567,7 @@ const SettingsView = ({
                     className="text-xl font-semibold mb-4 flex items-center transition-colors"
                     style={{ color: colors.espresso }}
                 >
-                    <Sliders size={20} className="mr-2" aria-hidden="true" /> 代谢与睡眠设置
+                    <Sliders size={20} className="mr-2" /> 代谢与睡眠设置
                 </h2>
                 <div className="space-y-4">
                     {/* 咖啡因半衰期 */}
@@ -588,7 +577,7 @@ const SettingsView = ({
                             className="block mb-1 font-medium text-sm transition-colors"
                             style={{ color: colors.textSecondary }}
                         >
-                            <Clock size={14} className="inline mr-1" aria-hidden="true" />咖啡因半衰期 (小时):
+                            <Clock size={14} className="inline mr-1" />咖啡因半衰期 (小时):
                         </label>
                         <input
                             id="caffeineHalfLife"
@@ -622,7 +611,7 @@ const SettingsView = ({
                             className="block mb-1 font-medium text-sm transition-colors"
                             style={{ color: colors.textSecondary }}
                         >
-                            <Droplet size={14} className="inline mr-1" aria-hidden="true" />分布容积 (L/kg):
+                            <Droplet size={14} className="inline mr-1" />分布容积 (L/kg):
                         </label>
                         <input
                             id="volumeOfDistribution"
@@ -656,7 +645,7 @@ const SettingsView = ({
                             className="block mb-1 font-medium text-sm transition-colors"
                             style={{ color: colors.textSecondary }}
                         >
-                            <Moon size={14} className="inline mr-1" aria-hidden="true" />睡前安全浓度阈值 (mg/L):
+                            <Moon size={14} className="inline mr-1" />睡前安全浓度阈值 (mg/L):
                         </label>
                         <input
                             id="safeSleepThresholdConcentration"
@@ -690,7 +679,7 @@ const SettingsView = ({
                             className="block mb-1 font-medium text-sm transition-colors"
                             style={{ color: colors.textSecondary }}
                         >
-                            <Moon size={14} className="inline mr-1" aria-hidden="true" />计划睡眠时间:
+                            <Moon size={14} className="inline mr-1" />计划睡眠时间:
                         </label>
                         <input
                             id="plannedSleepTime"
@@ -714,6 +703,7 @@ const SettingsView = ({
                 </div>
             </section>
 
+            {/* WebDAV 同步设置 */}
             <section
                 aria-labelledby="webdav-settings-heading"
                 className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
@@ -727,7 +717,7 @@ const SettingsView = ({
                     className="text-xl font-semibold mb-4 flex items-center transition-colors"
                     style={{ color: colors.espresso }}
                 >
-                    <CloudDownload size={20} className="mr-2" aria-hidden="true" /> WebDAV 同步
+                    <CloudDownload size={20} className="mr-2" /> WebDAV 同步
                 </h2>
                 <div className="space-y-4">
                     {/* 启用WebDAV */}
@@ -755,11 +745,11 @@ const SettingsView = ({
                             className="block mb-1 font-medium text-sm transition-colors"
                             style={{ color: colors.textSecondary }}
                         >
-                            <Server size={14} className="inline mr-1" aria-hidden="true" /> WebDAV服务器地址:
+                            <Server size={14} className="inline mr-1" /> WebDAV服务器地址:
                         </label>
                         <input
                             id="webdavServer"
-                            type="text" // 保持 text 类型，URL 可能很长
+                            type="text"
                             className="w-full p-2 border rounded-md focus:outline-none focus:ring-1 text-sm transition-colors disabled:opacity-50 disabled:bg-gray-100"
                             style={{
                                 borderColor: colors.borderStrong,
@@ -770,7 +760,7 @@ const SettingsView = ({
                             onChange={(e) => handleSettingChange('webdavServer', e.target.value)}
                             placeholder="https://example.com/webdav/"
                             disabled={!userSettings.webdavEnabled}
-                            autoComplete="off" // 避免浏览器自动填充
+                            autoComplete="off"
                         />
                         <p
                             className="text-xs mt-1 transition-colors"
@@ -781,7 +771,7 @@ const SettingsView = ({
                         {userSettings.webdavServer && userSettings.webdavServer.includes('dav.jianguoyun.com') && (
                             <p
                                 className="text-xs mt-1 transition-colors"
-                                style={{ color: colors.accent }} // 使用强调色
+                                style={{ color: colors.accent }}
                             >
                                 提示：坚果云用户，请确保路径包含您的同步文件夹名，例如：https://dav.jianguoyun.com/dav/我的坚果云/
                             </p>
@@ -795,7 +785,7 @@ const SettingsView = ({
                             className="block mb-1 font-medium text-sm transition-colors"
                             style={{ color: colors.textSecondary }}
                         >
-                            <User size={14} className="inline mr-1" aria-hidden="true" /> WebDAV用户名:
+                            <User size={14} className="inline mr-1" /> WebDAV用户名:
                         </label>
                         <input
                             id="webdavUsername"
@@ -810,7 +800,7 @@ const SettingsView = ({
                             onChange={(e) => handleSettingChange('webdavUsername', e.target.value)}
                             placeholder="用户名"
                             disabled={!userSettings.webdavEnabled}
-                            autoComplete="username" // 允许浏览器填充用户名
+                            autoComplete="username"
                         />
                     </div>
 
@@ -821,7 +811,7 @@ const SettingsView = ({
                             className="block mb-1 font-medium text-sm transition-colors"
                             style={{ color: colors.textSecondary }}
                         >
-                            <Lock size={14} className="inline mr-1" aria-hidden="true" /> WebDAV密码:
+                            <Lock size={14} className="inline mr-1" /> WebDAV密码:
                         </label>
                         <input
                             id="webdavPassword"
@@ -836,7 +826,7 @@ const SettingsView = ({
                             onChange={(e) => handleSettingChange('webdavPassword', e.target.value)}
                             placeholder="密码或应用专用密码"
                             disabled={!userSettings.webdavEnabled}
-                            autoComplete="current-password" // 允许浏览器填充密码
+                            autoComplete="current-password"
                         />
                         <p
                             className="text-xs mt-1 transition-colors"
@@ -853,7 +843,7 @@ const SettingsView = ({
                             className="block mb-1 font-medium text-sm transition-colors"
                             style={{ color: colors.textSecondary }}
                         >
-                            <Activity size={14} className="inline mr-1" aria-hidden="true" /> 同步模式:
+                            <Activity size={14} className="inline mr-1" /> 同步模式:
                         </label>
                         <select
                             id="webdavSyncFrequency"
@@ -897,7 +887,7 @@ const SettingsView = ({
                         </button>
                     </div>
 
-                    {/* 修改：调试信息，移除密码加载状态 */}
+                    {/* 调试信息 */}
                     {userSettings.develop && (
                         <div className="mt-3 p-2 bg-gray-100 rounded text-xs">
                             <p>调试信息:</p>
@@ -909,7 +899,7 @@ const SettingsView = ({
                         </div>
                     )}
 
-                    {/* 测试结果 - 增强显示 */}
+                    {/* 测试结果 */}
                     {webDAVTestResult && (
                         <div className={`p-3 rounded-lg text-sm border ${webDAVTestResult.success
                                 ? 'bg-green-50 text-green-800 border-green-200'
@@ -927,7 +917,7 @@ const SettingsView = ({
                                     </p>
                                     {!webDAVTestResult.success && (
                                         <div className="mt-2 text-xs">
-                                            <p>故障排除建议:</p>
+                                            <p className="font-medium text-red-700 mb-2">故障排除建议:</p>
                                             <ul className="list-disc list-inside mt-1 space-y-1">
                                                 <li>确认服务器地址格式正确 (http:// 或 https://)</li>
                                                 <li>检查用户名和密码是否正确</li>
@@ -935,6 +925,30 @@ const SettingsView = ({
                                                 <li>确认WebDAV服务已启用</li>
                                                 <li>尝试使用其他WebDAV客户端测试服务器连接</li>
                                             </ul>
+                                            <br></br>
+                                            <p className="font-medium text-red-700 mb-2">推荐解决方案:</p>
+                                            <div className="bg-blue-50 border border-blue-200 rounded p-2 mb-2">
+                                                <p className="font-medium text-blue-800">📱 使用Android APP (推荐)</p>
+                                                <p className="text-blue-700 mt-1">Android APP不受CORS限制，同步成功率更高。</p>
+                                                <a 
+                                                    href={appConfig.download_url} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="inline-block mt-1 text-blue-600 underline hover:text-blue-800"
+                                                >
+                                                    下载Android APP →
+                                                </a>
+                                            </div>
+                                            <div className="bg-gray-50 border border-gray-200 rounded p-2 mb-2">
+                                                <p className="font-medium text-gray-800">📧 联系支持</p>
+                                                <p className="text-gray-700 mt-1">如果问题持续存在，请发送邮件至:</p>
+                                                <a 
+                                                    href="mailto:i@jerryz.com.cn?subject=咖啡因追踪器WebDAV同步问题&body=请描述您遇到的问题，并附上您的WebDAV服务商信息（如坚果云、NextCloud等）。" 
+                                                    className="inline-block mt-1 text-gray-600 underline hover:text-gray-800"
+                                                >
+                                                    i@jerryz.com.cn
+                                                </a>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -944,19 +958,39 @@ const SettingsView = ({
 
                     {/* 同步状态 */}
                     {syncStatus.lastSyncTime && (
-                        <p className="text-sm transition-colors" style={{ color: colors.textMuted }}>
-                            上次同步: {formatDatetimeLocal(syncStatus.lastSyncTime).replace('T', ' ')}
-                            {syncStatus.lastSyncResult && ` (${syncStatus.lastSyncResult.success ? '成功' : '失败'}: ${syncStatus.lastSyncResult.message})`}
-                        </p>
-                    )}
-                    {!syncStatus.lastSyncTime && userSettings.webdavEnabled && (
-                        <p className="text-sm transition-colors" style={{ color: colors.textMuted }}>
-                            尚未同步过。
-                        </p>
+                        <div className="text-sm transition-colors" style={{ color: colors.textMuted }}>
+                            <p>
+                                上次同步: {formatDatetimeLocal(syncStatus.lastSyncTime).replace('T', ' ')}
+                                {syncStatus.lastSyncResult && (
+                                    <span className={`ml-2 font-medium ${
+                                        syncStatus.lastSyncResult.success ? 'text-green-600' : 'text-red-600'
+                                    }`}>
+                                        ({syncStatus.lastSyncResult.success ? '成功' : '失败'}: {syncStatus.lastSyncResult.message})
+                                    </span>
+                                )}
+                            </p>
+                            {syncStatus.lastSyncResult && !syncStatus.lastSyncResult.success && (
+                                <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                                    <p className="text-yellow-800 font-medium">💡 同步失败解决建议:</p>
+                                    <p className="text-yellow-700 mt-1">
+                                        建议使用 <a 
+                                            href={appConfig.download_url} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="underline hover:text-yellow-900"
+                                        >Android APP</a> 或联系 <a 
+                                            href="mailto:i@jerryz.com.cn?subject=咖啡因追踪器WebDAV同步问题" 
+                                            className="underline hover:text-yellow-900"
+                                        >技术支持</a>
+                                    </p>
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
             </section>
 
+            {/* 饮品管理 */}
             <section
                 aria-labelledby="drink-management-heading"
                 className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
@@ -970,13 +1004,12 @@ const SettingsView = ({
                     className="text-xl font-semibold mb-4 flex items-center transition-colors"
                     style={{ color: colors.espresso }}
                 >
-                    <Coffee size={20} className="mr-2" aria-hidden="true" /> 饮品管理
+                    <Coffee size={20} className="mr-2" /> 饮品管理
                 </h2>
                 {/* 饮品编辑器/添加按钮 */}
                 {showDrinkEditor ? (
-                    // 使用 form 标签更符合语义
                     <form
-                        onSubmit={(e) => { e.preventDefault(); handleAddOrUpdateDrink(); }} // 阻止默认提交并处理
+                        onSubmit={(e) => { e.preventDefault(); handleAddOrUpdateDrink(); }}
                         className="mb-4 p-4 border rounded-lg transition-colors"
                         style={{
                             backgroundColor: colors.bgBase,
@@ -1011,7 +1044,7 @@ const SettingsView = ({
                                 value={newDrinkName}
                                 onChange={(e) => setNewDrinkName(e.target.value)}
                                 placeholder="例如：自制冷萃 (大杯)"
-                                required // HTML5 验证
+                                required
                             />
                         </div>
 
@@ -1045,7 +1078,7 @@ const SettingsView = ({
                             </select>
                         </div>
 
-                        {/* 咖啡因含量 (mg/100ml) - 条件渲染 */}
+                        {/* 咖啡因含量输入框 - 条件渲染 */}
                         {newDrinkCalculationMode === 'per100ml' && (
                             <div className="mb-3">
                                 <label
@@ -1074,7 +1107,7 @@ const SettingsView = ({
                             </div>
                         )}
 
-                        {/* 每克咖啡豆咖啡因含量 (mg/g) - 条件渲染 */}
+                        {/* 每克咖啡豆咖啡因含量 - 条件渲染 */}
                         {newDrinkCalculationMode === 'perGram' && (
                             <div className="mb-3">
                                 <label
@@ -1172,13 +1205,13 @@ const SettingsView = ({
                         {/* 保存/取消按钮 */}
                         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                             <button
-                                type="submit" // 改为 submit 类型
+                                type="submit"
                                 className="flex-1 py-2 px-3 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors duration-200 text-sm shadow flex items-center justify-center font-medium"
                             >
-                                <Save size={16} className="mr-1.5" aria-hidden="true" /> {editingDrink ? '保存修改' : '添加饮品'}
+                                <Save size={16} className="mr-1.5" /> {editingDrink ? '保存修改' : '添加饮品'}
                             </button>
                             <button
-                                type="button" // 改为 button 类型，防止触发表单提交
+                                type="button"
                                 onClick={resetDrinkForm}
                                 className="flex-1 py-2 px-3 border rounded-md hover:bg-gray-100 transition-colors duration-200 text-sm flex items-center justify-center font-medium"
                                 style={{
@@ -1186,7 +1219,7 @@ const SettingsView = ({
                                     color: colors.textSecondary
                                 }}
                             >
-                                <X size={16} className="mr-1.5" aria-hidden="true" /> 取消
+                                <X size={16} className="mr-1.5" /> 取消
                             </button>
                         </div>
                     </form>
@@ -1195,7 +1228,7 @@ const SettingsView = ({
                         onClick={() => setShowDrinkEditor(true)}
                         className="w-full py-2.5 mb-4 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors duration-200 flex items-center justify-center text-sm shadow font-medium"
                     >
-                        <Plus size={16} className="mr-1.5" aria-hidden="true" /> 添加自定义饮品
+                        <Plus size={16} className="mr-1.5" /> 添加自定义饮品
                     </button>
                 )}
 
@@ -1214,7 +1247,7 @@ const SettingsView = ({
                         className="text-xs mb-3 flex items-center pt-2 transition-colors"
                         style={{ color: colors.textMuted }}
                     >
-                        <HelpCircle size={14} className="mr-1 flex-shrink-0" aria-hidden="true" />
+                        <HelpCircle size={14} className="mr-1 flex-shrink-0" />
                         品牌饮品数据为公开信息整理或估算值，可能存在误差，仅供参考。您可以编辑这些预设值或添加自定义饮品。
                     </p>
                     <ul
@@ -1246,7 +1279,7 @@ const SettingsView = ({
                                         }}
                                     >
                                         <div className="flex-1 overflow-hidden mr-2">
-                                            <p // 使用 p 标签
+                                            <p
                                                 className="font-medium truncate transition-colors"
                                                 style={{
                                                     color: !drink.isPreset ? colors.customDrinkText : colors.espresso
@@ -1255,14 +1288,14 @@ const SettingsView = ({
                                             >
                                                 {drink.name}
                                             </p>
-                                            <p // 使用 p 标签
+                                            <p
                                                 className="text-xs mt-0.5 transition-colors"
                                                 style={{
                                                     color: !drink.isPreset ? colors.customDrinkText : colors.textMuted
                                                 }}
                                             >
                                                 <span className="inline-flex items-center mr-2">
-                                                    <Tag size={12} className="mr-0.5" aria-hidden="true" />{drink.category || DEFAULT_CATEGORY}
+                                                    <Tag size={12} className="mr-0.5" />{drink.category || DEFAULT_CATEGORY}
                                                 </span>
                                                 <span>
                                                     {drink.calculationMode === 'perGram'
@@ -1310,6 +1343,7 @@ const SettingsView = ({
                 </div>
             </section>
 
+            {/* 数据管理 */}
             <section
                 aria-labelledby="data-management-heading"
                 className="rounded-xl p-6 shadow-lg border transition-colors"
@@ -1323,7 +1357,7 @@ const SettingsView = ({
                     className="text-xl font-semibold mb-4 flex items-center transition-colors"
                     style={{ color: colors.espresso }}
                 >
-                    <Database size={20} className="mr-2" aria-hidden="true" /> 数据管理
+                    <Database size={20} className="mr-2" /> 数据管理
                 </h2>
                 <div className="space-y-4">
                     {/* 导出数据 */}
@@ -1338,7 +1372,7 @@ const SettingsView = ({
                             onClick={exportData}
                             className="w-full py-2.5 px-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center shadow text-sm font-medium"
                         >
-                            <Download size={16} className="mr-1.5" aria-hidden="true" /> 导出所有数据 (.json)
+                            <Download size={16} className="mr-1.5" /> 导出所有数据 (.json)
                         </button>
                         <p
                             className="text-xs mt-1 transition-colors"
@@ -1357,13 +1391,13 @@ const SettingsView = ({
                             导入数据:
                         </h3>
                         <label className="w-full py-2.5 px-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center cursor-pointer shadow text-sm font-medium">
-                            <Upload size={16} className="mr-1.5" aria-hidden="true" /> 选择文件导入数据
+                            <Upload size={16} className="mr-1.5" /> 选择文件导入数据
                             <input
                                 type="file"
                                 accept=".json"
                                 className="hidden"
                                 onChange={importData}
-                                aria-label="选择要导入的 JSON 文件" // A11y: 为隐藏的 input 添加标签
+                                aria-label="选择要导入的 JSON 文件"
                             />
                         </label>
                         <p
@@ -1386,7 +1420,7 @@ const SettingsView = ({
                             onClick={clearAllData}
                             className="w-full py-2.5 px-3 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors duration-200 flex items-center justify-center shadow text-sm font-medium"
                         >
-                            <RotateCcw size={16} className="mr-1.5" aria-hidden="true" /> 清除所有本地数据
+                            <RotateCcw size={16} className="mr-1.5" /> 清除所有本地数据
                         </button>
                         <p className="text-xs text-red-500 mt-1">
                             警告：此操作将永久删除所有记录、设置和自定义饮品，并重置为初始预设。

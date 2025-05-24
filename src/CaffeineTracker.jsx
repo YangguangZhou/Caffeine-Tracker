@@ -1,6 +1,6 @@
 // 导入 React 相关模块
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
-import { Coffee, Sun, Moon, RefreshCw, Code, Laptop, Loader2, TrendingUp, BarChart2, Settings as SettingsIcon, Info } from 'lucide-react'; // Renamed Settings to SettingsIcon
+import { Coffee, Sun, Moon, RefreshCw, Code, Laptop, Loader2, TrendingUp, BarChart2, Settings as SettingsIcon, Info } from 'lucide-react';
 import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar';
 import { Preferences } from '@capacitor/preferences';
 import { Capacitor } from '@capacitor/core';
@@ -10,11 +10,11 @@ import { SplashScreen } from '@capacitor/splash-screen';
 import { getTotalCaffeineAtTime, estimateConcentration, estimateAmountFromConcentration, calculateHoursToReachTarget, generateMetabolismChartData } from './utils/caffeineCalculations';
 import { getStartOfDay, getEndOfDay, isToday, formatTime, formatDate } from './utils/timeUtils';
 // 导入常量和预设
-import { defaultSettings, initialPresetDrinks, originalPresetDrinkIds, COFFEE_COLORS, NIGHT_COLORS, DRINK_CATEGORIES, DEFAULT_CATEGORY } from './utils/constants'; // Added DRINK_CATEGORIES, DEFAULT_CATEGORY
+import { defaultSettings, initialPresetDrinks, originalPresetDrinkIds, COFFEE_COLORS, NIGHT_COLORS, DRINK_CATEGORIES, DEFAULT_CATEGORY } from './utils/constants';
 // 导入WebDAV客户端
 import WebDAVClient from './utils/webdavSync';
 
-// --- 使用 React.lazy 动态导入视图组件 ---
+// 懒加载视图组件
 const CurrentStatusView = lazy(() => import('./views/CurrentStatusView'));
 const StatisticsView = lazy(() => import('./views/StatisticsView'));
 const SettingsView = lazy(() => import('./views/SettingsView'));
@@ -31,7 +31,7 @@ const ADSENSE_CLIENT = "ca-pub-2597042766299857";
  * 应用主组件
  */
 const CaffeineTracker = () => {
-  // --- 状态变量 ---
+  // 状态变量
   const [userSettings, setUserSettings] = useState(defaultSettings);
   const [effectiveTheme, setEffectiveTheme] = useState('light');
   const [records, setRecords] = useState([]);
@@ -39,7 +39,7 @@ const CaffeineTracker = () => {
   const [currentCaffeineConcentration, setCurrentCaffeineConcentration] = useState(0);
   const [optimalSleepTime, setOptimalSleepTime] = useState('');
   const [hoursUntilSafeSleep, setHoursUntilSafeSleep] = useState(null);
-  const [drinks, setDrinks] = useState([]); // Initialize as empty, presets loaded in useEffect
+  const [drinks, setDrinks] = useState([]);
   const [viewMode, setViewMode] = useState('current');
   const [statsView, setStatsView] = useState('week');
   const [statsDate, setStatsDate] = useState(new Date());
@@ -51,18 +51,16 @@ const CaffeineTracker = () => {
   });
   const [showSyncBadge, setShowSyncBadge] = useState(false);
   const [appConfig, setAppConfig] = useState({ latest_version: "loading...", download_url: "#" });
-  const [isNativePlatform, setIsNativePlatform] = useState(null); // Initialize to null
-  const [initialDataLoaded, setInitialDataLoaded] = useState(false); // Gatekeeper for saving
+  const [isNativePlatform, setIsNativePlatform] = useState(null);
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
+  const [webdavConfigured, setWebdavConfigured] = useState(false);
 
-  // 新增：WebDAV配置状态
-  const [webdavConfigured, setWebdavConfigured] = useState(false); // 此状态仍然有用，用于UI反馈
-
-  // --- 检查平台类型 ---
+  // 检查平台类型
   useEffect(() => {
     setIsNativePlatform(Capacitor.isNativePlatform());
   }, []);
 
-  // --- 获取应用配置 (version.json) ---
+  // 获取应用配置
   useEffect(() => {
     fetch('/version.json')
       .then(response => response.json())
@@ -72,8 +70,7 @@ const CaffeineTracker = () => {
       .catch(error => console.error('Error fetching version.json:', error));
   }, []);
 
-
-  // --- 主题和颜色 ---
+  // 主题和颜色处理
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const updateEffectiveTheme = () => {
@@ -86,8 +83,6 @@ const CaffeineTracker = () => {
     };
 
     updateEffectiveTheme();
-
-    // 无论是原生平台还是Web平台，都监听系统主题变化
     mediaQuery.addEventListener('change', updateEffectiveTheme);
 
     return () => {
@@ -95,13 +90,13 @@ const CaffeineTracker = () => {
     };
   }, [userSettings.themeMode]);
 
-  // --- Capacitor 状态栏设置 ---
+  // Capacitor 状态栏设置
   useEffect(() => {
     if (isNativePlatform) {
       const setStatusBar = async () => {
         try {
           await StatusBar.show();
-          await StatusBar.setOverlaysWebView({ overlay: true }); // 内容显示在透明状态栏下
+          await StatusBar.setOverlaysWebView({ overlay: true });
 
           if (effectiveTheme === 'dark') {
             await StatusBar.setStyle({ style: StatusBarStyle.Dark });
@@ -115,11 +110,10 @@ const CaffeineTracker = () => {
 
       setStatusBar();
 
-      // iOS only: statusTap event listener
+      // iOS 状态栏点击监听
       if (Capacitor.getPlatform() === 'ios') {
         const statusTapListener = window.addEventListener('statusTap', function () {
           console.log('statusbar tapped');
-          // 您可以在此处添加滚动到顶部的逻辑
         });
         return () => {
           window.removeEventListener('statusTap', statusTapListener);
@@ -128,21 +122,20 @@ const CaffeineTracker = () => {
     }
   }, [effectiveTheme, isNativePlatform]);
 
-
   const colors = useMemo(() =>
     effectiveTheme === 'dark' ? NIGHT_COLORS : COFFEE_COLORS,
     [effectiveTheme]
   );
 
-  // 加载数据 - 仅当 isNativePlatform 确定后执行一次
+  // 数据加载
   useEffect(() => {
     if (isNativePlatform === null) {
-      return; // 等待平台类型确定
+      return;
     }
 
     const loadData = async () => {
       try {
-        // --- Capacitor/Storage to Preferences Migration (for native or if _cap_ keys exist) ---
+        // Capacitor Storage 迁移检查
         const capacitorMigrationCheck = await Preferences.get({ key: 'capacitor_storage_migration_complete' });
         if (!capacitorMigrationCheck.value) {
           const result = await Preferences.migrate();
@@ -154,11 +147,11 @@ const CaffeineTracker = () => {
           await Preferences.set({ key: 'capacitor_storage_migration_complete', value: 'true' });
         }
 
-        // --- Attempt to load from Preferences ---
+        // 从 Preferences 加载数据
         let settingsFromStore = null;
         let recordsFromStore = null;
         let drinksFromStore = null;
-        let persistedPassword = null; // 用于存储从 Preferences 单独加载的密码
+        let persistedPassword = null;
 
         const { value: savedSettingsJson } = await Preferences.get({ key: 'caffeineSettings' });
         if (savedSettingsJson) settingsFromStore = JSON.parse(savedSettingsJson);
@@ -169,13 +162,12 @@ const CaffeineTracker = () => {
         const { value: savedDrinksJson } = await Preferences.get({ key: 'caffeineDrinks' });
         if (savedDrinksJson) drinksFromStore = JSON.parse(savedDrinksJson);
 
-        // 从 Preferences 加载 WebDAV 密码 (使用与 SettingsView.jsx 相同的键)
         const { value: webdavPasswordFromPrefs } = await Preferences.get({ key: 'webdavPassword' });
         if (webdavPasswordFromPrefs) {
           persistedPassword = webdavPasswordFromPrefs;
         }
 
-        // --- Web localStorage to Preferences Migration (for web platform if data not in Preferences) ---
+        // Web localStorage 迁移
         if (!isNativePlatform) {
           const webMigrationCheck = await Preferences.get({ key: 'web_localstorage_migration_complete' });
           if (!webMigrationCheck.value) {
@@ -214,27 +206,23 @@ const CaffeineTracker = () => {
               localStorage.removeItem('caffeineSettings');
               localStorage.removeItem('caffeineRecords');
               localStorage.removeItem('caffeineDrinks');
-              // Also remove other potential old localStorage items if any
-              localStorage.removeItem('lastSyncTimestamp'); // Example if it existed
+              localStorage.removeItem('lastSyncTimestamp');
             }
             await Preferences.set({ key: 'web_localstorage_migration_complete', value: 'true' });
           }
         }
 
-        // --- Apply loaded data or defaults ---
+        // 应用加载的数据
         if (settingsFromStore) {
-          // 确保 localLastModifiedTimestamp 存在，初始化如果不存在
-          // 合并密码：如果 settingsFromStore 中没有密码，但从 'webdavPassword'键 加载到了，则使用它
           const finalPassword = settingsFromStore.webdavPassword || persistedPassword || null;
           const newSettings = {
             ...defaultSettings,
             ...settingsFromStore,
-            webdavPassword: finalPassword, // 确保密码被设置
+            webdavPassword: finalPassword,
             localLastModifiedTimestamp: settingsFromStore.localLastModifiedTimestamp || Date.now()
           };
           setUserSettings(newSettings);
         } else {
-          // 如果没有存储的设置，也尝试使用持久化的密码
           setUserSettings({ ...defaultSettings, webdavPassword: persistedPassword, localLastModifiedTimestamp: Date.now() });
         }
 
@@ -252,7 +240,6 @@ const CaffeineTracker = () => {
 
       } catch (error) {
         console.error('Error loading data:', error);
-        // Fallback to defaults with a fresh localLastModifiedTimestamp
         setUserSettings({ ...defaultSettings, localLastModifiedTimestamp: Date.now() });
         setRecords([]);
         setDrinks(initialPresetDrinks);
@@ -264,16 +251,15 @@ const CaffeineTracker = () => {
     loadData();
   }, [isNativePlatform]);
 
-  // 当 records, userSettings, 或 drinks 变化时保存数据
+  // 保存数据到 Preferences
   useEffect(() => {
     if (!initialDataLoaded) {
-      return; // 只有在初始数据加载完成后才保存
+      return;
     }
 
     const saveData = async () => {
       try {
         const settingsToPersist = { ...userSettings };
-        // 从要保存到 'caffeineSettings' 的对象中移除密码，密码单独存储
         delete settingsToPersist.webdavPassword;
         await Preferences.set({ key: 'caffeineSettings', value: JSON.stringify(settingsToPersist) });
         await Preferences.set({ key: 'caffeineRecords', value: JSON.stringify(records) });
@@ -287,7 +273,7 @@ const CaffeineTracker = () => {
     saveData();
   }, [records, userSettings, drinks, initialDataLoaded]);
 
-  // --- 计算当前状态 ---
+  // 计算当前状态
   useEffect(() => {
     const calculateCurrentStatus = () => {
       const now = Date.now();
@@ -318,13 +304,13 @@ const CaffeineTracker = () => {
     return () => clearInterval(timer);
   }, [records, userSettings]);
 
-  // --- 生成代谢图表数据 ---
+  // 生成代谢图表数据
   useEffect(() => {
     const chartData = generateMetabolismChartData(records, userSettings.caffeineHalfLifeHours);
     setMetabolismChartData(chartData);
   }, [records, userSettings.caffeineHalfLifeHours]);
 
-  // --- Umami 和 Adsense 脚本管理 ---
+  // 脚本管理（统计和广告）
   useEffect(() => {
     const isDomainLocal = () => {
       if (isNativePlatform) return false;
@@ -357,9 +343,9 @@ const CaffeineTracker = () => {
       addScript(UMAMI_SCRIPT_ID, UMAMI_SRC, { defer: true, 'data-website-id': UMAMI_WEBSITE_ID });
       addScript(ADSENSE_SCRIPT_ID, ADSENSE_SRC, { crossorigin: 'anonymous', 'data-ad-client': ADSENSE_CLIENT });
     }
-  }, [userSettings.develop, isNativePlatform]); // 添加 isNativePlatform
+  }, [userSettings.develop, isNativePlatform]);
 
-  // --- 计算今日总摄入量 ---
+  // 计算今日总摄入量
   const getTodayTotal = useCallback(() => {
     const todayStart = getStartOfDay(new Date());
     const todayEnd = getEndOfDay(new Date());
@@ -418,19 +404,9 @@ const CaffeineTracker = () => {
 
   const todayTotal = useMemo(() => getTodayTotal(), [getTodayTotal]);
 
-  // --- WebDAV同步 ---
+  // WebDAV同步功能
   const performWebDAVSync = useCallback(async (settingsToUse, currentRecords, currentDrinks) => {
     console.log("=== performWebDAVSync 被调用 ===");
-    console.log("同步环境信息:", {
-      initialDataLoaded,
-      webdavEnabled: settingsToUse.webdavEnabled,
-      hasServer: !!settingsToUse.webdavServer,
-      hasUsername: !!settingsToUse.webdavUsername,
-      hasPassword: !!settingsToUse.webdavPassword,
-      platform: isNativePlatform ? 'native' : 'web',
-      recordsCount: currentRecords.length,
-      drinksCount: currentDrinks.length
-    });
 
     if (!initialDataLoaded) {
       console.log("初始数据未加载完成，跳过WebDAV同步");
@@ -448,11 +424,7 @@ const CaffeineTracker = () => {
     }
 
     if (!settingsToUse.webdavServer || !settingsToUse.webdavUsername || !settingsToUse.webdavPassword) {
-      console.error("WebDAV配置不完整:", {
-        server: !!settingsToUse.webdavServer,
-        username: !!settingsToUse.webdavUsername,
-        password: !!settingsToUse.webdavPassword
-      });
+      console.error("WebDAV配置不完整");
       setSyncStatus(prev => ({
         ...prev,
         inProgress: false,
@@ -481,20 +453,7 @@ const CaffeineTracker = () => {
         version: appConfig.latest_version
       };
 
-      console.log("准备本地数据用于同步:", {
-        recordsCount: currentRecords.length,
-        drinksCount: currentDrinks.length,
-        syncTimestamp: localData.syncTimestamp,
-        version: localData.version
-      });
-
       const result = await webdavClient.performSync(localData, initialPresetDrinks, originalPresetDrinkIds);
-      console.log("WebDAV同步操作完成:", {
-        success: result.success,
-        message: result.message,
-        hasData: !!result.data,
-        timestamp: result.timestamp
-      });
 
       if (result.success) {
         let updatedSettings = { ...settingsToUse };
@@ -515,7 +474,7 @@ const CaffeineTracker = () => {
 
               if (mode === 'perGram') {
                 cpg = (d.caffeinePerGram !== undefined && d.caffeinePerGram !== null) ? d.caffeinePerGram : (originalPresetData?.caffeinePerGram ?? 0);
-              } else { // per100ml
+              } else {
                 cc = (d.caffeineContent !== undefined && d.caffeineContent !== null) ? d.caffeineContent : (originalPresetData?.caffeineContent ?? 0);
               }
 
@@ -567,8 +526,6 @@ const CaffeineTracker = () => {
     } catch (error) {
       console.error("WebDAV同步过程中发生错误:", {
         message: error.message,
-        stack: error.stack,
-        name: error.name,
         platform: isNativePlatform ? 'native' : 'web'
       });
       setSyncStatus({
@@ -585,14 +542,14 @@ const CaffeineTracker = () => {
     }
   }, [appConfig.latest_version, isNativePlatform, initialDataLoaded]);
 
-  // --- SplashScreen 隐藏逻辑 ---
+  // 隐藏启动画面
   useEffect(() => {
-    if (isNativePlatform && initialDataLoaded) { // 确保数据加载完毕后再隐藏
+    if (isNativePlatform && initialDataLoaded) {
       SplashScreen.hide();
     }
-  }, [isNativePlatform, initialDataLoaded]); // 依赖 initialDataLoaded
+  }, [isNativePlatform, initialDataLoaded]);
 
-  // --- 定时同步 ---
+  // 定时同步
   useEffect(() => {
     let syncTimer = null;
     let dailyCheckTimeout = null;
@@ -603,8 +560,10 @@ const CaffeineTracker = () => {
 
     if (initialDataLoaded && userSettings.webdavEnabled && userSettings.webdavServer && userSettings.webdavUsername && userSettings.webdavPassword) {
       if (userSettings.webdavSyncFrequency === 'startup') {
-        if (!syncStatus.inProgress) {
+        const startupSyncAttempted = sessionStorage.getItem('startupSyncAttempted');
+        if (!startupSyncAttempted && !syncStatus.inProgress) {
           console.log("启动时同步条件满足，尝试同步。");
+          sessionStorage.setItem('startupSyncAttempted', 'true');
           performWebDAVSync(userSettings, records, drinks);
         }
       } else if (userSettings.webdavSyncFrequency === 'hourly') {
@@ -621,8 +580,7 @@ const CaffeineTracker = () => {
               performWebDAVSync(userSettings, records, drinks);
             }
           }
-          // 检查下一次，即使今天已经同步过
-          dailyCheckTimeout = setTimeout(checkDailySync, 3600000); // 每小时检查一次是否需要日同步
+          dailyCheckTimeout = setTimeout(checkDailySync, 3600000);
         };
         checkDailySync();
       }
@@ -633,21 +591,21 @@ const CaffeineTracker = () => {
     userSettings.webdavEnabled,
     userSettings.webdavSyncFrequency,
     userSettings.lastSyncTimestamp,
-    userSettings.webdavServer, // 确保配置更改时重新评估
-    userSettings.webdavUsername, // 确保配置更改时重新评估
-    userSettings.webdavPassword, // 确保配置更改时重新评估
+    userSettings.webdavServer,
+    userSettings.webdavUsername,
+    userSettings.webdavPassword,
     records,
     drinks,
     performWebDAVSync,
-    syncStatus.inProgress // 防止在同步进行时触发新的同步
+    syncStatus.inProgress
   ]);
 
-  // --- 事件处理程序 ---
+  // 事件处理
   const handleAddRecord = useCallback(async (record) => {
     const newTimestamp = Date.now();
     setRecords(prevRecords => {
       const newRecord = { ...record, id: record.id || `record_${newTimestamp}`, updatedAt: newTimestamp };
-      const newRecords = [...prevRecords, newRecord].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort by intake time desc
+      const newRecords = [...prevRecords, newRecord].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       return newRecords;
     });
     setUserSettings(prev => ({ ...prev, localLastModifiedTimestamp: newTimestamp }));
@@ -657,7 +615,7 @@ const CaffeineTracker = () => {
     const newTimestamp = Date.now();
     setRecords(prevRecords => {
       const newRecords = prevRecords.map(r => r.id === updatedRecord.id ? { ...updatedRecord, updatedAt: newTimestamp } : r)
-        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort by intake time desc
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       return newRecords;
     });
     setUserSettings(prev => ({ ...prev, localLastModifiedTimestamp: newTimestamp }));
@@ -676,39 +634,28 @@ const CaffeineTracker = () => {
     setUserSettings(prevSettings => {
       let newSettings = {};
       if (typeof keyOrSettingsObject === 'string') {
-        // Called as onUpdateSettings(key, value)
         newSettings = {
           ...prevSettings,
           [keyOrSettingsObject]: value,
         };
       } else if (typeof keyOrSettingsObject === 'object' && keyOrSettingsObject !== null) {
-        // Called as onUpdateSettings(settingsObject)
-        // This will also handle calls like onUpdateSettings(mergedSettings, null, true)
-        // where keyOrSettingsObject is the mergedSettings object.
         newSettings = {
           ...prevSettings,
           ...keyOrSettingsObject,
         };
       } else {
-        // Invalid call, return previous settings
         console.warn("Invalid call to handleUpdateSettings", keyOrSettingsObject, value);
         return prevSettings;
       }
 
-      // Ensure localLastModifiedTimestamp is updated
-      // It might be part of keyOrSettingsObject if it's a full settings object,
-      // otherwise, we set it.
       if (!newSettings.hasOwnProperty('localLastModifiedTimestamp') || typeof keyOrSettingsObject === 'string') {
         newSettings.localLastModifiedTimestamp = Date.now();
       }
 
       return newSettings;
     });
-    // Note: The logic to save settings to Preferences/FileSystem (which happens in a useEffect)
-    // will pick up this state change.
   }, []);
 
-  // Let's create a new callback for updating drinks that also updates the timestamp.
   const handleSetDrinks = useCallback((newDrinksOrUpdater) => {
     setDrinks(newDrinksOrUpdater);
     setUserSettings(prev => ({ ...prev, localLastModifiedTimestamp: Date.now() }));
@@ -717,7 +664,6 @@ const CaffeineTracker = () => {
   const toggleThemeMode = useCallback(() => {
     setUserSettings(prev => {
       let nextMode;
-      // 修改切换主题逻辑，让原生平台也支持三种模式
       if (prev.themeMode === 'auto') nextMode = 'light';
       else if (prev.themeMode === 'light') nextMode = 'dark';
       else nextMode = 'auto';
@@ -725,19 +671,12 @@ const CaffeineTracker = () => {
     });
   }, []);
 
-  // 修改：手动同步函数，添加详细日志
   const handleManualSync = useCallback(() => {
     console.log("=== 手动同步被触发 ===");
-    console.log("手动同步状态检查:", {
-      webdavConfigured,
-      inProgress: syncStatus.inProgress,
-      initialDataLoaded,
-      platform: isNativePlatform ? 'native' : 'web'
-    });
     performWebDAVSync(userSettings, records, drinks);
-  }, [userSettings, records, drinks, performWebDAVSync, webdavConfigured, isNativePlatform]);
+  }, [userSettings, records, drinks, performWebDAVSync]);
 
-  // 修改：监听WebDAV配置状态，移除对密码加载的依赖
+  // 监听WebDAV配置状态
   useEffect(() => {
     const configured = userSettings.webdavEnabled &&
       userSettings.webdavServer &&
@@ -746,7 +685,7 @@ const CaffeineTracker = () => {
     setWebdavConfigured(configured);
   }, [userSettings.webdavEnabled, userSettings.webdavServer, userSettings.webdavUsername, userSettings.webdavPassword]);
 
-  // --- 渲染 ---
+  // 渲染
   return (
     <div
       className={`min-h-screen font-sans transition-colors duration-300 ${effectiveTheme === 'dark' ? 'dark' : ''}`}
@@ -757,7 +696,7 @@ const CaffeineTracker = () => {
           className="text-3xl font-bold flex justify-center items-center transition-colors"
           style={{ color: colors.espresso, marginTop: '4%' }}
         >
-          <Coffee className="mr-2" size={30} aria-hidden="true" /> {/* 图标通常是装饰性的 */}
+          <Coffee className="mr-2" size={30} aria-hidden="true" />
           咖啡因追踪器
         </h1>
         <p
@@ -767,9 +706,9 @@ const CaffeineTracker = () => {
           科学管理 · 健康生活
         </p>
 
-        {/* Header Buttons Container */}
+        {/* 头部按钮 */}
         <div className="absolute top-4 right-4 flex items-center space-x-2" style={{ marginTop: '5%' }}>
-          {/* 修改：Sync Button */}
+          {/* 同步按钮 */}
           {userSettings.webdavEnabled && (
             <button
               onClick={handleManualSync}
@@ -785,12 +724,12 @@ const CaffeineTracker = () => {
             </button>
           )}
 
-          {/* Theme Toggle Button */}
+          {/* 主题切换按钮 */}
           <button
             onClick={toggleThemeMode}
             className="p-2 rounded-full transition-colors"
             style={{ color: colors.textSecondary }}
-            aria-label={`切换主题模式 (当前: ${userSettings.themeMode})`} // SEO & A11y: 添加 aria-label
+            aria-label={`切换主题模式 (当前: ${userSettings.themeMode})`}
           >
             {userSettings.themeMode === 'auto' ? <Laptop size={20} /> :
               userSettings.themeMode === 'light' ? <Sun size={20} /> :
@@ -798,7 +737,7 @@ const CaffeineTracker = () => {
           </button>
         </div>
 
-        {/* 修改：同步状态显示 */}
+        {/* 同步状态显示 */}
         {showSyncBadge && (
           <div
             className={`absolute top-14 right-4 mt-1 py-1 px-2 rounded-full text-xs z-10 ${syncStatus.lastSyncResult?.success
@@ -816,16 +755,15 @@ const CaffeineTracker = () => {
         )}
       </header>
 
-      {/* 使用 main 语义标签包裹主要内容 */}
       <main className="max-w-md mx-auto px-4 pb-6">
-        {/* 使用 nav 语义标签包裹导航 */}
+        {/* 导航 */}
         <nav
           className="rounded-xl mb-5 flex overflow-hidden shadow-md border transition-colors"
           style={{
             backgroundColor: colors.bgCard,
             borderColor: colors.borderSubtle
           }}
-          aria-label="主导航" // A11y: 为导航添加标签
+          aria-label="主导航"
         >
           <button
             onClick={() => setViewMode('current')}
@@ -835,7 +773,7 @@ const CaffeineTracker = () => {
               ? { backgroundColor: colors.accent }
               : { color: colors.accent, ':hover': { backgroundColor: colors.accentHover } }
             }
-            aria-current={viewMode === 'current' ? 'page' : undefined} // A11y: 指示当前页面
+            aria-current={viewMode === 'current' ? 'page' : undefined}
           >
             <TrendingUp size={16} className="mr-1.5" aria-hidden="true" /> 当前状态
           </button>
@@ -847,7 +785,7 @@ const CaffeineTracker = () => {
               ? { backgroundColor: colors.accent, borderColor: colors.borderSubtle }
               : { color: colors.accent, borderColor: colors.borderSubtle, ':hover': { backgroundColor: colors.accentHover } }
             }
-            aria-current={viewMode === 'stats' ? 'page' : undefined} // A11y: 指示当前页面
+            aria-current={viewMode === 'stats' ? 'page' : undefined}
           >
             <BarChart2 size={16} className="mr-1.5" aria-hidden="true" /> 数据统计
           </button>
@@ -859,7 +797,7 @@ const CaffeineTracker = () => {
               ? { backgroundColor: colors.accent, borderColor: colors.borderSubtle }
               : { color: colors.accent, borderColor: colors.borderSubtle, ':hover': { backgroundColor: colors.accentHover } }
             }
-            aria-current={viewMode === 'settings' ? 'page' : undefined} // A11y: 指示当前页面
+            aria-current={viewMode === 'settings' ? 'page' : undefined}
           >
             <SettingsIcon size={16} className="mr-1.5" aria-hidden="true" /> 设置
           </button>
@@ -871,13 +809,13 @@ const CaffeineTracker = () => {
               ? { backgroundColor: colors.accent }
               : { color: colors.accent, ':hover': { backgroundColor: colors.accentHover } }
             }
-            aria-current={viewMode === 'about' ? 'page' : undefined} // A11y: 指示当前页面
+            aria-current={viewMode === 'about' ? 'page' : undefined}
           >
             <Info size={16} className="mr-1.5" aria-hidden="true" /> 关于
           </button>
         </nav>
 
-        {/* --- 视图渲染 (使用 Suspense 包裹懒加载组件) --- */}
+        {/* 视图渲染 */}
         <Suspense fallback={
           <div className="flex justify-center items-center py-10">
             <Loader2 size={32} className="animate-spin" style={{ color: colors.accent }} />
@@ -929,28 +867,27 @@ const CaffeineTracker = () => {
               userSettings={userSettings}
               onUpdateSettings={handleUpdateSettings}
               drinks={drinks}
-              setDrinks={handleSetDrinks} // This already updates localLastModifiedTimestamp
+              setDrinks={handleSetDrinks}
               originalPresetDrinkIds={originalPresetDrinkIds}
               onManualSync={handleManualSync}
               syncStatus={syncStatus}
               records={records}
               setRecords={setRecords}
               colors={colors}
-              appConfig={appConfig} // Pass appConfig
-              isNativePlatform={isNativePlatform} // Pass platform info
+              appConfig={appConfig}
+              isNativePlatform={isNativePlatform}
             />
           )}
 
           {viewMode === 'about' && (
             <AboutView
               colors={colors}
-              appConfig={appConfig} // Pass appConfig
-              isNativePlatform={isNativePlatform} // Pass platform info
+              appConfig={appConfig}
+              isNativePlatform={isNativePlatform}
             />
           )}
         </Suspense>
 
-        {/* 使用 footer 语义标签 */}
         <footer className="mt-8 text-center text-xs transition-colors" style={{ color: colors.textMuted }}>
           {userSettings.develop === true && (
             <p className="mb-2 font-semibold text-orange-500 flex items-center justify-center">

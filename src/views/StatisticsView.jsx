@@ -9,7 +9,7 @@ import {
   getStartOfMonth, getEndOfMonth,
   getStartOfYear, getEndOfYear,
   getStartOfDay, getEndOfDay,
-  formatDate // formatDate is now imported directly
+  formatDate
 } from '../utils/timeUtils';
 
 /**
@@ -221,7 +221,7 @@ const StatisticsView = ({
 
   return (
     <>
-      {/* 时间范围选择器 - 使用 section 或 nav */}
+      {/* 时间范围选择器 */}
       <section
         aria-labelledby="stats-period-heading"
         className="mb-5 rounded-xl p-4 shadow-lg border transition-colors"
@@ -233,13 +233,12 @@ const StatisticsView = ({
         <div className="flex justify-between items-center mb-2">
           <button
             onClick={() => navigateStats(-1)}
-            className="p-2 rounded-md transition-colors duration-150 hover:bg-gray-100" // 添加 hover 效果
+            className="p-2 rounded-md transition-colors duration-150 hover:bg-gray-100"
             style={{ color: colors.textSecondary }}
             aria-label="上一个时间段"
           >
             <ChevronLeft size={18} />
           </button>
-          {/* 使用 h2 作为主要标题 */}
           <h2
             id="stats-period-heading"
             className="text-lg font-semibold text-center transition-colors"
@@ -249,7 +248,7 @@ const StatisticsView = ({
           </h2>
           <button
             onClick={() => navigateStats(1)}
-            className="p-2 rounded-md transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100" // 添加 hover 效果
+            className="p-2 rounded-md transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
             style={{ color: colors.textSecondary }}
             disabled={isNextPeriodDisabled}
             aria-label="下一个时间段"
@@ -257,7 +256,6 @@ const StatisticsView = ({
             <ChevronRight size={18} />
           </button>
         </div>
-        {/* 使用 nav 包裹视图切换按钮 */}
         <nav className="flex justify-center gap-2 mt-3" aria-label="统计视图切换">
           <button
             onClick={() => { setStatsView('week'); setStatsDate(new Date()); }}
@@ -266,7 +264,7 @@ const StatisticsView = ({
               ? { backgroundColor: colors.accent }
               : { backgroundColor: colors.bgBase, color: colors.accent }
             }
-            aria-current={statsView === 'week' ? 'true' : 'false'} // A11y: 指示当前视图
+            aria-current={statsView === 'week' ? 'true' : 'false'}
           >
             周
           </button>
@@ -277,7 +275,7 @@ const StatisticsView = ({
               ? { backgroundColor: colors.accent }
               : { backgroundColor: colors.bgBase, color: colors.accent }
             }
-            aria-current={statsView === 'month' ? 'true' : 'false'} // A11y: 指示当前视图
+            aria-current={statsView === 'month' ? 'true' : 'false'}
           >
             月
           </button>
@@ -288,7 +286,7 @@ const StatisticsView = ({
               ? { backgroundColor: colors.accent }
               : { backgroundColor: colors.bgBase, color: colors.accent }
             }
-            aria-current={statsView === 'year' ? 'true' : 'false'} // A11y: 指示当前视图
+            aria-current={statsView === 'year' ? 'true' : 'false'}
           >
             年
           </button>
@@ -304,12 +302,12 @@ const StatisticsView = ({
           borderColor: colors.borderSubtle
         }}
       >
-        <h3 // 使用 h3，因为 h2 是时间段标题
+        <h3
           id="intake-overview-heading"
           className="text-xl font-semibold mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <BarChart2 size={20} className="mr-2" aria-hidden="true" /> 摄入总览
+          <BarChart2 size={20} className="mr-2" /> 摄入总览
         </h3>
         <div className="grid grid-cols-2 gap-4 mb-5">
           {/* 总摄入量 */}
@@ -317,7 +315,7 @@ const StatisticsView = ({
             className="p-4 rounded-lg text-center shadow-inner transition-colors"
             style={{ backgroundColor: colors.bgBase }}
           >
-            <p // 使用 p 标签描述
+            <p
               className="text-sm transition-colors"
               style={{ color: colors.textSecondary }}
             >
@@ -328,7 +326,7 @@ const StatisticsView = ({
                   : '本年总摄入'
               }
             </p>
-            <p // 使用 p 标签显示数值
+            <p
               className="text-2xl font-bold mt-1 transition-colors"
               style={{ color: colors.espresso }}
             >
@@ -345,7 +343,7 @@ const StatisticsView = ({
             className="p-4 rounded-lg text-center shadow-inner transition-colors"
             style={{ backgroundColor: colors.bgBase }}
           >
-            <p // 使用 p 标签描述
+            <p
               className="text-sm transition-colors"
               style={{ color: colors.textSecondary }}
             >
@@ -356,7 +354,7 @@ const StatisticsView = ({
                   : '日均 (本年)'
               }
             </p>
-            <p // 使用 p 标签显示数值
+            <p
               className="text-2xl font-bold mt-1 transition-colors"
               style={{ color: colors.espresso }}
             >
@@ -395,19 +393,18 @@ const StatisticsView = ({
           borderColor: colors.borderSubtle
         }}
       >
-        <h3 // 使用 h3
+        <h3
           id="source-analysis-heading"
           className="text-xl font-semibold mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <PieChart size={20} className="mr-2" aria-hidden="true" /> 摄入来源分析 (所有记录)
+          <PieChart size={20} className="mr-2" /> 摄入来源分析 (所有记录)
         </h3>
-        {/* 使用 ul/li 结构展示列表 */}
         <ul className="space-y-3">
           {caffeineDistribution.length > 0 ? (
             caffeineDistribution.slice(0, 7).map((item, index) => (
               <li key={item.id} className="flex items-center text-sm">
-                <span // 使用 span 标签
+                <span
                   className="w-28 truncate pr-2 transition-colors"
                   style={{ color: colors.textSecondary }}
                   title={item.name}
@@ -425,7 +422,7 @@ const StatisticsView = ({
                           colors.grid, colors.warning, colors.danger
                         ][index % 7]
                       }}
-                      role="progressbar" // A11y: 指示这是一个进度条
+                      role="progressbar"
                       aria-valuenow={item.percentage}
                       aria-valuemin="0"
                       aria-valuemax="100"
@@ -450,7 +447,6 @@ const StatisticsView = ({
               </li>
             ))
           ) : (
-            // 使用 li 标签包裹提示信息
             <li>
               <p
                 className="text-center py-3 transition-colors"
@@ -472,29 +468,28 @@ const StatisticsView = ({
           borderColor: colors.borderSubtle
         }}
       >
-        <h3 // 使用 h3
+        <h3
           id="health-analysis-heading"
           className="text-xl font-semibold mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <Heart size={20} className="mr-2" aria-hidden="true" /> 健康分析与洞察
+          <Heart size={20} className="mr-2" /> 健康分析与洞察
         </h3>
         <div
           className="space-y-4 text-sm transition-colors"
           style={{ color: colors.textSecondary }}
         >
-          {/* 使用 article 标签表示独立的分析内容 */}
           <article
             aria-labelledby="pattern-assessment-heading"
             className="p-4 rounded-lg shadow-inner transition-colors"
             style={{ backgroundColor: colors.bgBase }}
           >
-            <h4 // 使用 h4
+            <h4
               id="pattern-assessment-heading"
               className="font-semibold mb-1 flex items-center transition-colors"
               style={{ color: colors.espresso }}
             >
-              <Award size={16} className="mr-1.5" aria-hidden="true" /> 摄入模式评估
+              <Award size={16} className="mr-1.5" /> 摄入模式评估
             </h4>
             <p>
               {records.length > 0
@@ -516,12 +511,12 @@ const StatisticsView = ({
             className="p-4 rounded-lg shadow-inner transition-colors"
             style={{ backgroundColor: colors.bgBase }}
           >
-            <h4 // 使用 h4
+            <h4
               id="sleep-impact-heading"
               className="font-semibold mb-1 flex items-center transition-colors"
               style={{ color: colors.espresso }}
             >
-              <Clock size={16} className="mr-1.5" aria-hidden="true" /> 睡眠影响考量
+              <Clock size={16} className="mr-1.5" /> 睡眠影响考量
             </h4>
             <p>
               咖啡因的半衰期设定为
@@ -545,12 +540,12 @@ const StatisticsView = ({
           borderColor: colors.borderSubtle
         }}
       >
-        <h3 // 使用 h3
+        <h3
           id="caffeine-knowledge-heading"
           className="text-xl font-semibold mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <Info size={20} className="mr-2" aria-hidden="true" /> 咖啡因知识库
+          <Info size={20} className="mr-2" /> 咖啡因知识库
         </h3>
         <ul
           className="space-y-2 text-sm list-disc list-inside transition-colors"

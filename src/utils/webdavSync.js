@@ -1,28 +1,21 @@
-// webdavSync.js
 // WebDAV 同步实用工具
 
-// 导入 Capacitor 以检查平台
 import { Capacitor } from '@capacitor/core';
-
-// 导入常量以辅助合并 (如果需要，但尽量保持此文件独立)
-// import { initialPresetDrinks, originalPresetDrinkIds } from './constants'; // Avoid if possible, pass if needed
 
 const knownSettingKeys = [
     'weight', 'maxDailyCaffeine', 'recommendedDosePerKg',
     'safeSleepThresholdConcentration', 'volumeOfDistribution',
     'caffeineHalfLifeHours', 'themeMode', 'webdavEnabled',
-    'webdavServer', 'webdavUsername', // 'webdavPassword' - handled separately for saving
+    'webdavServer', 'webdavUsername',
     'webdavSyncFrequency', 'lastSyncTimestamp', 'develop', 'plannedSleepTime',
-    'localLastModifiedTimestamp' // Ensure this is also considered if present
+    'localLastModifiedTimestamp'
 ];
 
 /**
  * WebDAV 同步客户端
- * 提供与 WebDAV 服务器连接和同步数据的功能。
  */
 export default class WebDAVClient {
     constructor(server, username, password) {
-
         if (!server || !username) {
             console.warn("WebDAVClient 使用不完整的凭据进行初始化。");
         }
@@ -37,7 +30,7 @@ export default class WebDAVClient {
         this.isNative = Capacitor.isNativePlatform();
 
         console.log('WebDAVClient 初始化完成', {
-            serverUrl: this.server ? this.server.substring(0, 30) + '...' : '未设置', // 截断长URL
+            serverUrl: this.server ? this.server.substring(0, 30) + '...' : '未设置',
             hasAuthHeader: !!this.authHeader,
             platform: this.platform,
             isNative: this.isNative
@@ -49,11 +42,8 @@ export default class WebDAVClient {
         return configured;
     }
 
-    /**
-     * 创建标准化的fetch请求配置
-     */
+    // 创建请求配置
     createFetchOptions(method, additionalHeaders = {}, body = null) {
-        // 基于当前实例属性（用户名/密码）确定认证头
         const currentAuthHeader = (this.username && this.password) ? 'Basic ' + btoa(`${this.username}:${this.password}`) : null;
 
         const headers = {
@@ -61,10 +51,7 @@ export default class WebDAVClient {
             ...additionalHeaders
         };
 
-        // 条件性添加 Authorization 头:
-        // - 如果是原生平台且配置了认证信息，则添加。
-        // - 如果是Web平台，配置了认证信息且请求方法不是 OPTIONS，则添加。
-        //   (Web平台上手动发起的 OPTIONS 探测请求应保持“干净”，浏览器会自动处理预检请求中的认证相关头部)
+        // 添加认证头
         if (currentAuthHeader) {
             if (this.isNative || method !== 'OPTIONS') {
                 headers['Authorization'] = currentAuthHeader;
@@ -80,35 +67,25 @@ export default class WebDAVClient {
             fetchOptions.body = body;
         }
 
-        // 根据平台设置不同的请求配置
+        // 平台相关配置
         if (this.isNative) {
-            // 原生平台：不需要CORS设置。
-            // Authorization 头已在上面处理。
+            // 原生平台无需CORS设置
         } else {
-            // Web平台：需要CORS设置
+            // Web平台需要CORS设置
             fetchOptions.mode = 'cors';
-            fetchOptions.credentials = 'omit'; // 不发送cookies，使用Basic认证
-            fetchOptions.cache = 'no-cache'; // 避免缓存问题
-
-            // 对于Web平台，不再需要针对 PUT/DELETE/OPTIONS 的特殊头部简化逻辑。
-            // 上述 Authorization 头的条件性添加已处理了 OPTIONS 探测请求的主要考虑。
-            // 对于其他方法（如 PUT, DELETE, 或带 Authorization 的 GET），
-            // 浏览器会在必要时发起预检 OPTIONS 请求。
-            // 服务器必须正确响应这些预检请求，并在 Access-Control-Allow-Headers 中允许 'Authorization' 和 'Content-Type'。
+            fetchOptions.credentials = 'omit';
+            fetchOptions.cache = 'no-cache';
         }
 
         return fetchOptions;
     }
 
-    /**
-     * 执行HTTP请求并处理错误
-     */
+    // 执行HTTP请求
     async executeRequest(url, options, operation = 'request') {
         console.log(`开始执行 ${operation}`, {
             url: url.toString(),
             method: options.method,
             platform: this.platform,
-            // hasAuth: !!options.headers?.Authorization, // 通常不需要此日志
             isNative: this.isNative
         });
 
@@ -117,24 +94,16 @@ export default class WebDAVClient {
 
             console.log(`${operation} 响应状态: ${response.status} ${response.statusText}`, {
                 ok: response.ok,
-                type: response.type,
-                // url: response.url, // 通常与请求URL相同
-                // headers: Array.from(response.headers.entries()).reduce((acc, [key, value]) => { // 移除详细头信息
-                //     acc[key] = value;
-                //     return acc;
-                // }, {})
+                type: response.type
             });
 
             return response;
         } catch (error) {
             console.error(`${operation} 请求失败`, {
                 error: error.message,
-                stack: error.stack,
-                name: error.name,
                 platform: this.platform,
                 url: url.toString(),
-                method: options.method,
-                cause: error.cause
+                method: options.method
             });
 
             throw error;
@@ -157,7 +126,6 @@ export default class WebDAVClient {
         }
 
         try {
-            // 首先尝试HEAD请求，这是最轻量的方式
             const url = new URL(this.fileName, this.server);
             let response;
             let testMethod = 'HEAD';
@@ -168,8 +136,6 @@ export default class WebDAVClient {
                 response = await this.executeRequest(url, fetchOptions, 'HEAD连接测试');
 
                 if (response.ok || response.status === 404) {
-                    // 200 OK 或 404 Not Found 都表示连接成功
-                    // console.log("HEAD请求测试成功"); // 包含在最终结果消息中
                     return {
                         success: true,
                         message: `连接成功 (${response.status} ${response.statusText} via HEAD)`
@@ -185,7 +151,6 @@ export default class WebDAVClient {
                         message: `权限被拒绝 (403): 用户可能没有访问权限`
                     };
                 } else if (response.status === 405) {
-                    // Method Not Allowed，尝试OPTIONS请求
                     console.log("HEAD请求不被支持，尝试OPTIONS请求");
                     testMethod = 'OPTIONS';
                 } else {
@@ -205,7 +170,6 @@ export default class WebDAVClient {
                     response = await this.executeRequest(url, fetchOptions, 'OPTIONS连接测试');
 
                     if (response.ok) {
-                        // console.log("OPTIONS请求测试成功"); // 包含在最终结果消息中
                         return {
                             success: true,
                             message: `连接成功 (${response.status} ${response.statusText} via OPTIONS)`
@@ -235,14 +199,13 @@ export default class WebDAVClient {
         } catch (error) {
             console.error("WebDAV连接测试异常:", {
                 message: error.message,
-                stack: error.stack,
                 platform: this.platform,
                 name: error.name
             });
 
             let message = `连接错误: ${error.message}`;
 
-            // 根据错误类型提供更具体的建议
+            // 错误类型判断
             if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
                 if (this.isNative) {
                     message += " (请检查网络连接和服务器地址)";
@@ -299,9 +262,6 @@ export default class WebDAVClient {
 
         try {
             const url = new URL(this.fileName, this.server);
-            // console.log(`下载数据URL: ${url.toString()}`); // 已在 executeRequest 中记录
-            // console.log(`认证状态: ${this.authHeader ? '已配置' : '未配置'}`); // 客户端状态，非关键日志
-
             const fetchOptions = this.createFetchOptions('GET');
             const response = await this.executeRequest(url, fetchOptions, 'GET下载数据');
 
@@ -325,7 +285,6 @@ export default class WebDAVClient {
             }
 
             const text = await response.text();
-            // console.log(`下载的原始文本长度: ${text.length}`); // 通常不关键
 
             if (text.length === 0) {
                 console.warn("下载的文件为空");
@@ -335,29 +294,26 @@ export default class WebDAVClient {
             let data;
             try {
                 data = JSON.parse(text);
-                // console.log("JSON解析成功"); // 隐含在后续日志中
             } catch (parseError) {
                 console.error("JSON解析失败:", {
                     error: parseError.message,
-                    textPreview: text.substring(0, 100), // 缩短预览
+                    textPreview: text.substring(0, 100),
                     textLength: text.length
                 });
                 throw new Error(`下载的数据JSON格式无效: ${parseError.message}`);
             }
 
-            // 数据结构验证
+            // 数据验证
             if (typeof data !== 'object' || data === null) {
                 throw new Error("下载的数据格式无效 (非对象或为null)");
             }
 
-            // 验证核心数据结构
             const coreKeys = ['records', 'drinks', 'userSettings', 'version'];
             const missingKeys = coreKeys.filter(key => !data.hasOwnProperty(key));
             if (missingKeys.length > 0) {
                 console.warn(`下载的数据缺少核心键: ${missingKeys.join(', ')}`);
             }
 
-            // 详细的数据验证
             if (data.records && !Array.isArray(data.records)) {
                 throw new Error("下载的数据中 'records' 必须是数组");
             }
@@ -380,7 +336,6 @@ export default class WebDAVClient {
         } catch (error) {
             console.error("下载数据过程中发生错误:", {
                 message: error.message,
-                stack: error.stack,
                 platform: this.platform,
                 hasAuth: !!this.authHeader
             });
@@ -403,19 +358,13 @@ export default class WebDAVClient {
             throw new Error(error);
         }
 
-        // 创建上传数据的深拷贝，避免修改原始对象
+        // 准备上传数据
         let dataToUpload;
         try {
             dataToUpload = JSON.parse(JSON.stringify(data));
             if (dataToUpload.userSettings && dataToUpload.userSettings.hasOwnProperty('webdavPassword')) {
                 delete dataToUpload.userSettings.webdavPassword;
             }
-            // console.log("上传数据准备完成:", { // 隐含在后续日志中
-            //     recordsCount: dataToUpload.records ? dataToUpload.records.length : 0,
-            //     drinksCount: dataToUpload.drinks ? dataToUpload.drinks.length : 0,
-            //     hasUserSettings: !!dataToUpload.userSettings,
-            //     syncTimestamp: dataToUpload.syncTimestamp
-            // });
         } catch (error) {
             console.error("准备上传数据时出错:", error.message);
             throw new Error(`数据序列化失败: ${error.message}`);
@@ -423,10 +372,7 @@ export default class WebDAVClient {
 
         try {
             const url = new URL(this.fileName, this.server);
-            const jsonString = JSON.stringify(dataToUpload, null, 2); // 添加格式化以便调试
-            // console.log(`上传数据到: ${url.toString()}`); // 已在 executeRequest 中记录
-            // console.log(`JSON字符串长度: ${jsonString.length}`); // 通常不关键
-            // console.log(`认证状态: ${this.authHeader ? '已配置' : '未配置'}`); // 客户端状态
+            const jsonString = JSON.stringify(dataToUpload, null, 2);
 
             const fetchOptions = this.createFetchOptions('PUT', {
                 'Content-Type': 'application/json; charset=utf-8',
@@ -451,7 +397,6 @@ export default class WebDAVClient {
                 const error = `上传数据失败: ${response.status} ${response.statusText}`;
                 console.error(error);
 
-                // 尝试获取响应体以获取更多错误信息
                 try {
                     const responseText = await response.text();
                     if (responseText) {
@@ -469,7 +414,6 @@ export default class WebDAVClient {
         } catch (error) {
             console.error("上传数据过程中发生错误:", {
                 message: error.message,
-                stack: error.stack,
                 platform: this.platform,
                 hasAuth: !!this.authHeader
             });
@@ -477,14 +421,9 @@ export default class WebDAVClient {
         }
     }
 
-    /**
-     * 比较本地和远程数据的时间戳以确定哪个更新。
-     * @param {number|null|undefined} localTs 本地时间戳。
-     * @param {number|null|undefined} remoteTs 远程时间戳。
-     * @returns {'local_newer' | 'remote_newer' | 'equal' | 'only_local' | 'only_remote' | 'no_timestamps'} 比较结果。
-     */
+    // 比较时间戳
     compareTimestamps(localTs, remoteTs) {
-        const localTimestamp = localTs || 0; // Treat null/undefined as 0 for comparison
+        const localTimestamp = localTs || 0;
         const remoteTimestamp = remoteTs || 0;
 
         if (localTimestamp === 0 && remoteTimestamp === 0) return 'no_timestamps';
@@ -496,22 +435,10 @@ export default class WebDAVClient {
         return 'equal';
     }
 
-    /**
-     * 合并本地和远程数据。
-     * 策略：
-     * 1. 合并记录和饮品：保留来自两个来源的所有唯一项（按 ID）。
-     * 2. 合并设置：对于已知键，优先使用具有较新整体时间戳的来源中的值。
-     * 3. 更新时间戳：为合并后的数据设置新的 syncTimestamp。
-     * @param {Object} localData 本地数据对象。
-     * @param {Object} remoteData 远程数据对象。
-     * @param {Array} initialPresetDrinks 预设饮品列表 (用于确保预设饮品存在或更新).
-     * @param {Set} originalPresetDrinkIds 原始预设饮品ID集合 (用于识别哪些是不可删除的核心预设).
-     * @returns {Object} 合并后的数据对象。
-     */
+    // 合并本地和远程数据
     mergeData(localData, remoteData, initialPresetDrinks = [], originalPresetDrinkIds = new Set()) {
         console.log("正在合并本地和远程数据...");
-        // Fallback for syncTimestamp if it's missing from localData (e.g. very old app version or first sync)
-        // localData.syncTimestamp is actually localData.userSettings.localLastModifiedTimestamp in practice from CaffeineTracker.jsx
+        
         const localTs = localData?.syncTimestamp || localData?.userSettings?.localLastModifiedTimestamp || 0;
         const remoteTs = remoteData?.syncTimestamp || 0;
 
@@ -522,7 +449,7 @@ export default class WebDAVClient {
         const secondarySource = isRemotePrimary ? localData : remoteData;
         console.log(`合并的主要来源 (基于 syncTimestamp): ${isRemotePrimary ? '远程' : '本地'} (LocalTS: ${localTs}, RemoteTS: ${remoteTs})`);
 
-        // --- 合并记录 ---
+        // 合并记录
         const recordMap = new Map();
         const allRecords = [...(localData.records || []), ...(remoteData.records || [])];
         allRecords.forEach(record => {
@@ -536,15 +463,12 @@ export default class WebDAVClient {
                 const tsCurrent = record.updatedAt || record.timestamp || 0;
                 if (tsCurrent > tsExisting) {
                     recordMap.set(record.id, { ...record });
-                } else if (tsCurrent === tsExisting && tsCurrent !== 0) { // Timestamps are identical and not zero
-                    // Prefer primary source if timestamps are identical
+                } else if (tsCurrent === tsExisting && tsCurrent !== 0) {
                     const primaryRecords = primarySource.records || [];
                     if (primaryRecords.some(r => r.id === record.id && (r.updatedAt || r.timestamp || 0) === tsCurrent)) {
                         recordMap.set(record.id, { ...record });
                     }
                 }
-                // If one has updatedAt and the other doesn't, prefer the one with updatedAt if it's newer or equal.
-                // This is implicitly handled by using (updatedAt || timestamp).
             } else {
                 recordMap.set(record.id, { ...record });
             }
@@ -552,7 +476,7 @@ export default class WebDAVClient {
         const mergedRecords = Array.from(recordMap.values());
         console.log(`合并后的记录数: ${mergedRecords.length}`);
 
-        // --- 合并饮品 ---
+        // 合并饮品
         const drinkMap = new Map();
         const allDrinks = [...(localData.drinks || []), ...(remoteData.drinks || [])];
 
@@ -573,46 +497,34 @@ export default class WebDAVClient {
                     if (primaryDrinks.some(d => d.id === drink.id && (d.updatedAt || 0) === tsCurrent)) {
                         drinkMap.set(drink.id, { ...drink });
                     }
-                } else if (tsCurrent > 0 && tsExisting === 0) { // Current has timestamp, existing doesn't
+                } else if (tsCurrent > 0 && tsExisting === 0) {
                     drinkMap.set(drink.id, { ...drink });
-                }
-                // If existing has timestamp and current doesn't (tsExisting > 0 && tsCurrent === 0), keep existing.
-                // If both are 0, prefer primary source (if current is from primary)
-                else if (tsExisting === 0 && tsCurrent === 0) {
+                } else if (tsExisting === 0 && tsCurrent === 0) {
                     const primaryDrinks = primarySource.drinks || [];
                     if (primaryDrinks.some(d => d.id === drink.id)) {
                         drinkMap.set(drink.id, { ...drink });
                     }
                 }
-
             } else {
                 drinkMap.set(drink.id, { ...drink });
             }
         });
 
-        // Ensure all original preset drinks are present and correctly marked
+        // 确保原始预设饮品存在
         initialPresetDrinks.forEach(presetDrink => {
             const existingDrink = drinkMap.get(presetDrink.id);
-            if (originalPresetDrinkIds.has(presetDrink.id)) { // Only operate on original presets
+            if (originalPresetDrinkIds.has(presetDrink.id)) {
                 if (!existingDrink) {
-                    // If an original preset is missing entirely, add it back.
-                    // This handles cases where a user might have (somehow) deleted an original preset,
-                    // or a new version of the app introduces a preset that wasn't synced before.
                     drinkMap.set(presetDrink.id, { ...presetDrink, updatedAt: presetDrink.updatedAt || 0, isPreset: true });
                 } else {
-                    // If it exists, ensure its 'isPreset' flag is true and potentially update with latest preset definition
-                    // if the existing one has an older or no 'updatedAt' compared to the 'initialPresetDrinks' definition.
-                    // This is complex because users can modify presets.
-                    // For now, the merge logic above (based on updatedAt) should handle user modifications.
-                    // Here, we just ensure 'isPreset' is true for original presets.
                     drinkMap.set(presetDrink.id, { ...existingDrink, isPreset: true });
                 }
             }
         });
 
         const mergedDrinks = Array.from(drinkMap.values())
-            .filter(d => d && d.id && typeof d.name === 'string') // Final validation
-            .map(drink => ({ // Ensure essential fields for presets if they were somehow lost
+            .filter(d => d && d.id && typeof d.name === 'string')
+            .map(drink => ({
                 ...drink,
                 isPreset: originalPresetDrinkIds.has(drink.id) ? true : (drink.isPreset || false),
                 category: drink.category || (originalPresetDrinkIds.has(drink.id) ? initialPresetDrinks.find(p => p.id === drink.id)?.category : '其他'),
@@ -620,92 +532,59 @@ export default class WebDAVClient {
 
         console.log(`合并后的饮品数: ${mergedDrinks.length}`);
 
-
-        // --- 合并用户设置 ---
+        // 合并用户设置
         const mergedSettings = {};
         const primarySettings = primarySource?.userSettings || {};
         const secondarySettings = secondarySource?.userSettings || {};
 
-        // 遍历已知键以确保结构并优先考虑主要来源
         knownSettingKeys.forEach(key => {
-            // 显式跳过密码合并
-            if (key === 'webdavPassword') return; // Already handled below
+            if (key === 'webdavPassword') return;
 
-            // If primary source has the key and it's valid type (or it's 'develop')
             if (primarySettings.hasOwnProperty(key)) {
                 if (key === 'develop' && typeof primarySettings[key] !== 'boolean') {
-                    // Try secondary if primary 'develop' is invalid
                     if (secondarySettings.hasOwnProperty(key) && typeof secondarySettings[key] === 'boolean') {
                         mergedSettings[key] = secondarySettings[key];
                     } else {
-                        // Fallback to a default if both are invalid (e.g., false for develop)
-                        // This part depends on having defaultSettings available or hardcoding
-                        mergedSettings[key] = false; // Default for develop
+                        mergedSettings[key] = false;
                     }
                 } else {
                     mergedSettings[key] = primarySettings[key];
                 }
             }
-            // Else if secondary source has the key and it's valid
             else if (secondarySettings.hasOwnProperty(key)) {
                 if (key === 'develop' && typeof secondarySettings[key] !== 'boolean') {
-                    // Fallback to default if secondary 'develop' is invalid
-                    mergedSettings[key] = false; // Default for develop
+                    mergedSettings[key] = false;
                 } else {
                     mergedSettings[key] = secondarySettings[key];
                 }
             }
-            // If key is missing in both, it won't be added unless defaultSettings are iterated here
         });
-        // Ensure local webdavPassword is preserved if it exists.
-        // It's stripped before upload and not expected from download.
-        // It should come from the original localData passed into performSync, not the primary/secondary source.
+        
+        // 保留本地WebDAV密码
         if (localData?.userSettings?.webdavPassword) {
             mergedSettings.webdavPassword = localData.userSettings.webdavPassword;
         }
-        // Also, ensure localLastModifiedTimestamp from the local userSettings is preserved if it's the absolute newest,
-        // or take the one from the primary source if that's newer.
-        // However, syncTimestamp for the merged data will be Date.now().
-        // localLastModifiedTimestamp is more about tracking local changes for the *next* sync.
-        // The userSettings from primarySource should be preferred for most settings.
-        // Let's ensure localLastModifiedTimestamp is handled correctly:
-        // If localData was primary, its localLastModifiedTimestamp is already in primarySettings.
-        // If remoteData was primary, we might want to keep localData's localLastModifiedTimestamp if it's newer
-        // than remoteData's (which wouldn't have a 'localLastModifiedTimestamp' in the same sense).
-        // For simplicity, the merged userSettings will get values from primary/secondary.
-        // The CaffeineTracker component will manage its own userSettings.localLastModifiedTimestamp.
-        // The syncTimestamp of the merged data is the key for future comparisons.
+        
+        // 处理localLastModifiedTimestamp
         if (localData?.userSettings?.localLastModifiedTimestamp && localData.userSettings.localLastModifiedTimestamp > (primarySettings.localLastModifiedTimestamp || 0)) {
             mergedSettings.localLastModifiedTimestamp = localData.userSettings.localLastModifiedTimestamp;
         }
 
-
-        // console.log("设置已合并。", mergedSettings); // mergedSettings 可能非常大，包含许多字段
-
-
-        // 创建最终的合并数据结构
         const mergedResult = {
             records: mergedRecords.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)),
             drinks: mergedDrinks,
             userSettings: mergedSettings,
-            syncTimestamp: Date.now(), // 为合并后的数据设置新的时间戳
-            version: primarySource.version || secondarySource.version || 'unknown' // Preserve version from source
+            syncTimestamp: Date.now(),
+            version: primarySource.version || secondarySource.version || 'unknown'
         };
         console.log(`合并完成。新时间戳: ${mergedResult.syncTimestamp}`);
         return mergedResult;
     }
 
-    /**
-     * 执行同步操作。
-     * 获取远程数据，比较时间戳，并决定是上传、下载还是合并。
-     * @param {Object} localData 当前的本地数据 (records, drinks, userSettings, syncTimestamp)。
-     * @returns {Promise<{success: boolean, message: string, data: Object|null, timestamp: number|null}>}
-     * 同步结果。'data' 包含同步后应在本地使用的数据。
-     * 'timestamp' 是 'data' 的时间戳。失败时返回 null 数据。
-     */
+    // 执行同步操作
     async performSync(localData, initialPresetDrinks = [], originalPresetDrinkIds = new Set()) {
         console.log("=== 开始WebDAV同步过程 ===");
-        console.log("同步参数 (计数):", { // 仅记录计数以避免大数据日志
+        console.log("同步参数 (计数):", {
             platform: this.platform,
             isNative: this.isNative,
             hasLocalData: !!localData,
@@ -727,17 +606,14 @@ export default class WebDAVClient {
             };
         }
 
-        // 确保 localData 是一个对象
         const currentLocalData = typeof localData === 'object' && localData !== null
             ? localData
             : { records: [], drinks: [], userSettings: {}, version: 'unknown', syncTimestamp: 0 };
 
         const localTs = currentLocalData.userSettings?.localLastModifiedTimestamp || currentLocalData.syncTimestamp || null;
-        // console.log("本地时间戳:", localTs); // 已包含在 "同步参数" 中
 
         try {
-            // 1. 下载远程数据
-            // console.log("步骤1: 下载远程数据"); // 下一个日志会指明
+            // 下载远程数据
             let remoteData = null;
             try {
                 remoteData = await this.downloadData();
@@ -750,7 +626,6 @@ export default class WebDAVClient {
             } catch (downloadError) {
                 console.error("下载远程数据失败，详细错误:", {
                     message: downloadError.message,
-                    stack: downloadError.stack,
                     platform: this.platform
                 });
 
@@ -785,8 +660,7 @@ export default class WebDAVClient {
                         };
                     } catch (uploadError) {
                         console.error("初始上传也失败:", {
-                            message: uploadError.message,
-                            stack: uploadError.stack
+                            message: uploadError.message
                         });
                         return {
                             success: false,
@@ -805,8 +679,7 @@ export default class WebDAVClient {
                 }
             }
 
-            // 2. 比较并决定操作
-            // console.log("步骤2: 比较时间戳并决定操作"); // 下一个日志会指明
+            // 比较并决定操作
             const remoteTs = remoteData?.syncTimestamp || null;
             const comparison = this.compareTimestamps(localTs, remoteTs);
             console.log(`时间戳比较结果: ${comparison} (本地: ${localTs}, 远程: ${remoteTs})`);
@@ -886,11 +759,10 @@ export default class WebDAVClient {
         } catch (error) {
             console.error("同步过程中发生严重错误:", {
                 message: error.message,
-                stack: error.stack,
                 platform: this.platform
             });
 
-            // 尝试返回当前本地数据以防止UI中的数据丢失
+            // 返回本地数据防止数据丢失
             const returnLocalDataOnError = { ...currentLocalData };
             if (localData?.userSettings?.webdavPassword && returnLocalDataOnError.userSettings) {
                 returnLocalDataOnError.userSettings.webdavPassword = localData.userSettings.webdavPassword;

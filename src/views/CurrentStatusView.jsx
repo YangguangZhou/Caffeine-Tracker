@@ -30,14 +30,11 @@ const CurrentStatusView = ({
   onEditRecord,
   onDeleteRecord,
   estimateAmountFromConcentration,
-  // formatTime and formatDate are now imported directly
-  colors // Expect colors prop to have successBg, successText, infoBg, infoText for dark mode
+  colors
 }) => {
-  // 状态
   const [showForm, setShowForm] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
 
-  // 处理程序
   const handleAddRecordClick = () => {
     setEditingRecord(null);
     setShowForm(true);
@@ -63,10 +60,10 @@ const CurrentStatusView = ({
     setEditingRecord(null);
   };
 
-  // Helper function to determine styles for health advice
+  // 根据健康建议类型确定样式
   const getHealthAdviceStyles = () => {
     let styleProps = {
-      bgColor: colors.infoBg, // Default to info
+      bgColor: colors.infoBg,
       textColor: colors.infoText,
       borderColor: colors.infoText,
     };
@@ -87,7 +84,6 @@ const CurrentStatusView = ({
         styleProps.textColor = colors.dangerText;
         styleProps.borderColor = colors.dangerText;
         break;
-      // No default needed as it's set above
     }
 
     return {
@@ -101,9 +97,8 @@ const CurrentStatusView = ({
 
   return (
     <>
-      {/* 使用 section 语义标签包裹主要内容块 */}
       <section
-        aria-labelledby="current-status-heading" // A11y: 为 section 添加标签引用
+        aria-labelledby="current-status-heading"
         className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
         style={{
           backgroundColor: colors.bgCard,
@@ -111,11 +106,11 @@ const CurrentStatusView = ({
         }}
       >
         <h2
-          id="current-status-heading" // A11y: ID 用于 aria-labelledby
+          id="current-status-heading"
           className="text-xl font-semibold mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <Activity size={20} className="mr-2" aria-hidden="true" /> 当前状态
+          <Activity size={20} className="mr-2" /> 当前状态
         </h2>
 
         {/* 半圆进度表 */}
@@ -125,7 +120,7 @@ const CurrentStatusView = ({
             <path
               d="M20,130 A100,100 0 0,1 220,130"
               fill="none"
-              stroke="#e5e7eb" // 可以考虑使用 colors.grid 或 colors.borderSubtle
+              stroke="#e5e7eb"
               strokeWidth="20"
               strokeLinecap="round"
             />
@@ -164,7 +159,6 @@ const CurrentStatusView = ({
 
         {/* 状态文本 */}
         <div className="text-center mb-4 mt-2">
-          {/* 使用 h3 可能更符合语义 */}
           <h3 className={`text-lg font-semibold ${userStatus.color}`}>
             {userStatus.status}
           </h3>
@@ -175,21 +169,20 @@ const CurrentStatusView = ({
             {userStatus.recommendation}
           </p>
 
-          {/* 健康建议 - 使用 aside 或 div 均可，取决于其与主要内容的相关性 */}
+          {/* 健康建议 */}
           <aside
-            aria-label="健康建议" // A11y: 添加标签
+            aria-label="健康建议"
             className={`mt-3 text-sm p-3 rounded-lg`}
             style={getHealthAdviceStyles()}
           >
             <div className="flex items-center justify-center">
-              <AlertCircle size={16} className="inline-block mr-1.5 flex-shrink-0" aria-hidden="true" />
+              <AlertCircle size={16} className="inline-block mr-1.5 flex-shrink-0" />
               <span>{healthAdvice.advice}</span>
             </div>
           </aside>
         </div>
 
         {/* 摘要统计 */}
-        {/* 使用 div 或 ul/li 结构 */}
         <div
           className="grid grid-cols-2 gap-3 text-sm mt-4 pt-4 border-t transition-colors"
           style={{
@@ -229,7 +222,6 @@ const CurrentStatusView = ({
         </div>
 
         {/* 最佳睡眠时间 */}
-        {/* 使用 div 或 p 标签 */}
         <div
           className="mt-3 text-sm text-center p-3 rounded-lg border"
           style={{
@@ -241,7 +233,7 @@ const CurrentStatusView = ({
           }}
         >
           <p className="flex items-center justify-center">
-            <Moon size={16} className="inline-block mr-1.5" aria-hidden="true" />
+            <Moon size={16} className="inline-block mr-1.5" />
             {optimalSleepTime === 'N/A'
               ? `无法计算建议睡眠时间 (检查设置)`
               : optimalSleepTime === '现在'
@@ -276,7 +268,7 @@ const CurrentStatusView = ({
         <MetabolismChart
           metabolismChartData={metabolismChartData}
           userSettings={userSettings}
-          formatTime={formatTime} // formatTime is now imported
+          formatTime={formatTime}
           estimateAmountFromConcentration={estimateAmountFromConcentration}
           colors={colors}
         />
@@ -291,7 +283,6 @@ const CurrentStatusView = ({
           borderColor: colors.borderSubtle
         }}
       >
-        {/* 隐藏的标题，用于 aria-labelledby */}
         <h2 id="intake-form-heading" className="sr-only">添加或编辑摄入记录</h2>
         {showForm ? (
           <IntakeForm
@@ -307,7 +298,7 @@ const CurrentStatusView = ({
             className="w-full py-3 text-white rounded-md hover:opacity-90 transition-opacity duration-200 flex items-center justify-center shadow-md font-medium"
             style={{ backgroundColor: colors.accent }}
           >
-            <Plus size={18} className="mr-1.5" aria-hidden="true" /> 添加咖啡因摄入记录
+            <Plus size={18} className="mr-1.5" /> 添加咖啡因摄入记录
           </button>
         )}
       </section>
@@ -326,7 +317,7 @@ const CurrentStatusView = ({
           className="text-xl font-semibold mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <Clock size={20} className="mr-2" aria-hidden="true" /> 摄入历史
+          <Clock size={20} className="mr-2" /> 摄入历史
         </h2>
 
         {records.length === 0 ? (
@@ -347,7 +338,6 @@ const CurrentStatusView = ({
             {records.map(record => (
               <li key={record.id} className="py-3.5 flex justify-between items-center">
                 <div className="flex-1 overflow-hidden mr-2">
-                  {/* 使用 div 或 p 标签 */}
                   <p
                     className="font-medium text-sm truncate transition-colors"
                     style={{ color: colors.textPrimary }}
@@ -368,14 +358,14 @@ const CurrentStatusView = ({
                     style={{ color: colors.textMuted }}
                   >
                     <span className="flex items-center">
-                      <Calendar size={12} className="mr-1" aria-hidden="true" /> {formatDate(record.timestamp)}
+                      <Calendar size={12} className="mr-1" /> {formatDate(record.timestamp)}
                     </span>
                     <span className="flex items-center">
-                      <Clock size={12} className="mr-1" aria-hidden="true" /> {formatTime(record.timestamp)}
+                      <Clock size={12} className="mr-1" /> {formatTime(record.timestamp)}
                     </span>
                     {record.volume && (
                       <span className="flex items-center">
-                        <Droplet size={12} className="mr-1" aria-hidden="true" /> {record.volume} ml
+                        <Droplet size={12} className="mr-1" /> {record.volume} ml
                       </span>
                     )}
                   </div>
@@ -385,14 +375,14 @@ const CurrentStatusView = ({
                     onClick={() => handleEditRecord(record)}
                     className="p-1.5 rounded-full hover:bg-amber-100 transition-colors duration-150"
                     style={{ color: colors.textSecondary }}
-                    aria-label={`编辑 ${record.name} 记录`} // A11y: 更具体的标签
+                    aria-label={`编辑 ${record.name} 记录`}
                   >
                     <Edit size={16} />
                   </button>
                   <button
                     onClick={() => onDeleteRecord(record.id)}
                     className="p-1.5 rounded-full hover:bg-red-100 transition-colors duration-150 text-red-600"
-                    aria-label={`删除 ${record.name} 记录`} // A11y: 更具体的标签
+                    aria-label={`删除 ${record.name} 记录`}
                   >
                     <Trash2 size={16} />
                   </button>

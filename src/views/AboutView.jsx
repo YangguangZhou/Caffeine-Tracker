@@ -22,14 +22,13 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
     setCheckingForUpdate(true);
     setUpdateCheckStatus('正在检查更新...');
     try {
-      const response = await fetch('https://ct.jerryz.com.cn/version.json?_=' + new Date().getTime()); // Cache buster
+      const response = await fetch('https://ct.jerryz.com.cn/version.json?_=' + new Date().getTime());
       if (!response.ok) {
         throw new Error(`检查更新失败: ${response.status}`);
       }
       const remoteConfig = await response.json();
 
-      // Simple version comparison
-      // More robust comparison might be needed for complex version strings
+      // 简单的版本比较，复杂版本字符串可能需要更强健的比较
       if (remoteConfig.latest_version && remoteConfig.latest_version > appConfig.latest_version) {
         if (window.confirm(`发现新版本 ${remoteConfig.latest_version}！当前版本 ${appConfig.latest_version}。是否前往下载页面？`)) {
           window.open(remoteConfig.download_url || appConfig.download_url, '_blank');
@@ -84,7 +83,6 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
 
   return (
     <>
-
       {/* 开发者信息卡片 */}
       <section
         aria-labelledby="developer-info-heading"
@@ -99,7 +97,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
           className="text-xl font-semibold mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <User size={20} className="mr-2" aria-hidden="true" /> 关于开发者
+          <User size={20} className="mr-2" /> 关于开发者
         </h2>
 
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
@@ -131,7 +129,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
                   border: `1px solid ${colors.borderSubtle}`
                 }}
               >
-                <Globe size={14} aria-hidden="true" /> 个人网站
+                <Globe size={14} /> 个人网站
               </a>
 
               <a
@@ -143,7 +141,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
                   border: `1px solid ${colors.borderSubtle}`
                 }}
               >
-                <Mail size={14} aria-hidden="true" /> 联系我
+                <Mail size={14} /> 联系我
               </a>
 
               <a
@@ -157,7 +155,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
                   border: `1px solid ${colors.borderSubtle}`
                 }}
               >
-                <Github size={14} aria-hidden="true" /> GitHub
+                <Github size={14} /> GitHub
               </a>
             </div>
           </div>
@@ -177,7 +175,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
           className="text-xl font-semibold mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <ExternalLink size={20} className="mr-2" aria-hidden="true" /> 应用获取方式
+          <ExternalLink size={20} className="mr-2" /> 应用获取方式
         </h2>
 
         <div className="space-y-4 text-sm transition-colors" style={{ color: colors.textSecondary }}>
@@ -200,7 +198,6 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
                 size={36}
                 className="mb-3"
                 style={{ color: colors.accent }}
-                aria-hidden="true"
               />
               <h3 className="font-semibold mb-2 transition-colors" style={{ color: colors.espresso }}>
                 网页版应用
@@ -214,7 +211,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
             </a>
 
             <a
-              href={appConfig.download_url} // Use dynamic download URL
+              href={appConfig.download_url}
               target="_blank"
               rel="noopener noreferrer"
               className="flex flex-col items-center justify-center p-5 rounded-lg border hover:shadow-md transition-all duration-300"
@@ -235,7 +232,6 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
                 strokeLinejoin="round"
                 className="mb-3"
                 style={{ color: colors.accent }}
-                aria-hidden="true"
               >
                 <rect x="5" y="2" width="14" height="20" rx="2" />
                 <path d="M12 18h.01" />
@@ -260,7 +256,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
                 className="py-2.5 px-5 text-white rounded-md transition-opacity duration-200 flex items-center justify-center text-sm shadow font-medium mx-auto disabled:opacity-60 hover:opacity-90"
                 style={{ backgroundColor: colors.accent }}
               >
-                <RefreshIcon size={16} className={`mr-1.5 ${checkingForUpdate ? 'animate-spin' : ''}`} aria-hidden="true" />
+                <RefreshIcon size={16} className={`mr-1.5 ${checkingForUpdate ? 'animate-spin' : ''}`} />
                 {checkingForUpdate ? '检查中...' : '检查应用更新'}
               </button>
               {updateCheckStatus && (
@@ -270,11 +266,10 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
               )}
             </div>
           )}
-
         </div>
       </section>
 
-      {/* 分享推荐卡片 - 新增部分 */}
+      {/* 分享推荐卡片 */}
       <section
         aria-labelledby="share-heading"
         className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
@@ -288,7 +283,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
           className="text-xl font-semibold mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <ShareIcon size={20} className="mr-2" aria-hidden="true" /> 分享推荐
+          <ShareIcon size={20} className="mr-2" /> 分享推荐
         </h2>
 
         <div className="space-y-4 text-sm transition-colors" style={{ color: colors.textSecondary }}>
@@ -303,7 +298,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
             <div className="w-full max-w-md flex flex-col sm:flex-row items-center sm:justify-between gap-4">
               <div className="flex items-center">
                 <div className="mr-3 p-2 rounded-full" style={{ backgroundColor: colors.bgHighlight }}>
-                  <ShareIcon size={24} style={{ color: colors.accent }} aria-hidden="true" />
+                  <ShareIcon size={24} style={{ color: colors.accent }} />
                 </div>
                 <div>
                   <h3 className="font-medium transition-colors" style={{ color: colors.espresso }}>一键分享</h3>
@@ -316,7 +311,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
                 className="py-2.5 px-4 text-white rounded-md transition-opacity duration-200 flex items-center justify-center text-sm shadow font-medium hover:opacity-90 w-full sm:w-auto"
                 style={{ backgroundColor: colors.accent }}
               >
-                <ShareIcon size={16} className="mr-1.5" aria-hidden="true" />
+                <ShareIcon size={16} className="mr-1.5" />
                 {isNativePlatform ? '立即分享' : (navigator.share ? '立即分享' : '复制链接')}
               </button>
             </div>
@@ -341,12 +336,12 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
                 >
                   {linkCopied ? (
                     <>
-                      <Check size={14} className="mr-1.5" aria-hidden="true" />
+                      <Check size={14} className="mr-1.5" />
                       已复制
                     </>
                   ) : (
                     <>
-                      <Copy size={14} className="mr-1.5" aria-hidden="true" />
+                      <Copy size={14} className="mr-1.5" />
                       复制链接
                     </>
                   )}
@@ -371,7 +366,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
           className="text-xl font-semibold mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <Info size={20} className="mr-2" aria-hidden="true" /> 关于咖啡因追踪器
+          <Info size={20} className="mr-2" /> 关于咖啡因追踪器
         </h2>
 
         <div className="space-y-4 text-sm transition-colors" style={{ color: colors.textSecondary }}>
@@ -381,7 +376,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="p-3 rounded-lg flex items-start gap-2 transition-colors" style={{ backgroundColor: colors.bgBase }}>
-              <Sparkle size={18} className="mt-0.5 flex-shrink-0" style={{ color: colors.accent }} aria-hidden="true" />
+              <Sparkle size={18} className="mt-0.5 flex-shrink-0" style={{ color: colors.accent }} />
               <div>
                 <h3 className="font-medium mb-1 transition-colors" style={{ color: colors.espresso }}>应用特性</h3>
                 <p>简单易用，功能丰富，提供可视化的数据显示。</p>
@@ -389,7 +384,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
             </div>
 
             <div className="p-3 rounded-lg flex items-start gap-2 transition-colors" style={{ backgroundColor: colors.bgBase }}>
-              <Coffee size={18} className="mt-0.5 flex-shrink-0" style={{ color: colors.accent }} aria-hidden="true" />
+              <Coffee size={18} className="mt-0.5 flex-shrink-0" style={{ color: colors.accent }} />
               <div>
                 <h3 className="font-medium mb-1 transition-colors" style={{ color: colors.espresso }}>应用初衷</h3>
                 <p>帮助咖啡爱好者更科学地管理咖啡因摄入，避免过量摄入影响健康和睡眠</p>
@@ -397,7 +392,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
             </div>
 
             <div className="p-3 rounded-lg flex items-start gap-2 transition-colors" style={{ backgroundColor: colors.bgBase }}>
-              <HeartPulse size={18} className="mt-0.5 flex-shrink-0" style={{ color: colors.accent }} aria-hidden="true" />
+              <HeartPulse size={18} className="mt-0.5 flex-shrink-0" style={{ color: colors.accent }} />
               <div>
                 <h3 className="font-medium mb-1 transition-colors" style={{ color: colors.espresso }}>健康导向</h3>
                 <p>基于科学研究提供个性化建议，促进健康的咖啡因摄入习惯</p>
@@ -405,7 +400,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
             </div>
 
             <div className="p-3 rounded-lg flex items-start gap-2 transition-colors" style={{ backgroundColor: colors.bgBase }}>
-              <Brain size={18} className="mt-0.5 flex-shrink-0" style={{ color: colors.accent }} aria-hidden="true" />
+              <Brain size={18} className="mt-0.5 flex-shrink-0" style={{ color: colors.accent }} />
               <div>
                 <h3 className="font-medium mb-1 transition-colors" style={{ color: colors.espresso }}>持续改进</h3>
                 <p>欢迎用户反馈，不断完善功能和科学模型的准确性</p>
@@ -429,7 +424,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
           className="text-xl font-semibold mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <Coffee size={20} className="mr-2" aria-hidden="true" /> 计算与科学依据
+          <Coffee size={20} className="mr-2" /> 计算与科学依据
         </h2>
 
         <div className="space-y-5 text-sm transition-colors" style={{ color: colors.textSecondary }}>
@@ -439,13 +434,13 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
             style={{
               backgroundColor: colors.warningBg,
               color: colors.warningText,
-              borderColor: colors.warningText, // Use themed border color
+              borderColor: colors.warningText,
               borderWidth: '1px',
               borderStyle: 'solid',
             }}
           >
             <h3 className="font-semibold mb-2 flex items-center">
-              <AlertTriangle size={16} className="mr-1.5" aria-hidden="true" /> 预设数据提醒
+              <AlertTriangle size={16} className="mr-1.5" /> 预设数据提醒
             </h3>
             <p>
               应用内预设饮品的咖啡因含量是基于公开数据整理或估算得出，<strong>可能与实际含量存在差异</strong>。不同品牌、不同杯型、不同制作方式甚至不同批次都可能影响实际含量。例如，一杯手冲咖啡的咖啡因含量可能远高于一杯速溶咖啡。
@@ -461,13 +456,13 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
             style={{
               backgroundColor: colors.warningBg,
               color: colors.warningText,
-              borderColor: colors.warningText, // Use themed border color
+              borderColor: colors.warningText,
               borderWidth: '1px',
               borderStyle: 'solid',
             }}
           >
             <h3 className="font-semibold mb-2 flex items-center">
-              <AlertTriangle size={16} className="mr-1.5" aria-hidden="true" /> 计算模型局限性
+              <AlertTriangle size={16} className="mr-1.5" /> 计算模型局限性
             </h3>
             <ul className="list-disc list-inside space-y-3">
               <li>
@@ -497,13 +492,13 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
             style={{
               backgroundColor: colors.successBg,
               color: colors.successText,
-              borderColor: colors.successText, // Use themed border color
+              borderColor: colors.successText,
               borderWidth: '1px',
               borderStyle: 'solid',
             }}
           >
             <h3 className="font-semibold mb-2 flex items-center">
-              <BookOpen size={16} className="mr-1.5" aria-hidden="true" /> 个性化调整建议
+              <BookOpen size={16} className="mr-1.5" /> 个性化调整建议
             </h3>
             <p>
               <strong>我们强烈建议结合自身的实际感受和经验，在"设置"页面仔细调整关键参数：</strong>
@@ -520,7 +515,6 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
               <strong>通过个性化调整，您可以让应用的估算结果更贴合您的个人情况，但请始终记住这仍然是估算。</strong>
             </p>
           </div>
-
         </div>
       </section>
 
@@ -538,7 +532,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
           className="text-xl font-semibold mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <AlertTriangle size={20} className="mr-2" aria-hidden="true" /> 免责声明
+          <AlertTriangle size={20} className="mr-2" /> 免责声明
         </h2>
 
         <div className="text-sm transition-colors" style={{ color: colors.textSecondary }}>
