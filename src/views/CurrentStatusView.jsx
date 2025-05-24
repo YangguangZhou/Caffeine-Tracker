@@ -482,7 +482,7 @@ const CurrentStatusView = ({
           <Activity size={18} className="mr-2" /> 详细统计
         </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+        <div className="grid grid-cols-2 gap-4 sm:gap-6">
           {/* 代谢信息 */}
           {metabolismInfo && (
             <div>
