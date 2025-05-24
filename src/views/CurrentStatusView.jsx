@@ -146,28 +146,52 @@ const CurrentStatusView = ({
     });
     const maxDaily = Math.max(...Object.values(dailyTotals));
     
-    // 计算平均每日摄入（仅统计有记录的天数）
-    const totalAmount = records.reduce((sum, record) => sum + record.amount, 0);
-    const avgDaily = totalAmount / totalDays;
+    // 计算平均每日摄入（仅统计有记录的天数）和总摄入量
+    const overallTotalAmount = records.reduce((sum, record) => sum + record.amount, 0);
+    const avgDaily = totalDays > 0 ? overallTotalAmount / totalDays : 0;
     
-    // 计算最常摄入的饮品
-    const drinkCounts = {};
+    // 计算各饮品类型的饮用次数和总摄入量
+    const drinkGroupStats = {};
     records.forEach(record => {
-      const drinkName = record.name || '未知';
-      drinkCounts[drinkName] = (drinkCounts[drinkName] || 0) + 1;
+      let groupKey = '';
+      let groupName = '';
+      if (record.drinkId) {
+        const linkedDrink = drinks.find(d => d.id === record.drinkId);
+        groupKey = record.drinkId; // 使用 ID 作为预设饮品的键
+        groupName = linkedDrink ? linkedDrink.name : (record.customName || record.name || '未知饮品');
+      } else {
+        // 对于没有 drinkId 的自定义条目，按其名称分组
+        groupKey = record.customName || record.name || 'custom-manual-entry';
+        groupName = record.customName || record.name || '自定义摄入';
+      }
+      
+      if (!drinkGroupStats[groupKey]) {
+        drinkGroupStats[groupKey] = { count: 0, totalAmount: 0, name: groupName };
+      }
+      drinkGroupStats[groupKey].count += 1;
+      drinkGroupStats[groupKey].totalAmount += record.amount;
     });
-    const mostFrequent = Object.keys(drinkCounts).reduce((a, b) => 
-      drinkCounts[a] > drinkCounts[b] ? a : b, '');
+    
+    let mostFrequentName = '';
+    let mostFrequentCumulativeAmount = 0;
+
+    if (Object.keys(drinkGroupStats).length > 0) {
+      // 找出饮用次数最多的饮品组
+      const topDrinkGroupByCount = Object.values(drinkGroupStats).reduce((a, b) => a.count > b.count ? a : b);
+      mostFrequentName = topDrinkGroupByCount.name;
+      mostFrequentCumulativeAmount = topDrinkGroupByCount.totalAmount;
+    }
 
     return {
       totalDays,
       totalRecords: records.length,
       maxDaily: Math.round(maxDaily),
       avgDaily: Math.round(avgDaily),
-      mostFrequent,
-      totalAmount: Math.round(totalAmount)
+      mostFrequentName: mostFrequentName, // 最常饮用（按次数）的饮品名称
+      mostFrequentCumulativeAmount: Math.round(mostFrequentCumulativeAmount), // 该最常饮用饮品的累计摄入量
+      totalAmount: Math.round(overallTotalAmount) // 所有饮品的总累计量，以备后用或可移除
     };
-  }, [records]);
+  }, [records, drinks]);
 
   const handleAddRecordClick = () => {
     setEditingRecord(null);
@@ -376,7 +400,7 @@ const CurrentStatusView = ({
               ) : (
                 <Minus size={12} className="mr-1" />
               )}
-              <span className="text-xs">本周趋势</span>
+              <span className="text-xs">本周平均</span>
             </div>
             <span
               className="font-semibold text-sm block transition-colors"
@@ -444,7 +468,7 @@ const CurrentStatusView = ({
       {/* 代谢与历史数据卡片 */}
       <section
         aria-labelledby="detailed-stats-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="mb-5 rounded-xl p-4 sm:p-6 shadow-lg border transition-colors"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -452,23 +476,23 @@ const CurrentStatusView = ({
       >
         <h2
           id="detailed-stats-heading"
-          className="text-lg font-semibold mb-4 flex items-center transition-colors"
+          className="text-lg font-semibold mb-3 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
           <Activity size={18} className="mr-2" /> 详细统计
         </h2>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           {/* 代谢信息 */}
           {metabolismInfo && (
             <div>
-              <h3 className="font-medium mb-3 text-sm flex items-center" style={{ color: colors.espresso }}>
+              <h3 className="font-medium mb-2 text-sm flex items-center" style={{ color: colors.espresso }}>
                 <Timer size={16} className="mr-1.5" />
                 代谢状态
               </h3>
-              <div className="space-y-3 text-xs">
+              <div className="space-y-2 text-xs">
                 <div
-                  className="p-3 rounded transition-colors"
+                  className="p-2.5 rounded transition-colors"
                   style={{ backgroundColor: colors.bgBase }}
                 >
                   <div className="flex justify-between items-center">
@@ -477,34 +501,34 @@ const CurrentStatusView = ({
                       {metabolismInfo.clearanceRate} mg/h
                     </span>
                   </div>
-                  <div className="text-xs mt-1" style={{ color: colors.textMuted }}>
+                  <div className="text-xs mt-0.5" style={{ color: colors.textMuted }}>
                     半衰期: {metabolismInfo.halfLife}h
                   </div>
                 </div>
                 
                 <div
-                  className="p-3 rounded transition-colors"
+                  className="p-2.5 rounded transition-colors"
                   style={{ backgroundColor: colors.bgBase }}
                 >
                   <div className="flex justify-between items-center">
                     <span style={{ color: colors.textMuted }}>距上次摄入</span>
                     <span className="font-medium" style={{ color: colors.espresso }}>
-                      {metabolismInfo.timeSinceLastIntake} 小时
+                      {metabolismInfo.timeSinceLastIntake}h
                     </span>
                   </div>
                 </div>
                 
                 <div
-                  className="p-3 rounded transition-colors"
+                  className="p-2.5 rounded transition-colors"
                   style={{ backgroundColor: colors.bgBase }}
                 >
                   <div className="flex justify-between items-center">
                     <span style={{ color: colors.textMuted }}>预计清除时间</span>
                     <span className="font-medium" style={{ color: colors.espresso }}>
-                      {metabolismInfo.timeToClear} 小时
+                      {metabolismInfo.timeToClear}h
                     </span>
                   </div>
-                  <div className="text-xs mt-1" style={{ color: colors.textMuted }}>
+                  <div className="text-xs mt-0.5" style={{ color: colors.textMuted }}>
                     降至 5mg 以下
                   </div>
                 </div>
@@ -515,53 +539,53 @@ const CurrentStatusView = ({
           {/* 历史统计 */}
           {historicalStats && (
             <div>
-              <h3 className="font-medium mb-3 text-sm flex items-center" style={{ color: colors.espresso }}>
+              <h3 className="font-medium mb-2 text-sm flex items-center" style={{ color: colors.espresso }}>
                 <BarChart3 size={16} className="mr-1.5" />
                 历史数据
               </h3>
-              <div className="space-y-3 text-xs">
+              <div className="space-y-2 text-xs">
                 <div
-                  className="p-3 rounded transition-colors"
+                  className="p-2.5 rounded transition-colors"
                   style={{ backgroundColor: colors.bgBase }}
                 >
                   <div className="flex justify-between items-center">
                     <span style={{ color: colors.textMuted }}>记录天数</span>
                     <span className="font-medium" style={{ color: colors.espresso }}>
-                      {historicalStats.totalDays} 天
+                      {historicalStats.totalDays}天
                     </span>
                   </div>
-                  <div className="text-xs mt-1" style={{ color: colors.textMuted }}>
-                    总记录: {historicalStats.totalRecords} 次
+                  <div className="text-xs mt-0.5" style={{ color: colors.textMuted }}>
+                    总记录: {historicalStats.totalRecords}次
                   </div>
                 </div>
                 
                 <div
-                  className="p-3 rounded transition-colors"
+                  className="p-2.5 rounded transition-colors"
                   style={{ backgroundColor: colors.bgBase }}
                 >
                   <div className="flex justify-between items-center">
                     <span style={{ color: colors.textMuted }}>最高单日</span>
                     <span className="font-medium" style={{ color: colors.espresso }}>
-                      {historicalStats.maxDaily} mg
+                      {historicalStats.maxDaily}mg
                     </span>
                   </div>
-                  <div className="text-xs mt-1" style={{ color: colors.textMuted }}>
-                    日均: {historicalStats.avgDaily} mg
+                  <div className="text-xs mt-0.5" style={{ color: colors.textMuted }}>
+                    日均: {historicalStats.avgDaily}mg
                   </div>
                 </div>
                 
                 <div
-                  className="p-3 rounded transition-colors"
+                  className="p-2.5 rounded transition-colors"
                   style={{ backgroundColor: colors.bgBase }}
                 >
                   <div className="flex justify-between items-center">
-                    <span style={{ color: colors.textMuted }}>最常饮品</span>
-                    <span className="font-medium truncate ml-2 max-w-20" style={{ color: colors.espresso }} title={historicalStats.mostFrequent}>
-                      {historicalStats.mostFrequent}
+                    <span style={{ color: colors.textMuted }}>最常饮用</span>
+                    <span className="font-medium truncate ml-2 flex-1 text-right" style={{ color: colors.espresso }} title={historicalStats.mostFrequentName}>
+                      {historicalStats.mostFrequentName || 'N/A'}
                     </span>
                   </div>
-                  <div className="text-xs mt-1" style={{ color: colors.textMuted }}>
-                    累计: {historicalStats.totalAmount} mg
+                  <div className="text-xs mt-0.5" style={{ color: colors.textMuted }}>
+                    累计: {historicalStats.mostFrequentCumulativeAmount}mg
                   </div>
                 </div>
               </div>

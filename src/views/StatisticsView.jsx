@@ -1,9 +1,10 @@
 import React, { useCallback, useMemo } from 'react';
 import {
   BarChart2, ChevronLeft, ChevronRight,
-  PieChart, Heart, Award, Clock, Info, Calendar, AlertCircle, Target
+  Heart, Award, Clock, Info, Calendar, AlertCircle, Target, PieChart as PieChartIcon
 } from 'lucide-react';
 import StatsChart from '../components/StatsChart';
+import PieChart from '../components/PieChart';
 import {
   getStartOfWeek, getEndOfWeek,
   getStartOfMonth, getEndOfMonth,
@@ -573,65 +574,21 @@ const StatisticsView = ({
           className="text-xl font-semibold mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <PieChart size={20} className="mr-2" /> 摄入来源分析 (所有记录)
+          <PieChartIcon size={20} className="mr-2" /> 摄入来源分析 (所有记录)
         </h3>
-        <ul className="space-y-3">
-          {caffeineDistribution.length > 0 ? (
-            caffeineDistribution.slice(0, 7).map((item, index) => (
-              <li key={item.id} className="flex items-center text-sm">
-                <span
-                  className="w-28 truncate pr-2 transition-colors"
-                  style={{ color: colors.textSecondary }}
-                  title={item.name}
-                >
-                  {item.name}
-                </span>
-                <div className="flex-1 mx-2" aria-label={`${item.name} 摄入量占比`}>
-                  <div className="h-4 bg-gray-200 rounded-full overflow-hidden shadow-inner">
-                    <div
-                      className="h-full rounded-full transition-all duration-500 ease-out"
-                      style={{
-                        width: `${item.percentage}%`,
-                        backgroundColor: [
-                          colors.espresso, colors.latte, colors.cappuccino, colors.accent,
-                          colors.grid, colors.warning, colors.danger
-                        ][index % 7]
-                      }}
-                      role="progressbar"
-                      aria-valuenow={item.percentage}
-                      aria-valuemin="0"
-                      aria-valuemax="100"
-                      aria-label={`${item.percentage}%`}
-                    ></div>
-                  </div>
-                </div>
-                <div className="w-24 text-right">
-                  <span
-                    className="font-medium transition-colors"
-                    style={{ color: colors.espresso }}
-                  >
-                    {item.percentage}%
-                  </span>
-                  <span
-                    className="text-xs transition-colors ml-1"
-                    style={{ color: colors.textMuted }}
-                  >
-                    ({item.amount}mg)
-                  </span>
-                </div>
-              </li>
-            ))
-          ) : (
-            <li>
-              <p
-                className="text-center py-3 transition-colors"
-                style={{ color: colors.textMuted }}
-              >
-                没有足够的记录进行分析。
-              </p>
-            </li>
-          )}
-        </ul>
+        
+        {caffeineDistribution.length > 0 ? (
+          <PieChart data={caffeineDistribution} colors={colors} />
+        ) : (
+          <div
+            className="text-center py-8 transition-colors"
+            style={{ color: colors.textMuted }}
+          >
+            <PieChartIcon size={48} className="mx-auto mb-3 opacity-50" />
+            <p>没有足够的记录进行分析。</p>
+            <p className="text-xs mt-1">开始记录您的咖啡因摄入来获得详细分析。</p>
+          </div>
+        )}
       </section>
 
       {/* 详细统计分析卡片 */}
@@ -652,7 +609,7 @@ const StatisticsView = ({
             <BarChart2 size={20} className="mr-2" /> 详细统计分析
           </h3>
           
-          <div className="grid grid-cols-3 gap-4 text-sm mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-6">
             {/* 超标分析 */}
             <div
               className="p-3 rounded-lg transition-colors"
@@ -662,26 +619,26 @@ const StatisticsView = ({
                 <AlertCircle size={14} className="mr-1" />
                 超标分析
               </h4>
-              <div className="space-y-1 text-xs" style={{ color: colors.textSecondary }}>
-                <div className="flex justify-between items-center">
-                  <span>记录天数</span>
-                  <span className="font-medium" style={{ color: colors.espresso }}>
+              <div className="grid grid-cols-3 gap-2 text-xs" style={{ color: colors.textSecondary }}>
+                <div className="text-center">
+                  <div className="text-xs mb-1">记录天数</div>
+                  <div className="font-medium" style={{ color: colors.espresso }}>
                     {detailedStats.totalDays}天
-                  </span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span>超标天数</span>
-                  <span className={`font-medium ${detailedStats.exceedDays > 0 ? 'text-orange-600' : ''}`} 
+                <div className="text-center">
+                  <div className="text-xs mb-1">超标天数</div>
+                  <div className={`font-medium ${detailedStats.exceedDays > 0 ? 'text-orange-600' : ''}`} 
                         style={{ color: detailedStats.exceedDays > 0 ? undefined : colors.espresso }}>
                     {detailedStats.exceedDays}天
-                  </span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span>超标率</span>
-                  <span className={`font-medium ${detailedStats.exceedRate > 20 ? 'text-red-600' : detailedStats.exceedRate > 10 ? 'text-orange-600' : ''}`}
+                <div className="text-center">
+                  <div className="text-xs mb-1">超标率</div>
+                  <div className={`font-medium ${detailedStats.exceedRate > 20 ? 'text-red-600' : detailedStats.exceedRate > 10 ? 'text-orange-600' : ''}`}
                         style={{ color: detailedStats.exceedRate <= 10 ? colors.espresso : undefined }}>
                     {detailedStats.exceedRate}%
-                  </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -695,24 +652,24 @@ const StatisticsView = ({
                 <Clock size={14} className="mr-1" />
                 摄入模式
               </h4>
-              <div className="space-y-1 text-xs" style={{ color: colors.textSecondary }}>
-                <div className="flex justify-between items-center">
-                  <span>高峰时段</span>
-                  <span className="font-medium" style={{ color: colors.espresso }}>
+              <div className="grid grid-cols-3 gap-2 text-xs" style={{ color: colors.textSecondary }}>
+                <div className="text-center">
+                  <div className="text-xs mb-1">高峰时段</div>
+                  <div className="font-medium" style={{ color: colors.espresso }}>
                     {detailedStats.peakHour}:00
-                  </span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span>高峰摄入</span>
-                  <span className="font-medium" style={{ color: colors.espresso }}>
+                <div className="text-center">
+                  <div className="text-xs mb-1">高峰摄入</div>
+                  <div className="font-medium" style={{ color: colors.espresso }}>
                     {detailedStats.peakAmount}mg
-                  </span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span>平均间隔</span>
-                  <span className="font-medium" style={{ color: colors.espresso }}>
+                <div className="text-center">
+                  <div className="text-xs mb-1">平均间隔</div>
+                  <div className="font-medium" style={{ color: colors.espresso }}>
                     {detailedStats.avgInterval}h
-                  </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -726,24 +683,24 @@ const StatisticsView = ({
                 <Target size={14} className="mr-1" />
                 摄入记录
               </h4>
-              <div className="space-y-1 text-xs" style={{ color: colors.textSecondary }}>
-                <div className="flex justify-between items-center">
-                  <span>最大单次</span>
-                  <span className="font-medium" style={{ color: colors.espresso }}>
+              <div className="grid grid-cols-3 gap-2 text-xs" style={{ color: colors.textSecondary }}>
+                <div className="text-center">
+                  <div className="text-xs mb-1">最大单次</div>
+                  <div className="font-medium" style={{ color: colors.espresso }}>
                     {detailedStats.maxSingleIntake}mg
-                  </span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span>最长连续</span>
-                  <span className="font-medium" style={{ color: colors.espresso }}>
+                <div className="text-center">
+                  <div className="text-xs mb-1">最长连续</div>
+                  <div className="font-medium" style={{ color: colors.espresso }}>
                     {detailedStats.maxStreak}天
-                  </span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span>当前连续</span>
-                  <span className="font-medium" style={{ color: colors.espresso }}>
+                <div className="text-center">
+                  <div className="text-xs mb-1">当前连续</div>
+                  <div className="font-medium" style={{ color: colors.espresso }}>
                     {detailedStats.currentStreak}天
-                  </span>
+                  </div>
                 </div>
               </div>
             </div>
