@@ -51,6 +51,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
   let mainItems = [];
   let otherTotal = 0;
   let otherCount = 0;
+  let otherItemCount = 0; // 修复：记录"其他"项目的实际次数
 
   data.forEach(item => {
     if (item.percentage >= threshold) {
@@ -58,6 +59,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
     } else {
       otherTotal += item.amount;
       otherCount += item.percentage;
+      otherItemCount += item.count; // 修复：累加实际次数
     }
   });
 
@@ -67,6 +69,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
       id: 'others',
       name: '其他',
       amount: Math.round(otherTotal),
+      count: otherItemCount, // 修复：使用正确的次数
       percentage: Math.round(otherCount)
     });
   }
@@ -141,7 +144,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
 
   return (
     <div 
-      className="flex flex-col lg:flex-row items-center gap-6" 
+      className="flex flex-col items-center gap-6" 
       onClick={handleContainerClick} // 添加到根容器
     >
       {/* 饼状图 */}
@@ -223,11 +226,11 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
         className="flex-1 min-w-0"
         onClick={(e) => e.stopPropagation()} // 阻止事件冒泡到根容器
       >
-        <div className="grid grid-cols-1 gap-1">
+        <div className="grid grid-cols-2 gap-1"> {/* 统一使用两列布局 */}
           {sectors.map((sector) => (
             <div 
               key={sector.id} 
-              className="flex items-center text-xs py-1 px-2 rounded cursor-pointer hover:bg-gray-50 transition-colors"
+              className="flex items-center text-xs py-1 px-1.5 rounded cursor-pointer hover:bg-gray-50 transition-colors" // 统一使用紧凑padding
               onClick={(e) => {
                 e.stopPropagation(); // 阻止冒泡
                 handleSectorClick(sector);
@@ -237,7 +240,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
               }}
             >
               <div
-                className="w-3 h-3 rounded-full mr-2 flex-shrink-0 border"
+                className="w-2.5 h-2.5 rounded-full mr-1.5 flex-shrink-0 border" // 统一使用小图标尺寸
                 style={{ 
                   backgroundColor: sector.color,
                   borderColor: 'white'
@@ -245,19 +248,19 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
               />
               <div className="flex-1 min-w-0">
                 <div
-                  className="font-medium truncate text-xs"
+                  className="font-medium truncate text-xs leading-tight" // 统一使用紧凑行高
                   style={{ color: defaultColors.textPrimary }}
                   title={sector.name}
                 >
                   {sector.name}
                 </div>
                 <div
-                  className="text-xs"
+                  className="text-xs leading-tight" // 统一使用紧凑行高
                   style={{ color: defaultColors.textMuted }}
                 >
                   {sortBy === 'count' 
-                    ? `${sector.count}次 (${sector.percentage}%) • ${sector.amount}mg`
-                    : `${sector.percentage}% (${sector.amount}mg) • ${sector.count}次`
+                    ? `${sector.count}次 ${sector.percentage}%` // 统一使用简化显示
+                    : `${sector.percentage}% ${sector.count}次` // 统一使用简化显示
                   }
                 </div>
               </div>
@@ -267,7 +270,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
         
         {/* 总计信息 */}
         <div
-          className="mt-4 pt-3 border-t text-sm"
+          className="mt-3 pt-2 border-t text-sm" // 统一使用紧凑间距
           style={{ borderColor: defaultColors.borderSubtle, color: defaultColors.textMuted }}
         >
           <div className="flex justify-between items-center text-xs mb-1">

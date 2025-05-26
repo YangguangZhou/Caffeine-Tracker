@@ -903,26 +903,24 @@ const StatisticsView = ({
             <p 
               className="text-xs mt-2 text-center" 
               style={{ color: colors.textMuted }}
-              onClick={(e) => e.stopPropagation()} // 点击提示文字不清除
+              onClick={(e) => e.stopPropagation()}
             >
               最常摄入: {detailedStats.weekdayNames[detailedStats.maxWeekdayIndex]} 
               ({Math.round(detailedStats.weekdayTotals[detailedStats.maxWeekdayIndex])}mg)
-              {selectedWeekday !== null && ` • 点击图表外空白处取消选中`}
             </p>
           </div>
 
           {/* 时间分布图 */}
-          <div onClick={() => setSelectedHour(null)}> {/* 点击此区域空白处清除 */}
+          <div onClick={() => setSelectedHour(null)}>
             <h4 
               className="font-semibold mb-3 text-sm" 
               style={{ color: colors.espresso }}
-              onClick={(e) => e.stopPropagation()} // 点击标题不清除
+              onClick={(e) => e.stopPropagation()}
             >
               24小时摄入分布
             </h4>
             <div 
               className="grid grid-cols-12 gap-1 mb-2"
-              // onClick handler removed from here
             >
               {detailedStats.hourlyDistribution.map((amount, hour) => {
                 const maxAmount = Math.max(...detailedStats.hourlyDistribution);
@@ -942,14 +940,14 @@ const StatisticsView = ({
                       }}
                       title={`${hour}:00 - ${Math.round(amount)}mg`}
                       onClick={(e) => {
-                        e.stopPropagation(); // 点击柱状图区域不清除，并切换选中
+                        e.stopPropagation();
                         setSelectedHour(selectedHour === hour ? null : hour);
                       }}
                     />
                     <span 
                       className="text-xs" 
                       style={{ color: colors.textMuted }}
-                      onClick={(e) => e.stopPropagation()} // 点击文字不清除
+                      onClick={(e) => e.stopPropagation()}
                     >
                       {hour}
                     </span>
@@ -957,7 +955,7 @@ const StatisticsView = ({
                       <div 
                         className="text-xs mt-1 font-medium" 
                         style={{ color: colors.espresso }}
-                        onClick={(e) => e.stopPropagation()} // 点击数值不清除
+                        onClick={(e) => e.stopPropagation()}
                       >
                         {Math.round(amount)}mg
                       </div>
@@ -969,10 +967,9 @@ const StatisticsView = ({
             <p 
               className="text-xs text-center" 
               style={{ color: colors.textMuted }}
-              onClick={(e) => e.stopPropagation()} // 点击提示文字不清除
+              onClick={(e) => e.stopPropagation()}
             >
               高峰时段: {detailedStats.peakHour}:00 ({detailedStats.peakAmount}mg)
-              {selectedHour !== null && ` • 点击图表外空白处取消选中`}
             </p>
           </div>
         </section>
