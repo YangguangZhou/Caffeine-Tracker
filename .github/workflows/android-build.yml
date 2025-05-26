@@ -69,26 +69,6 @@ jobs:
         storeFile=release.keystore
         EOF
 
-    - name: Add signing config to build.gradle
-      run: |
-        cd android/app
-        cp build.gradle build.gradle.backup
-        sed -i '/android {/a\
-        \    def keystorePropertiesFile = rootProject.file("keystore.properties")\
-        \    def keystoreProperties = new Properties()\
-        \    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\
-        \    \
-        \    signingConfigs {\
-        \        release {\
-        \            keyAlias keystoreProperties["keyAlias"]\
-        \            keyPassword keystoreProperties["keyPassword"]\
-        \            storeFile file(keystoreProperties["storeFile"])\
-        \            storePassword keystoreProperties["storePassword"]\
-        \        }\
-        \    }' build.gradle
-        sed -i '/release {/a\
-        \            signingConfig signingConfigs.release' build.gradle
-
     - name: Build signed APK
       run: |
         cd android
@@ -156,4 +136,3 @@ jobs:
       run: |
         rm -f android/app/release.keystore
         rm -f android/keystore.properties
-        rm -f android/app/build.gradle.backup
