@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 
 /**
  * 饼状图组件
  * 用于显示咖啡因摄入来源分布
  */
-const PieChart = ({ data, colors = {} }) => {
+const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => {
   const [selectedSector, setSelectedSector] = useState(null);
+  const chartRef = useRef(null);
 
   // 提供默认颜色值以防止 undefined 错误
   const defaultColors = {
@@ -124,23 +125,46 @@ const PieChart = ({ data, colors = {} }) => {
   };
 
   const handleChartClick = (e) => {
-    // 如果点击的是空白区域（即 SVG 背景），清空选中状态
-    if (e.target.tagName === 'svg') {
-      setSelectedSector(null);
+    // 检查点击是否在图表容器内但不是扇形
+    if (chartRef.current && chartRef.current.contains(e.target)) {
+      // 如果点击的不是路径元素，清空选中状态
+      if (e.target.tagName !== 'path') {
+        setSelectedSector(null);
+      }
     }
   };
 
+  const handleContainerClick = (e) => {
+    // 点击组件根容器的空白处时，清除选中状态
+    setSelectedSector(null);
+  };
+
   return (
-    <div className="flex flex-col lg:flex-row items-center gap-6">
+    <div 
+      className="flex flex-col lg:flex-row items-center gap-6" 
+      onClick={handleContainerClick} // 添加到根容器
+    >
       {/* 饼状图 */}
-      <div className="flex-shrink-0">
+      <div 
+        className="flex-shrink-0" 
+        ref={chartRef}
+        onClick={(e) => e.stopPropagation()} // 阻止事件冒泡到根容器
+      >
         <svg 
           width="200" 
           height="200" 
           viewBox="0 0 200 200" 
           className="drop-shadow-sm cursor-pointer"
-          onClick={handleChartClick}
+          // onClick={handleChartClick} // 此处的 handleChartClick 确保SVG背景点击也清除
         >
+          {/* 添加透明背景圆形来确保点击检测 */}
+          <circle
+            cx="100"
+            cy="100"
+            r="95" // 确保半径足够大以覆盖整个饼图区域
+            fill="transparent"
+            onClick={() => setSelectedSector(null)} // 点击SVG背景清除
+          />
           {sectors.map((sector, index) => (
             <g key={sector.id}>
               <path
@@ -148,17 +172,25 @@ const PieChart = ({ data, colors = {} }) => {
                 fill={sector.color}
                 stroke="white"
                 strokeWidth="3"
-                className="hover:opacity-80 transition-all duration-200 cursor-pointer"
+                className="cursor-pointer"
                 style={{
                   filter: selectedSector?.id === sector.id ? 'brightness(1.2)' : 'none',
                   transform: selectedSector?.id === sector.id ? 'scale(1.05)' : 'scale(1)',
-                  transformOrigin: '100px 100px'
+                  transformOrigin: '100px 100px',
+                  transition: 'transform 0.3s ease-in-out, filter 0.3s ease-in-out, opacity 0.3s ease-in-out',
+                  opacity: selectedSector && selectedSector.id !== sector.id ? 0.7 : 1,
+                }}
+                onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                onMouseLeave={e => {
+                  if (!(selectedSector && selectedSector.id === sector.id)) {
+                     e.currentTarget.style.opacity = selectedSector ? '0.7' : '1';
+                  }
                 }}
                 onClick={(e) => {
-                  e.stopPropagation();
+                  e.stopPropagation(); // 阻止冒泡到SVG背景或根容器
                   handleSectorClick(sector);
                 }}
-                title={`${sector.name}: ${sector.percentage}% (${sector.amount}mg)`}
+                title={`${sector.name}: ${sortBy === 'count' ? `${sector.count}次 (${sector.percentage}%)` : `${sector.percentage}% (${sector.amount}mg)`}`}
               />
             </g>
           ))}
@@ -173,23 +205,33 @@ const PieChart = ({ data, colors = {} }) => {
               borderColor: selectedSector.color,
               color: defaultColors.textPrimary
             }}
+            onClick={(e) => e.stopPropagation()} // 阻止冒泡
           >
             <div className="font-semibold text-sm">{selectedSector.name}</div>
             <div className="text-xs mt-1" style={{ color: defaultColors.textSecondary }}>
-              {selectedSector.percentage}% • {selectedSector.amount}mg
+              {sortBy === 'count' 
+                ? `${selectedSector.count}次 • ${selectedSector.percentage}% • ${selectedSector.amount}mg`
+                : `${selectedSector.percentage}% • ${selectedSector.amount}mg • ${selectedSector.count}次`
+              }
             </div>
           </div>
         )}
       </div>
 
       {/* 图例 */}
-      <div className="flex-1 min-w-0">
-        <div className="grid grid-cols-2 gap-1">
+      <div 
+        className="flex-1 min-w-0"
+        onClick={(e) => e.stopPropagation()} // 阻止事件冒泡到根容器
+      >
+        <div className="grid grid-cols-1 gap-1">
           {sectors.map((sector) => (
             <div 
               key={sector.id} 
               className="flex items-center text-xs py-1 px-2 rounded cursor-pointer hover:bg-gray-50 transition-colors"
-              onClick={() => handleSectorClick(sector)}
+              onClick={(e) => {
+                e.stopPropagation(); // 阻止冒泡
+                handleSectorClick(sector);
+              }}
               style={{
                 backgroundColor: selectedSector?.id === sector.id ? sector.color + '20' : 'transparent'
               }}
@@ -213,7 +255,10 @@ const PieChart = ({ data, colors = {} }) => {
                   className="text-xs"
                   style={{ color: defaultColors.textMuted }}
                 >
-                  {sector.percentage}% ({sector.amount}mg)
+                  {sortBy === 'count' 
+                    ? `${sector.count}次 (${sector.percentage}%) • ${sector.amount}mg`
+                    : `${sector.percentage}% (${sector.amount}mg) • ${sector.count}次`
+                  }
                 </div>
               </div>
             </div>
@@ -225,24 +270,20 @@ const PieChart = ({ data, colors = {} }) => {
           className="mt-4 pt-3 border-t text-sm"
           style={{ borderColor: defaultColors.borderSubtle, color: defaultColors.textMuted }}
         >
-          <div className="flex justify-between items-center text-xs">
+          <div className="flex justify-between items-center text-xs mb-1">
             <span>总摄入量</span>
             <span className="font-medium" style={{ color: defaultColors.espresso }}>
               {data.reduce((sum, item) => sum + item.amount, 0)}mg
             </span>
           </div>
-          <div className="flex justify-between items-center mt-1 text-xs">
-            <span>记录来源</span>
+          <div className="flex justify-between items-center text-xs">
+            <span>总次数</span>
             <span className="font-medium" style={{ color: defaultColors.espresso }}>
-              {mainItems.length}种{otherTotal > 0 ? '（含其他）' : ''}
+              {totalRecords}次
             </span>
           </div>
         </div>
         
-        {/* 点击提示 */}
-        <div className="mt-2 text-xs text-center" style={{ color: defaultColors.textMuted }}>
-          点击扇形或图例查看详情 • 点击空白处清空选中
-        </div>
       </div>
     </div>
   );

@@ -76,22 +76,35 @@ const CurrentStatusView = ({
     if (currentCaffeineAmount <= 0) return null;
     
     const halfLife = userSettings.caffeineHalfLifeHours;
-    const clearanceRate = Math.log(2) / halfLife;
+    const clearanceRate = Math.log(2) / halfLife; // k
     const currentClearanceRate = currentCaffeineAmount * clearanceRate;
     
-    // 估算达到峰值浓度的时间（假设摄入后1小时达到峰值）
     const lastRecord = records.length > 0 ? records[0] : null;
     const timeSinceLastIntake = lastRecord ? (Date.now() - lastRecord.timestamp) / (1000 * 60 * 60) : 0;
     
-    // 估算完全清除时间（降至5mg以下）
     const timeToClear = currentCaffeineAmount > 5 ? 
       Math.log(currentCaffeineAmount / 5) / clearanceRate : 0;
-    
+
+    const estimatedPeakTime = timeSinceLastIntake <= 2 ? Math.max(0, 1 - timeSinceLastIntake) : 0;
+
+    // 新增：预计1小时后含量
+    // C(t) = C₀ * (0.5)^(t / t_half)  或者 C(t) = C₀ * e^(-kt)
+    // Here t = 1 hour
+    const estimatedAmountAfter1Hour = currentCaffeineAmount * Math.pow(0.5, 1 / halfLife);
+    let estimatedAmountAfter1HourDisplay = "接近清除";
+    if (estimatedAmountAfter1Hour > 1) { // Display if more than 1mg
+        estimatedAmountAfter1HourDisplay = `${Math.round(estimatedAmountAfter1Hour)} mg`;
+    }
+
+
     return {
       clearanceRate: Math.round(currentClearanceRate * 10) / 10,
       timeSinceLastIntake: Math.round(timeSinceLastIntake * 10) / 10,
       timeToClear: Math.round(timeToClear * 10) / 10,
-      halfLife: halfLife
+      halfLife: halfLife,
+      estimatedPeakTime: Math.round(estimatedPeakTime * 10) / 10,
+      estimatedAmountAfter1Hour: estimatedAmountAfter1HourDisplay,
+      isLowAmount: currentCaffeineAmount <= 5 // Helper for display logic
     };
   }, [currentCaffeineAmount, userSettings.caffeineHalfLifeHours, records]);
 
@@ -465,7 +478,7 @@ const CurrentStatusView = ({
         </div>
       </section>
 
-      {/* 代谢与历史数据卡片 */}
+      {/* 代谢与统计数据卡片 */}
       <section
         aria-labelledby="detailed-stats-heading"
         className="mb-5 rounded-xl p-4 sm:p-6 shadow-lg border transition-colors"
@@ -479,119 +492,73 @@ const CurrentStatusView = ({
           className="text-lg font-semibold mb-3 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <Activity size={18} className="mr-2" /> 详细统计
+          <Activity size={18} className="mr-2" /> 代谢与统计
         </h2>
 
-        <div className="grid grid-cols-2 gap-4 sm:gap-6">
-          {/* 代谢信息 */}
-          {metabolismInfo && (
-            <div>
-              <h3 className="font-medium mb-2 text-sm flex items-center" style={{ color: colors.espresso }}>
-                <Timer size={16} className="mr-1.5" />
-                代谢状态
-              </h3>
-              <div className="space-y-2 text-xs">
-                <div
-                  className="p-2.5 rounded transition-colors"
-                  style={{ backgroundColor: colors.bgBase }}
-                >
-                  <div className="flex justify-between items-center">
-                    <span style={{ color: colors.textMuted }}>当前清除速率</span>
-                    <span className="font-medium" style={{ color: colors.espresso }}>
-                      {metabolismInfo.clearanceRate} mg/h
-                    </span>
-                  </div>
-                  <div className="text-xs mt-0.5" style={{ color: colors.textMuted }}>
-                    半衰期: {metabolismInfo.halfLife}h
-                  </div>
-                </div>
-                
-                <div
-                  className="p-2.5 rounded transition-colors"
-                  style={{ backgroundColor: colors.bgBase }}
-                >
-                  <div className="flex justify-between items-center">
-                    <span style={{ color: colors.textMuted }}>距上次摄入</span>
-                    <span className="font-medium" style={{ color: colors.espresso }}>
-                      {metabolismInfo.timeSinceLastIntake}h
-                    </span>
-                  </div>
-                </div>
-                
-                <div
-                  className="p-2.5 rounded transition-colors"
-                  style={{ backgroundColor: colors.bgBase }}
-                >
-                  <div className="flex justify-between items-center">
-                    <span style={{ color: colors.textMuted }}>预计清除时间</span>
-                    <span className="font-medium" style={{ color: colors.espresso }}>
-                      {metabolismInfo.timeToClear}h
-                    </span>
-                  </div>
-                  <div className="text-xs mt-0.5" style={{ color: colors.textMuted }}>
-                    降至 5mg 以下
-                  </div>
-                </div>
+        {/* 代谢信息 - 2x2网格 */}
+        {metabolismInfo && (
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div
+              className="p-2.5 rounded transition-colors"
+              style={{ backgroundColor: colors.bgBase }}
+            >
+              <div className="flex justify-between items-center mb-1">
+                <span style={{ color: colors.textMuted }}>清除速率</span>
+                <span className="font-medium" style={{ color: colors.espresso }}>
+                  {metabolismInfo.clearanceRate} mg/h
+                </span>
+              </div>
+              <div className="text-xs" style={{ color: colors.textMuted }}>
+                半衰期: {metabolismInfo.halfLife}h
               </div>
             </div>
-          )}
+            
+            <div
+              className="p-2.5 rounded transition-colors"
+              style={{ backgroundColor: colors.bgBase }}
+            >
+              <div className="flex justify-between items-center mb-1">
+                <span style={{ color: colors.textMuted }}>距上次摄入</span>
+                <span className="font-medium" style={{ color: colors.espresso }}>
+                  {metabolismInfo.timeSinceLastIntake}h
+                </span>
+              </div>
+              <div className="text-xs" style={{ color: colors.textMuted }}>
+                {metabolismInfo.estimatedPeakTime > 0 ? `预计${metabolismInfo.estimatedPeakTime}h后达峰` : '已过峰值期'}
+              </div>
+            </div>
+            
+            <div
+              className="p-2.5 rounded transition-colors"
+              style={{ backgroundColor: colors.bgBase }}
+            >
+              <div className="flex justify-between items-center mb-1">
+                <span style={{ color: colors.textMuted }}>预计清除</span>
+                <span className="font-medium" style={{ color: colors.espresso }}>
+                  {metabolismInfo.timeToClear}h
+                </span>
+              </div>
+              <div className="text-xs" style={{ color: colors.textMuted }}>
+                降至 5mg 以下
+              </div>
+            </div>
 
-          {/* 历史统计 */}
-          {historicalStats && (
-            <div>
-              <h3 className="font-medium mb-2 text-sm flex items-center" style={{ color: colors.espresso }}>
-                <BarChart3 size={16} className="mr-1.5" />
-                历史数据
-              </h3>
-              <div className="space-y-2 text-xs">
-                <div
-                  className="p-2.5 rounded transition-colors"
-                  style={{ backgroundColor: colors.bgBase }}
-                >
-                  <div className="flex justify-between items-center">
-                    <span style={{ color: colors.textMuted }}>记录天数</span>
-                    <span className="font-medium" style={{ color: colors.espresso }}>
-                      {historicalStats.totalDays}天
-                    </span>
-                  </div>
-                  <div className="text-xs mt-0.5" style={{ color: colors.textMuted }}>
-                    总记录: {historicalStats.totalRecords}次
-                  </div>
-                </div>
-                
-                <div
-                  className="p-2.5 rounded transition-colors"
-                  style={{ backgroundColor: colors.bgBase }}
-                >
-                  <div className="flex justify-between items-center">
-                    <span style={{ color: colors.textMuted }}>最高单日</span>
-                    <span className="font-medium" style={{ color: colors.espresso }}>
-                      {historicalStats.maxDaily}mg
-                    </span>
-                  </div>
-                  <div className="text-xs mt-0.5" style={{ color: colors.textMuted }}>
-                    日均: {historicalStats.avgDaily}mg
-                  </div>
-                </div>
-                
-                <div
-                  className="p-2.5 rounded transition-colors"
-                  style={{ backgroundColor: colors.bgBase }}
-                >
-                  <div className="flex justify-between items-center">
-                    <span style={{ color: colors.textMuted }}>最常饮用</span>
-                    <span className="font-medium truncate ml-2 flex-1 text-right" style={{ color: colors.espresso }} title={historicalStats.mostFrequentName}>
-                      {historicalStats.mostFrequentName || 'N/A'}
-                    </span>
-                  </div>
-                  <div className="text-xs mt-0.5" style={{ color: colors.textMuted }}>
-                    累计: {historicalStats.mostFrequentCumulativeAmount}mg
-                  </div>
-                </div>
+            <div
+              className="p-2.5 rounded transition-colors"
+              style={{ backgroundColor: colors.bgBase }}
+            >
+              <div className="flex justify-between items-center mb-1">
+                <span style={{ color: colors.textMuted }}>1小时后含量</span>
+                <span className="font-medium" style={{ color: colors.espresso }}>
+                  {metabolismInfo.estimatedAmountAfter1Hour}
+                </span>
+              </div>
+              <div className="text-xs" style={{ color: colors.textMuted }}>
+                {metabolismInfo.isLowAmount ? `当前含量低` : `预估值`}
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </section>
 
       {/* 代谢曲线图卡片 */}

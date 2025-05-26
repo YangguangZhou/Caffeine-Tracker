@@ -9,7 +9,7 @@
   <a href="https://github.com/YangguangZhou/Caffeine-Tracker/releases" target="_blank"><img src="https://img.shields.io/github/release-date/YangguangZhou/Caffeine-Tracker?style=flat-square" alt="GitHub Release Date"></a>
   <br>
    <a href="https://ct.jerryz.com.cn/" target="_blank"><img src="https://img.shields.io/badge/Web%20App-在线体验-blue?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Web App"></a>
-  <a href="https://cloud.jerryz.com.cn/d/OneDrive/OnlineDrive/Caffeine%20Manager/app-release.apk" target="_blank"><img src="https://img.shields.io/badge/Android%20App-立即下载-green?style=for-the-badge&logo=android&logoColor=white" alt="Android App"></a>
+  <a href="https://cloud.jerryz.com.cn/d/OneDrive/OnlineDrive/Caffeine%20Tracker/app-release.apk" target="_blank"><img src="https://img.shields.io/badge/Android%20App-立即下载-green?style=for-the-badge&logo=android&logoColor=white" alt="Android App"></a>
 </p>
 
 **告别咖啡因焦虑，轻松掌控你的咖啡生活！** ☕✨
@@ -26,7 +26,7 @@
 ## 🚀 快速开始 / 立即体验
 
 *   **Web 应用:** [ct.jerryz.com.cn](https://ct.jerryz.com.cn/)
-*   **Android 应用:** [点此下载 APK](https://cloud.jerryz.com.cn/d/OneDrive/OnlineDrive/Caffeine%20Manager/app-release.apk)
+*   **Android 应用:** [点此下载 APK](https://cloud.jerryz.com.cn/d/OneDrive/OnlineDrive/Caffeine%20Tracker/app-release.apk)
 
 ## ✨ 功能特性
 

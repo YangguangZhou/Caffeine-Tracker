@@ -2,9 +2,9 @@ name: Android Build and Deploy
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -19,7 +19,6 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-        cache: 'npm'
 
     - name: Setup Java
       uses: actions/setup-java@v4
@@ -31,7 +30,7 @@ jobs:
       uses: android-actions/setup-android@v3
 
     - name: Install dependencies
-      run: npm ci
+      run: npm install
 
     - name: Build project
       run: npm run build
@@ -50,7 +49,6 @@ jobs:
         VERSION_CODE=$(grep "versionCode" app/build.gradle | sed 's/.*versionCode[[:space:]]*\([0-9]*\).*/\1/')
         echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
         echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
-        echo "Found version: $VERSION_NAME ($VERSION_CODE)"
 
     - name: Get commit info
       id: commit
@@ -74,10 +72,7 @@ jobs:
     - name: Add signing config to build.gradle
       run: |
         cd android/app
-        # 备份原始文件
         cp build.gradle build.gradle.backup
-        
-        # 在android块开始后添加签名配置
         sed -i '/android {/a\
         \    def keystorePropertiesFile = rootProject.file("keystore.properties")\
         \    def keystoreProperties = new Properties()\
@@ -91,8 +86,6 @@ jobs:
         \            storePassword keystoreProperties["storePassword"]\
         \        }\
         \    }' build.gradle
-        
-        # 在release buildType中添加签名配置
         sed -i '/release {/a\
         \            signingConfig signingConfigs.release' build.gradle
 
@@ -100,20 +93,6 @@ jobs:
       run: |
         cd android
         ./gradlew assembleRelease
-
-    - name: Verify APK was signed
-      run: |
-        cd android
-        APK_PATH="app/build/outputs/apk/release/app-release.apk"
-        if [ -f "$APK_PATH" ]; then
-          echo "APK found: $APK_PATH"
-          # 验证APK是否已签名
-          $ANDROID_HOME/build-tools/*/aapt dump badging "$APK_PATH" | head -1
-        else
-          echo "APK not found!"
-          ls -la app/build/outputs/apk/release/
-          exit 1
-        fi
 
     - name: Rename APK
       run: |
@@ -123,7 +102,6 @@ jobs:
         APK_NAME="Caffeine-Tracker-${VERSION_NAME}(${VERSION_CODE})-${COMMIT_SHORT}.apk"
         mv android/app/build/outputs/apk/release/app-release.apk "$APK_NAME"
         echo "APK_NAME=$APK_NAME" >> $GITHUB_ENV
-        echo "Final APK name: $APK_NAME"
 
     - name: Upload APK as artifact
       uses: actions/upload-artifact@v4
@@ -136,45 +114,42 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y curl
 
-    - name: Clean old versions from WebDAV
+    - name: Ensure versions folder exists on WebDAV
+      run: |
+        curl -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
+          -X MKCOL "${{ secrets.WEBDAV_URL }}/versions" || true
+
+    - name: Clean old versions from WebDAV (in /versions/)
       run: |
         VERSION_NAME="${{ steps.version.outputs.version_name }}"
-        
-        echo "Checking for old versions with name: Caffeine-Tracker-${VERSION_NAME}"
-        
-        # 使用PROPFIND获取文件列表并删除匹配的文件
         curl -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
           -X PROPFIND \
           -H "Depth: 1" \
           -H "Content-Type: text/xml" \
           --data '<?xml version="1.0"?><propfind xmlns="DAV:"><prop><displayname/></prop></propfind>' \
-          "${{ secrets.WEBDAV_URL }}" \
-          -s | grep -oP "Caffeine-Tracker-${VERSION_NAME}[^<]*\.apk" | while read file; do
+          "${{ secrets.WEBDAV_URL }}/versions" \
+          -s | grep -oP "Caffeine-Tracker-${VERSION_NAME}[^<]*\\.apk" | while read file; do
           echo "Deleting old version: $file"
           curl -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
             -X DELETE \
-            "${{ secrets.WEBDAV_URL }}/$file" \
+            "${{ secrets.WEBDAV_URL }}/versions/$file" \
             -w "HTTP Status: %{http_code}\n" || echo "Failed to delete $file"
         done
 
-    - name: Upload APK to WebDAV
+    - name: Upload versioned APK to WebDAV (in /versions/)
       run: |
-        echo "Uploading ${{ env.APK_NAME }} to WebDAV..."
-        
-        # Upload the main APK
         curl -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
           -T "${{ env.APK_NAME }}" \
-          "${{ secrets.WEBDAV_URL }}/${{ env.APK_NAME }}" \
-          -w "Main APK upload - HTTP Status: %{http_code}\n"
-        
-        # Create and upload release version
+          "${{ secrets.WEBDAV_URL }}/versions/${{ env.APK_NAME }}" \
+          -w "HTTP Status: %{http_code}\n"
+
+    - name: Upload release APK to WebDAV (root dir)
+      run: |
         cp "${{ env.APK_NAME }}" "Caffeine-Tracker-release.apk"
         curl -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
           -T "Caffeine-Tracker-release.apk" \
           "${{ secrets.WEBDAV_URL }}/Caffeine-Tracker-release.apk" \
-          -w "Release APK upload - HTTP Status: %{http_code}\n"
-        
-        echo "Upload completed!"
+          -w "HTTP Status: %{http_code}\n"
 
     - name: Clean up sensitive files
       if: always()
