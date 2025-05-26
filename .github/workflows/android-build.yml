@@ -1,0 +1,184 @@
+name: Android Build and Deploy
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Build project
+      run: npm run build
+
+    - name: Sync Capacitor
+      run: npx cap sync
+
+    - name: Make gradlew executable
+      run: chmod +x android/gradlew
+
+    - name: Get version info
+      id: version
+      run: |
+        cd android
+        VERSION_NAME=$(grep "versionName" app/build.gradle | sed 's/.*versionName[[:space:]]*"\([^"]*\)".*/\1/')
+        VERSION_CODE=$(grep "versionCode" app/build.gradle | sed 's/.*versionCode[[:space:]]*\([0-9]*\).*/\1/')
+        echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+        echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+        echo "Found version: $VERSION_NAME ($VERSION_CODE)"
+
+    - name: Get commit info
+      id: commit
+      run: |
+        COMMIT_SHORT=$(git rev-parse --short HEAD)
+        echo "commit_short=$COMMIT_SHORT" >> $GITHUB_OUTPUT
+
+    - name: Create keystore from secret
+      run: |
+        echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
+
+    - name: Create keystore properties
+      run: |
+        cat > android/keystore.properties << EOF
+        storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+        keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+        storeFile=release.keystore
+        EOF
+
+    - name: Add signing config to build.gradle
+      run: |
+        cd android/app
+        # 备份原始文件
+        cp build.gradle build.gradle.backup
+        
+        # 在android块开始后添加签名配置
+        sed -i '/android {/a\
+        \    def keystorePropertiesFile = rootProject.file("keystore.properties")\
+        \    def keystoreProperties = new Properties()\
+        \    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\
+        \    \
+        \    signingConfigs {\
+        \        release {\
+        \            keyAlias keystoreProperties["keyAlias"]\
+        \            keyPassword keystoreProperties["keyPassword"]\
+        \            storeFile file(keystoreProperties["storeFile"])\
+        \            storePassword keystoreProperties["storePassword"]\
+        \        }\
+        \    }' build.gradle
+        
+        # 在release buildType中添加签名配置
+        sed -i '/release {/a\
+        \            signingConfig signingConfigs.release' build.gradle
+
+    - name: Build signed APK
+      run: |
+        cd android
+        ./gradlew assembleRelease
+
+    - name: Verify APK was signed
+      run: |
+        cd android
+        APK_PATH="app/build/outputs/apk/release/app-release.apk"
+        if [ -f "$APK_PATH" ]; then
+          echo "APK found: $APK_PATH"
+          # 验证APK是否已签名
+          $ANDROID_HOME/build-tools/*/aapt dump badging "$APK_PATH" | head -1
+        else
+          echo "APK not found!"
+          ls -la app/build/outputs/apk/release/
+          exit 1
+        fi
+
+    - name: Rename APK
+      run: |
+        VERSION_NAME="${{ steps.version.outputs.version_name }}"
+        VERSION_CODE="${{ steps.version.outputs.version_code }}"
+        COMMIT_SHORT="${{ steps.commit.outputs.commit_short }}"
+        APK_NAME="Caffeine-Tracker-${VERSION_NAME}(${VERSION_CODE})-${COMMIT_SHORT}.apk"
+        mv android/app/build/outputs/apk/release/app-release.apk "$APK_NAME"
+        echo "APK_NAME=$APK_NAME" >> $GITHUB_ENV
+        echo "Final APK name: $APK_NAME"
+
+    - name: Upload APK as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.APK_NAME }}
+        path: ${{ env.APK_NAME }}
+
+    - name: Install WebDAV client
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y curl
+
+    - name: Clean old versions from WebDAV
+      run: |
+        VERSION_NAME="${{ steps.version.outputs.version_name }}"
+        
+        echo "Checking for old versions with name: Caffeine-Tracker-${VERSION_NAME}"
+        
+        # 使用PROPFIND获取文件列表并删除匹配的文件
+        curl -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
+          -X PROPFIND \
+          -H "Depth: 1" \
+          -H "Content-Type: text/xml" \
+          --data '<?xml version="1.0"?><propfind xmlns="DAV:"><prop><displayname/></prop></propfind>' \
+          "${{ secrets.WEBDAV_URL }}" \
+          -s | grep -oP "Caffeine-Tracker-${VERSION_NAME}[^<]*\.apk" | while read file; do
+          echo "Deleting old version: $file"
+          curl -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
+            -X DELETE \
+            "${{ secrets.WEBDAV_URL }}/$file" \
+            -w "HTTP Status: %{http_code}\n" || echo "Failed to delete $file"
+        done
+
+    - name: Upload APK to WebDAV
+      run: |
+        echo "Uploading ${{ env.APK_NAME }} to WebDAV..."
+        
+        # Upload the main APK
+        curl -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
+          -T "${{ env.APK_NAME }}" \
+          "${{ secrets.WEBDAV_URL }}/${{ env.APK_NAME }}" \
+          -w "Main APK upload - HTTP Status: %{http_code}\n"
+        
+        # Create and upload release version
+        cp "${{ env.APK_NAME }}" "Caffeine-Tracker-release.apk"
+        curl -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
+          -T "Caffeine-Tracker-release.apk" \
+          "${{ secrets.WEBDAV_URL }}/Caffeine-Tracker-release.apk" \
+          -w "Release APK upload - HTTP Status: %{http_code}\n"
+        
+        echo "Upload completed!"
+
+    - name: Clean up sensitive files
+      if: always()
+      run: |
+        rm -f android/app/release.keystore
+        rm -f android/keystore.properties
+        rm -f android/app/build.gradle.backup
