@@ -360,6 +360,8 @@ const StatisticsView = ({
   const caffeineDistribution = useMemo(() => {
     const sourceData = {};
     let totalIntake = 0;
+    let totalCount = 0;
+    
     records.forEach(record => {
       if (!record || typeof record.amount !== 'number' || record.amount <= 0) return;
       let groupKey = '';
@@ -378,7 +380,9 @@ const StatisticsView = ({
       sourceData[groupKey].amount += record.amount;
       sourceData[groupKey].count += 1;
       totalIntake += record.amount;
+      totalCount += 1;
     });
+    
     if (totalIntake === 0) return [];
     
     const distributionArray = Object.entries(sourceData).map(([key, data]) => {
@@ -388,19 +392,32 @@ const StatisticsView = ({
         amount: Math.round(data.amount),
         count: data.count,
         percentage: pieChartSortBy === 'count' 
-          ? Math.round((data.count / records.length) * 100)
-          : Math.round((data.amount / totalIntake) * 100)
+          ? (data.count / totalCount) * 100
+          : (data.amount / totalIntake) * 100
       };
     });
     
     // 根据排序方式排序
-    return distributionArray.sort((a, b) => {
+    const sortedArray = distributionArray.sort((a, b) => {
       if (pieChartSortBy === 'count') {
         return b.count - a.count;
       } else {
         return b.amount - a.amount;
       }
     });
+
+    let percentageSum = 0;
+    const fixedArray = sortedArray.map((item, index) => {
+      if (index === sortedArray.length - 1) {
+        item.percentage = Math.round((100 - percentageSum) * 100) / 100;
+      } else {
+        item.percentage = Math.round(item.percentage * 100) / 100;
+        percentageSum += item.percentage;
+      }
+      return item;
+    });
+    
+    return fixedArray;
   }, [records, drinks, pieChartSortBy]);
 
   // 格式化Y轴刻度

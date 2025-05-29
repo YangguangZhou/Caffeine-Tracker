@@ -55,6 +55,10 @@ jobs:
       run: |
         COMMIT_SHORT=$(git rev-parse --short HEAD)
         echo "commit_short=$COMMIT_SHORT" >> $GITHUB_OUTPUT
+        COMMIT_MESSAGE=$(git log -1 --pretty=%B)
+        echo "commit_message<<EOF_COMMIT_MSG" >> $GITHUB_OUTPUT
+        echo "$COMMIT_MESSAGE" >> $GITHUB_OUTPUT
+        echo "EOF_COMMIT_MSG" >> $GITHUB_OUTPUT
 
     - name: Create keystore from secret
       run: |
@@ -99,22 +103,41 @@ jobs:
         curl -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
           -X MKCOL "${{ secrets.WEBDAV_URL }}/versions" || true
 
-    - name: Clean old versions from WebDAV (in /versions/)
+    - name: Download existing README.md or create new
+      run: |
+        curl -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
+          -f -o README.md "${{ secrets.WEBDAV_URL }}/versions/README.md" || touch README.md
+
+    - name: Update README.md
       run: |
         VERSION_NAME="${{ steps.version.outputs.version_name }}"
+        VERSION_CODE="${{ steps.version.outputs.version_code }}"
+        COMMIT_SHORT="${{ steps.commit.outputs.commit_short }}"
+        COMMIT_MESSAGE="${{ steps.commit.outputs.commit_message }}"
+        APK_NAME="${{ env.APK_NAME }}"
+        # Construct download URL based on user's example format
+        # Assumes secrets.WEBDAV_URL is like https://cloud.jerryz.com.cn/d/OneDrive/OnlineDrive/Caffeine%20Tracker
+        DOWNLOAD_URL="${{ secrets.WEBDAV_URL }}/versions/${APK_NAME}"
+
+        NEW_ENTRY="## 版本 ${VERSION_NAME} (${VERSION_CODE})\n\n"
+        NEW_ENTRY+="* **提交:** \`${COMMIT_SHORT}\`\n"
+        NEW_ENTRY+="* **提交信息:**\n"
+        NEW_ENTRY+="  \`\`\`\n"
+        NEW_ENTRY+="${COMMIT_MESSAGE}\n"
+        NEW_ENTRY+="  \`\`\`\n"
+        NEW_ENTRY+="* **下载链接:** [${APK_NAME}](${DOWNLOAD_URL})\n\n---\n"
+
+        # Prepend new entry to README.md
+        EXISTING_CONTENT=$(cat README.md)
+        echo -e "${NEW_ENTRY}${EXISTING_CONTENT}" > README.md.new
+        mv README.md.new README.md
+
+    - name: Upload updated README.md to WebDAV
+      run: |
         curl -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
-          -X PROPFIND \
-          -H "Depth: 1" \
-          -H "Content-Type: text/xml" \
-          --data '<?xml version="1.0"?><propfind xmlns="DAV:"><prop><displayname/></prop></propfind>' \
-          "${{ secrets.WEBDAV_URL }}/versions" \
-          -s | grep -oP "Caffeine-Tracker-${VERSION_NAME}[^<]*\\.apk" | while read file; do
-          echo "Deleting old version: $file"
-          curl -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
-            -X DELETE \
-            "${{ secrets.WEBDAV_URL }}/versions/$file" \
-            -w "HTTP Status: %{http_code}\n" || echo "Failed to delete $file"
-        done
+          -T README.md \
+          "${{ secrets.WEBDAV_URL }}/versions/README.md" \
+          -w "HTTP Status: %{http_code}\n"
 
     - name: Upload versioned APK to WebDAV (in /versions/)
       run: |

@@ -1,12 +1,23 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 /**
  * 饼状图组件
  * 用于显示咖啡因摄入来源分布
  */
 const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => {
-  const [selectedSector, setSelectedSector] = useState(null);
+  const [selectedSectorId, setSelectedSectorId] = useState(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const chartRef = useRef(null);
+
+  // 当排序方式改变时触发动画
+  useEffect(() => {
+    setIsTransitioning(true);
+    const timer = setTimeout(() => {
+      setIsTransitioning(false);
+    }, 200); // 与CSS transition时间保持一致
+    
+    return () => clearTimeout(timer);
+  }, [sortBy]);
 
   // 提供默认颜色值以防止 undefined 错误
   const defaultColors = {
@@ -77,24 +88,37 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
   // 计算每个扇形的角度
   let currentAngle = 0;
   const sectors = mainItems.map((item, index) => {
-    const angle = (item.percentage / 100) * 360;
+    const isLastItem = index === mainItems.length - 1;
+    let angle;
+    
+    if (isLastItem) {
+      angle = 360 - currentAngle;
+    } else {
+      angle = (item.percentage / 100) * 360;
+    }
+    
     const startAngle = currentAngle;
     const endAngle = currentAngle + angle;
-    currentAngle += angle;
+    currentAngle = endAngle;
 
     return {
       ...item,
-      startAngle,
-      endAngle,
+      startAngle: Math.round(startAngle * 1000) / 1000,
+      endAngle: Math.round(endAngle * 1000) / 1000,
+      angle: Math.round(angle * 1000) / 1000,
       color: chartColors[index % chartColors.length]
     };
   });
 
-  // 将角度转换为SVG路径
   const createPath = (startAngle, endAngle, outerRadius = 90, innerRadius = 0) => {
+    if (Math.abs(endAngle - startAngle) >= 359.9) {
+      return `M 100 ${100 - outerRadius} A ${outerRadius} ${outerRadius} 0 1 1 100 ${100 + outerRadius} A ${outerRadius} ${outerRadius} 0 1 1 100 ${100 - outerRadius} Z`;
+    }
+
     const start = polarToCartesian(100, 100, outerRadius, endAngle);
     const end = polarToCartesian(100, 100, outerRadius, startAngle);
-    const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+    const angleDiff = endAngle - startAngle;
+    const largeArcFlag = angleDiff > 180 ? "1" : "0";
 
     const outerArc = [
       "M", start.x, start.y, 
@@ -118,13 +142,13 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
   const polarToCartesian = (centerX, centerY, radius, angleInDegrees) => {
     const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
     return {
-      x: centerX + (radius * Math.cos(angleInRadians)),
-      y: centerY + (radius * Math.sin(angleInRadians))
+      x: Math.round((centerX + (radius * Math.cos(angleInRadians))) * 1000) / 1000,
+      y: Math.round((centerY + (radius * Math.sin(angleInRadians))) * 1000) / 1000
     };
   };
 
   const handleSectorClick = (sector) => {
-    setSelectedSector(selectedSector?.id === sector.id ? null : sector);
+    setSelectedSectorId(selectedSectorId === sector.id ? null : sector.id);
   };
 
   const handleChartClick = (e) => {
@@ -132,89 +156,98 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
     if (chartRef.current && chartRef.current.contains(e.target)) {
       // 如果点击的不是路径元素，清空选中状态
       if (e.target.tagName !== 'path') {
-        setSelectedSector(null);
+        setSelectedSectorId(null);
       }
     }
   };
 
   const handleContainerClick = (e) => {
     // 点击组件根容器的空白处时，清除选中状态
-    setSelectedSector(null);
+    setSelectedSectorId(null);
   };
+
+  const currentSelectedSectorData = selectedSectorId ? sectors.find(s => s.id === selectedSectorId) : null;
 
   return (
     <div 
       className="flex flex-col items-center gap-6" 
-      onClick={handleContainerClick} // 添加到根容器
+      onClick={handleContainerClick}
     >
       {/* 饼状图 */}
       <div 
         className="flex-shrink-0" 
         ref={chartRef}
-        onClick={(e) => e.stopPropagation()} // 阻止事件冒泡到根容器
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          opacity: isTransitioning ? 0.3 : 1,
+          transform: isTransitioning ? 'scale(0.95)' : 'scale(1)',
+          transition: 'opacity 0.2s ease-in-out, transform 0.2s ease-in-out'
+        }}
       >
         <svg 
           width="200" 
           height="200" 
           viewBox="0 0 200 200" 
           className="drop-shadow-sm cursor-pointer"
-          // onClick={handleChartClick} // 此处的 handleChartClick 确保SVG背景点击也清除
         >
-          {/* 添加透明背景圆形来确保点击检测 */}
           <circle
             cx="100"
             cy="100"
-            r="95" // 确保半径足够大以覆盖整个饼图区域
+            r="95"
             fill="transparent"
-            onClick={() => setSelectedSector(null)} // 点击SVG背景清除
+            onClick={() => setSelectedSectorId(null)}
           />
           {sectors.map((sector, index) => (
-            <g key={sector.id}>
+            <g key={sector.id + '-' + sortBy}>
               <path
                 d={createPath(sector.startAngle, sector.endAngle)}
                 fill={sector.color}
                 stroke="white"
-                strokeWidth="3"
+                strokeWidth="2"
+                strokeLinejoin="round"
+                strokeLinecap="round"
                 className="cursor-pointer"
                 style={{
-                  filter: selectedSector?.id === sector.id ? 'brightness(1.2)' : 'none',
-                  transform: selectedSector?.id === sector.id ? 'scale(1.05)' : 'scale(1)',
+                  filter: selectedSectorId === sector.id ? 'brightness(1.2)' : 'none',
+                  transform: selectedSectorId === sector.id ? 'scale(1.05)' : 'scale(1)',
                   transformOrigin: '100px 100px',
-                  transition: 'transform 0.3s ease-in-out, filter 0.3s ease-in-out, opacity 0.3s ease-in-out',
-                  opacity: selectedSector && selectedSector.id !== sector.id ? 0.7 : 1,
+                  opacity: selectedSectorId && selectedSectorId !== sector.id ? 0.7 : 1,
+                  transition: 'transform 0.3s cubic-bezier(.4,2,.3,1), opacity 0.3s ease-in-out, filter 0.3s ease-in-out',
                 }}
                 onMouseEnter={e => e.currentTarget.style.opacity = '1'}
                 onMouseLeave={e => {
-                  if (!(selectedSector && selectedSector.id === sector.id)) {
-                     e.currentTarget.style.opacity = selectedSector ? '0.7' : '1';
+                  if (!(selectedSectorId && selectedSectorId === sector.id)) {
+                     e.currentTarget.style.opacity = selectedSectorId ? '0.7' : '1';
                   }
                 }}
                 onClick={(e) => {
-                  e.stopPropagation(); // 阻止冒泡到SVG背景或根容器
+                  e.stopPropagation();
                   handleSectorClick(sector);
                 }}
-                title={`${sector.name}: ${sortBy === 'count' ? `${sector.count}次 (${sector.percentage}%)` : `${sector.percentage}% (${sector.amount}mg)`}`}
+                title={`${sector.name}: ${sortBy === 'count' ? `${sector.count}次 (${Math.round(sector.percentage)}%)` : `${sector.amount}mg (${Math.round(sector.percentage)}%)`}`}
               />
             </g>
           ))}
         </svg>
         
         {/* 点击提示信息 */}
-        {selectedSector && (
+        {currentSelectedSectorData && (
           <div 
             className="mt-3 p-3 rounded-lg border-2 text-center"
             style={{ 
-              backgroundColor: selectedSector.color + '20',
-              borderColor: selectedSector.color,
-              color: defaultColors.textPrimary
+              backgroundColor: currentSelectedSectorData.color + '20',
+              borderColor: currentSelectedSectorData.color,
+              color: defaultColors.textPrimary,
+              opacity: isTransitioning ? 0.3 : 1,
+              transition: 'opacity 0.2s ease-in-out'
             }}
             onClick={(e) => e.stopPropagation()} // 阻止冒泡
           >
-            <div className="font-semibold text-sm">{selectedSector.name}</div>
+            <div className="font-semibold text-sm">{currentSelectedSectorData.name}</div>
             <div className="text-xs mt-1" style={{ color: defaultColors.textSecondary }}>
               {sortBy === 'count' 
-                ? `${selectedSector.count}次 • ${selectedSector.percentage}% • ${selectedSector.amount}mg`
-                : `${selectedSector.percentage}% • ${selectedSector.amount}mg • ${selectedSector.count}次`
+                ? `${currentSelectedSectorData.count}次 • ${Math.round(currentSelectedSectorData.percentage)}% • ${currentSelectedSectorData.amount}mg`
+                : `${currentSelectedSectorData.amount}mg • ${Math.round(currentSelectedSectorData.percentage)}% • ${currentSelectedSectorData.count}次`
               }
             </div>
           </div>
@@ -225,6 +258,11 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
       <div 
         className="flex-1 min-w-0"
         onClick={(e) => e.stopPropagation()} // 阻止事件冒泡到根容器
+        style={{
+          opacity: isTransitioning ? 0.3 : 1,
+          transform: isTransitioning ? 'translateY(10px)' : 'translateY(0)',
+          transition: 'opacity 0.2s ease-in-out, transform 0.2s ease-in-out'
+        }}
       >
         <div className="grid grid-cols-2 gap-1"> {/* 统一使用两列布局 */}
           {sectors.map((sector) => (
@@ -236,7 +274,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
                 handleSectorClick(sector);
               }}
               style={{
-                backgroundColor: selectedSector?.id === sector.id ? sector.color + '20' : 'transparent'
+                backgroundColor: selectedSectorId === sector.id ? sector.color + '20' : 'transparent'
               }}
             >
               <div
@@ -259,8 +297,8 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
                   style={{ color: defaultColors.textMuted }}
                 >
                   {sortBy === 'count' 
-                    ? `${sector.count}次 ${sector.percentage}%` // 统一使用简化显示
-                    : `${sector.percentage}% ${sector.count}次` // 统一使用简化显示
+                    ? `${sector.count}次 (${Math.round(sector.percentage)}%) • ${sector.amount}mg`
+                    : `${sector.amount}mg (${Math.round(sector.percentage)}%) • ${sector.count}次`
                   }
                 </div>
               </div>
