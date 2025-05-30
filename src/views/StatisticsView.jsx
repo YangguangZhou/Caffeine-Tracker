@@ -1,7 +1,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   BarChart2, ChevronLeft, ChevronRight,
-  Heart, Award, Clock, Info, Calendar, AlertCircle, Target, PieChart as PieChartIcon
+  Heart, Award, Clock, Info, AlertCircle, Target, PieChart as PieChartIcon,
+  Users, Coffee, Sparkles
 } from 'lucide-react';
 import StatsChart from '../components/StatsChart';
 import PieChart from '../components/PieChart';
@@ -12,6 +13,7 @@ import {
   getStartOfDay, getEndOfDay,
   formatDate
 } from '../utils/timeUtils';
+import { computeCaffeineDistribution } from '../utils/distributionUtils';  // 新增
 
 /**
  * 统计数据视图组件
@@ -320,6 +322,104 @@ const StatisticsView = ({
     };
   }, [records, effectiveMaxDaily, userSettings]);
 
+  // 计算咖啡因生活方式分析
+  const lifestyleAnalysis = useMemo(() => {
+    if (records.length === 0) return null;
+
+    // 计算总记录天数
+    const dates = [...new Set(records.map(r => new Date(r.timestamp).toDateString()))];
+    const totalDays = dates.length;
+    
+    // 计算平均每日摄入量和次数
+    const totalAmount = records.reduce((sum, r) => sum + r.amount, 0);
+    const avgDailyAmount = totalDays > 0 ? totalAmount / totalDays : 0; // 避免除以0
+    const avgDailyCount = totalDays > 0 ? records.length / totalDays : 0; // 避免除以0
+
+    // 计算周末vs工作日模式
+    let weekdayTotal = 0, weekendTotal = 0;
+    let weekdayRecordCount = 0, weekendRecordCount = 0; // 用于计算平均值，而非天数
+    const weekdayDays = new Set();
+    const weekendDays = new Set();
+
+    records.forEach(record => {
+      const date = new Date(record.timestamp);
+      const day = date.getDay();
+      const dateString = date.toDateString();
+
+      if (day === 0 || day === 6) { // 周日或周六
+        weekendTotal += record.amount;
+        weekendRecordCount++;
+        weekendDays.add(dateString);
+      } else { // 工作日
+        weekdayTotal += record.amount;
+        weekdayRecordCount++;
+        weekdayDays.add(dateString);
+      }
+    });
+    
+    // 使用实际有记录的天数来计算平均值
+    const numWeekdayDays = weekdayDays.size;
+    const numWeekendDays = weekendDays.size;
+
+    const weekdayAvg = numWeekdayDays > 0 ? weekdayTotal / numWeekdayDays : 0;
+    const weekendAvg = numWeekendDays > 0 ? weekendTotal / numWeekendDays : 0;
+
+    // 判断用户类型
+    let userType = '';
+    let typeDescription = '';
+    let typeAdvice = '';
+    
+    if (avgDailyAmount < 100) {
+      userType = '轻度消费者';
+      typeDescription = '您的咖啡因摄入量较低，保持适度即可。';
+      typeAdvice = '继续保持健康的摄入习惯，必要时可适度增加以提高工作效率。';
+    } else if (avgDailyAmount < 200) {
+      userType = '适度爱好者';
+      typeDescription = '您的摄入量在健康范围内，是理想的咖啡因使用者。';
+      typeAdvice = '当前摄入模式很健康，注意保持规律性即可。';
+    } else if (avgDailyAmount < 300) {
+      userType = '常规消费者';
+      typeDescription = '您是典型的咖啡因日常使用者。';
+      typeAdvice = '建议监控摄入时间，避免影响睡眠质量。';
+    } else if (avgDailyAmount < 400) {
+      userType = '高频依赖者';
+      typeDescription = '您的摄入量偏高，需要关注耐受性问题。';
+      typeAdvice = '考虑逐步减少摄入量，或定期进行咖啡因戒断以重置耐受性。';
+    } else {
+      userType = '重度使用者';
+      typeDescription = '您的摄入量超过推荐范围，可能存在依赖。';
+      typeAdvice = '强烈建议制定减量计划，必要时咨询医生。';
+    }
+
+    // 判断周末模式
+    let weekendPattern = '';
+    if (numWeekdayDays === 0 && numWeekendDays === 0) {
+        weekendPattern = '数据不足';
+    } else if (numWeekdayDays === 0) {
+        weekendPattern = '仅周末摄入';
+    } else if (numWeekendDays === 0) {
+        weekendPattern = '仅工作日摄入';
+    } else if (Math.abs(weekdayAvg - weekendAvg) < (avgDailyAmount * 0.15)) { // 差异小于平均值的15%
+      weekendPattern = '稳定型';
+    } else if (weekendAvg > weekdayAvg) {
+      weekendPattern = '周末补偿型';
+    } else {
+      weekendPattern = '工作日集中型';
+    }
+
+    return {
+      userType,
+      typeDescription,
+      typeAdvice,
+      avgDailyAmount: Math.round(avgDailyAmount),
+      avgDailyCount: Math.round(avgDailyCount * 10) / 10,
+      weekdayAvg: Math.round(weekdayAvg),
+      weekendAvg: Math.round(weekendAvg),
+      weekendPattern,
+      totalDays
+    };
+  }, [records]);
+
   // 计算当前统计期间的详细数据
   const periodStats = useMemo(() => {
     if (statsChartData.length === 0) return null;
@@ -357,68 +457,10 @@ const StatisticsView = ({
   }, [statsChartData]);
 
   // 修改咖啡因分布，支持多种排序方式
-  const caffeineDistribution = useMemo(() => {
-    const sourceData = {};
-    let totalIntake = 0;
-    let totalCount = 0;
-    
-    records.forEach(record => {
-      if (!record || typeof record.amount !== 'number' || record.amount <= 0) return;
-      let groupKey = '';
-      let groupName = '';
-      if (record.drinkId) {
-        const linkedDrink = drinks.find(d => d.id === record.drinkId);
-        groupKey = record.drinkId;
-        groupName = linkedDrink ? linkedDrink.name : (record.customName || record.name || '未知饮品');
-      } else {
-        groupKey = record.customName || record.name || 'custom-manual-entry';
-        groupName = record.customName || record.name || '自定义摄入';
-      }
-      if (!sourceData[groupKey]) {
-        sourceData[groupKey] = { amount: 0, count: 0, name: groupName };
-      }
-      sourceData[groupKey].amount += record.amount;
-      sourceData[groupKey].count += 1;
-      totalIntake += record.amount;
-      totalCount += 1;
-    });
-    
-    if (totalIntake === 0) return [];
-    
-    const distributionArray = Object.entries(sourceData).map(([key, data]) => {
-      return {
-        id: key,
-        name: data.name,
-        amount: Math.round(data.amount),
-        count: data.count,
-        percentage: pieChartSortBy === 'count' 
-          ? (data.count / totalCount) * 100
-          : (data.amount / totalIntake) * 100
-      };
-    });
-    
-    // 根据排序方式排序
-    const sortedArray = distributionArray.sort((a, b) => {
-      if (pieChartSortBy === 'count') {
-        return b.count - a.count;
-      } else {
-        return b.amount - a.amount;
-      }
-    });
-
-    let percentageSum = 0;
-    const fixedArray = sortedArray.map((item, index) => {
-      if (index === sortedArray.length - 1) {
-        item.percentage = Math.round((100 - percentageSum) * 100) / 100;
-      } else {
-        item.percentage = Math.round(item.percentage * 100) / 100;
-        percentageSum += item.percentage;
-      }
-      return item;
-    });
-    
-    return fixedArray;
-  }, [records, drinks, pieChartSortBy]);
+  const caffeineDistribution = useMemo(
+    () => computeCaffeineDistribution(records, drinks, pieChartSortBy),
+    [records, drinks, pieChartSortBy]
+  );
 
   // 格式化Y轴刻度
   const formatYAxisTick = (value) => Math.round(value);
@@ -706,6 +748,83 @@ const StatisticsView = ({
           </div>
         )}
       </section>
+
+      {/* 咖啡因生活方式画像 */}
+      {lifestyleAnalysis && (
+        <section
+          aria-labelledby="lifestyle-analysis-heading"
+          className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+          style={{
+            backgroundColor: colors.bgCard,
+            borderColor: colors.borderSubtle
+          }}
+        >
+          <h3
+            id="lifestyle-analysis-heading"
+            className="text-xl font-semibold mb-4 flex items-center transition-colors"
+            style={{ color: colors.espresso }}
+          >
+            <Users size={20} className="mr-2" /> 咖啡因生活方式画像
+          </h3>
+          
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center px-4 py-2 rounded-full mb-3"
+                 style={{ backgroundColor: colors.accent + '20' }}>
+              <Coffee size={20} className="mr-2" style={{ color: colors.accent }} />
+              <span className="text-lg font-semibold" style={{ color: colors.accent }}>
+                {lifestyleAnalysis.userType}
+              </span>
+            </div>
+            <p className="text-sm" style={{ color: colors.textSecondary }}>
+              {lifestyleAnalysis.typeDescription}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="p-3 rounded-lg text-center shadow-inner" style={{ backgroundColor: colors.bgBase }}>
+              <p className="text-xs mb-1" style={{ color: colors.textMuted }}>日均摄入</p>
+              <p className="text-lg font-semibold" style={{ color: colors.espresso }}>
+                {lifestyleAnalysis.avgDailyAmount} mg
+              </p>
+              <p className="text-xs" style={{ color: colors.textSecondary }}>
+                {lifestyleAnalysis.avgDailyCount} 次/天
+              </p>
+            </div>
+            <div className="p-3 rounded-lg text-center shadow-inner" style={{ backgroundColor: colors.bgBase }}>
+              <p className="text-xs mb-1" style={{ color: colors.textMuted }}>周末模式</p>
+              <p className="text-lg font-semibold" style={{ color: colors.espresso }}>
+                {lifestyleAnalysis.weekendPattern}
+              </p>
+              <p className="text-xs" style={{ color: colors.textSecondary }}>
+                平日 {lifestyleAnalysis.weekdayAvg}mg vs 周末 {lifestyleAnalysis.weekendAvg}mg
+              </p>
+            </div>
+          </div>
+
+          <div 
+            className="p-3 rounded-lg flex items-start" 
+            style={{ 
+              backgroundColor: lifestyleAnalysis.userType === '重度使用者' || lifestyleAnalysis.userType === '高频依赖者' ? colors.warningBg : colors.infoBg,
+            }}
+          >
+            <Sparkles 
+              size={20} 
+              className="mr-2 flex-shrink-0 mt-0.5" 
+              style={{ 
+                color: lifestyleAnalysis.userType === '重度使用者' || lifestyleAnalysis.userType === '高频依赖者' ? colors.warningText : colors.infoText,
+              }} 
+            />
+            <p 
+              className="text-sm" 
+              style={{ 
+                color: lifestyleAnalysis.userType === '重度使用者' || lifestyleAnalysis.userType === '高频依赖者' ? colors.warningText : colors.infoText,
+              }}
+            >
+              {lifestyleAnalysis.typeAdvice}
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* 详细统计分析卡片 */}
       {detailedStats && (

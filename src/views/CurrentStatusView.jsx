@@ -2,7 +2,8 @@ import React, { useState, useMemo } from 'react';
 import {
   Activity, Clock, Edit, Trash2, Plus,
   AlertCircle, Moon, Calendar, Droplet, TrendingUp, TrendingDown,
-  Zap, Target, BarChart3, Minus, Timer
+  Zap, Target, BarChart3, Minus, Timer, Heart, Brain, Waves, Sunrise,
+  AlertTriangle // Added AlertTriangle
 } from 'lucide-react';
 import MetabolismChart from '../components/MetabolismChart';
 import IntakeForm from '../components/IntakeForm';
@@ -10,7 +11,7 @@ import { formatTime, formatDate, getStartOfWeek, getEndOfWeek, getStartOfDay, ge
 
 /**
  * 当前状态视图组件
- * 显示当前咖啡因状态、代谢曲线和摄入历史
+ * 显示当前咖啡因状态、清醒指数、睡眠影响分析和焦虑风险评估
  */
 const CurrentStatusView = ({
   currentCaffeineAmount,
@@ -71,42 +72,188 @@ const CurrentStatusView = ({
     };
   }, [records]);
 
-  // 计算代谢信息
-  const metabolismInfo = useMemo(() => {
-    if (currentCaffeineAmount <= 0) return null;
+  // 计算清醒指数和智能分析
+  const intelligentAnalysis = useMemo(() => {
+    const now = new Date();
+    const currentHour = now.getHours();
     
-    const halfLife = userSettings.caffeineHalfLifeHours;
-    const clearanceRate = Math.log(2) / halfLife; // k
-    const currentClearanceRate = currentCaffeineAmount * clearanceRate;
+    // 计算清醒指数 (0-100)
+    let alertnessScore = 0;
+    let alertnessLevel = '';
+    let alertnessColor = '';
     
-    const lastRecord = records.length > 0 ? records[0] : null;
-    const timeSinceLastIntake = lastRecord ? (Date.now() - lastRecord.timestamp) / (1000 * 60 * 60) : 0;
-    
-    const timeToClear = currentCaffeineAmount > 5 ? 
-      Math.log(currentCaffeineAmount / 5) / clearanceRate : 0;
-
-    const estimatedPeakTime = timeSinceLastIntake <= 2 ? Math.max(0, 1 - timeSinceLastIntake) : 0;
-
-    // 新增：预计1小时后含量
-    // C(t) = C₀ * (0.5)^(t / t_half)  或者 C(t) = C₀ * e^(-kt)
-    // Here t = 1 hour
-    const estimatedAmountAfter1Hour = currentCaffeineAmount * Math.pow(0.5, 1 / halfLife);
-    let estimatedAmountAfter1HourDisplay = "接近清除";
-    if (estimatedAmountAfter1Hour > 1) { // Display if more than 1mg
-        estimatedAmountAfter1HourDisplay = `${Math.round(estimatedAmountAfter1Hour)} mg`;
+    if (currentCaffeineAmount <= 10) {
+      alertnessScore = Math.min(currentCaffeineAmount * 3, 30);
+      alertnessLevel = '昏昏欲睡';
+      alertnessColor = '#6b7280';
+    } else if (currentCaffeineAmount <= 50) {
+      alertnessScore = 30 + (currentCaffeineAmount - 10) * 1.5;
+      alertnessLevel = '思维清晰';
+      alertnessColor = colors.safe;
+    } else if (currentCaffeineAmount <= 100) {
+      alertnessScore = 60 + (currentCaffeineAmount - 50) * 0.6;
+      alertnessLevel = '高度专注';
+      alertnessColor = colors.accent;
+    } else if (currentCaffeineAmount <= 150) {
+      alertnessScore = 90 + (currentCaffeineAmount - 100) * 0.2;
+      alertnessLevel = '轻微亢奋';
+      alertnessColor = colors.warning;
+    } else {
+      alertnessScore = 100;
+      alertnessLevel = '过度刺激';
+      alertnessColor = colors.danger;
     }
-
-
+    
+    // 计算效果持续窗口
+    const halfLife = userSettings.caffeineHalfLifeHours;
+    const timeTo25Percent = halfLife * 2; // 降至25%需要2个半衰期
+    const effectDurationHours = Math.max(0, timeTo25Percent);
+    
+    // 计算焦虑风险等级
+    let anxietyRisk = 'low';
+    let anxietyLevel = '心情平静';
+    let anxietyAdvice = '保持当前状态，适合进行创造性工作';
+    let anxietyColor = colors.safe;
+    
+    if (currentCaffeineAmount > 200 || todayTotal > effectiveMaxDaily * 1.2) {
+      anxietyRisk = 'high';
+      anxietyLevel = '焦虑风险较高';
+      anxietyAdvice = '建议进行10分钟深呼吸练习，避免再次摄入';
+      anxietyColor = colors.danger;
+    } else if (currentCaffeineAmount > 100 || todayTotal > effectiveMaxDaily) {
+      anxietyRisk = 'medium';
+      anxietyLevel = '轻微紧张感';
+      anxietyAdvice = '适当放慢节奏，可以听舒缓音乐';
+      anxietyColor = colors.warning;
+    }
+    
+    // 计算睡眠影响（图标和颜色）
+    let sleepImpact = 'none';
+    let sleepPhaseIcon = <Moon size={12} />;
+    let sleepPhaseColor = colors.safe;
+    let sleepDescription = '今晚睡眠不受影响';
+    let sleepAdvice = '可以正常安排睡眠时间';
+    
+    if (hoursUntilSafeSleep > 6) {
+      sleepImpact = 'severe';
+      sleepPhaseIcon = <AlertTriangle size={12} />;
+      sleepPhaseColor = colors.danger;
+      sleepDescription = '可能严重影响睡眠';
+      sleepAdvice = '建议推迟睡眠时间或进行放松活动';
+    } else if (hoursUntilSafeSleep > 3) {
+      sleepImpact = 'moderate';
+      sleepPhaseIcon = <AlertCircle size={12} />;
+      sleepPhaseColor = colors.warning;
+      sleepDescription = '可能轻微影响入睡';
+      sleepAdvice = '建议睡前进行冥想或阅读';
+    } else if (hoursUntilSafeSleep > 1) {
+      sleepImpact = 'mild';
+      sleepPhaseIcon = <Moon size={12} />; // Or another icon for mild, e.g., CloudMoon if desired
+      sleepPhaseColor = colors.infoText; // Using info color for mild impact
+      sleepDescription = '对睡眠影响很小';
+      sleepAdvice = '注意睡前放松，避免激烈运动';
+    }
+    
     return {
-      clearanceRate: Math.round(currentClearanceRate * 10) / 10,
-      timeSinceLastIntake: Math.round(timeSinceLastIntake * 10) / 10,
-      timeToClear: Math.round(timeToClear * 10) / 10,
-      halfLife: halfLife,
-      estimatedPeakTime: Math.round(estimatedPeakTime * 10) / 10,
-      estimatedAmountAfter1Hour: estimatedAmountAfter1HourDisplay,
-      isLowAmount: currentCaffeineAmount <= 5 // Helper for display logic
+      alertnessScore: Math.round(alertnessScore),
+      alertnessLevel,
+      alertnessColor,
+      effectDurationHours: Math.round(effectDurationHours * 10) / 10,
+      anxietyRisk,
+      anxietyLevel,
+      anxietyAdvice,
+      anxietyColor,
+      sleepImpact,
+      sleepPhaseIcon, // Changed from sleepPhase
+      sleepPhaseColor, // Added
+      sleepDescription,
+      sleepAdvice
     };
-  }, [currentCaffeineAmount, userSettings.caffeineHalfLifeHours, records]);
+  }, [currentCaffeineAmount, userSettings.caffeineHalfLifeHours, hoursUntilSafeSleep, todayTotal, effectiveMaxDaily, colors]);
+
+  // 计算睡眠质量预测（仅在晚上显示）
+  const sleepQualityPrediction = useMemo(() => {
+    const currentHour = new Date().getHours();
+    const isEvening = currentHour >= 18 || currentHour <= 6;
+    
+    if (!isEvening) return null;
+    
+    // 基于当前咖啡因含量预测睡眠质量
+    const baseQuality = 90; // 基础睡眠质量
+    let qualityReduction = 0;
+    let delayMinutes = 0;
+    let deepSleepReduction = 0;
+    
+    if (currentCaffeineAmount > 50) {
+      qualityReduction = Math.min((currentCaffeineAmount - 50) * 0.5, 40);
+      delayMinutes = Math.min((currentCaffeineAmount - 50) * 0.8, 60);
+      deepSleepReduction = Math.min((currentCaffeineAmount - 50) * 0.6, 45);
+    }
+    
+    const predictedQuality = Math.max(baseQuality - qualityReduction, 30);
+    
+    return {
+      quality: Math.round(predictedQuality),
+      delayMinutes: Math.round(delayMinutes),
+      deepSleepReduction: Math.round(deepSleepReduction),
+      isEvening
+    };
+  }, [currentCaffeineAmount]);
+
+  // 计算体感预报
+  const bodyFeelForecast = useMemo(() => {
+    const halfLife = userSettings.caffeineHalfLifeHours;
+
+    if (currentCaffeineAmount <= 0 || halfLife <= 0) {
+      return [];
+    }
+    
+    const forecastHours = [0, 2, 4, 6]; // 当前, 2小时后, 4小时后, 6小时后
+    const forecasts = [];
+    
+    for (const hour of forecastHours) {
+      const futureAmount = hour === 0 
+        ? currentCaffeineAmount 
+        : currentCaffeineAmount * Math.pow(0.5, hour / halfLife);
+      
+      let feeling = '';
+      let advice = '';
+      let icon = null;
+
+      if (futureAmount > 150) {
+        feeling = '精力充沛';
+        advice = '高强度工作佳';
+        icon = <Zap size={18} />;
+      } else if (futureAmount > 100) {
+        feeling = '思维敏捷';
+        advice = '专注高效期';
+        icon = <Brain size={18} />;
+      } else if (futureAmount > 50) {
+        feeling = '状态平稳';
+        advice = '适合日常任务';
+        icon = <Activity size={18} />;
+      } else if (futureAmount > 20) {
+        feeling = '精力下降';
+        advice = '考虑放松';
+        icon = <TrendingDown size={18} />;
+      } else { // <= 20mg
+        feeling = '困意渐浓';
+        advice = '准备休息';
+        icon = <Moon size={18} />;
+      }
+      
+      forecasts.push({
+        hour,
+        label: hour === 0 ? '当前状态' : `${hour}小时后`,
+        feeling,
+        advice,
+        icon,
+        amount: Math.round(futureAmount)
+      });
+    }
+    
+    return forecasts;
+  }, [currentCaffeineAmount, userSettings.caffeineHalfLifeHours]);
 
   // 计算今日详细数据
   const todayData = useMemo(() => {
@@ -123,88 +270,13 @@ const CurrentStatusView = ({
     const lastIntake = todayRecords.length > 0 ? 
       formatTime(Math.min(...todayRecords.map(r => r.timestamp))) : null;
     
-    // 计算平均摄入间隔
-    let averageInterval = 0;
-    if (todayRecords.length > 1) {
-      const sortedTimes = todayRecords.map(r => r.timestamp).sort();
-      let totalInterval = 0;
-      for (let i = 1; i < sortedTimes.length; i++) {
-        totalInterval += (sortedTimes[i] - sortedTimes[i-1]) / (1000 * 60 * 60);
-      }
-      averageInterval = totalInterval / (sortedTimes.length - 1);
-    }
-    
     return {
       recordCount: todayRecords.length,
       firstIntake,
       lastIntake,
-      averageInterval: Math.round(averageInterval * 10) / 10,
       percentOfLimit: Math.round((todayTotal / effectiveMaxDaily) * 100)
     };
   }, [records, todayTotal, effectiveMaxDaily]);
-
-  // 计算历史统计
-  const historicalStats = useMemo(() => {
-    if (records.length === 0) return null;
-
-    // 计算总记录天数
-    const dates = [...new Set(records.map(r => new Date(r.timestamp).toDateString()))];
-    const totalDays = dates.length;
-    
-    // 计算最高单日摄入
-    const dailyTotals = {};
-    records.forEach(record => {
-      const dateKey = new Date(record.timestamp).toDateString();
-      dailyTotals[dateKey] = (dailyTotals[dateKey] || 0) + record.amount;
-    });
-    const maxDaily = Math.max(...Object.values(dailyTotals));
-    
-    // 计算平均每日摄入（仅统计有记录的天数）和总摄入量
-    const overallTotalAmount = records.reduce((sum, record) => sum + record.amount, 0);
-    const avgDaily = totalDays > 0 ? overallTotalAmount / totalDays : 0;
-    
-    // 计算各饮品类型的饮用次数和总摄入量
-    const drinkGroupStats = {};
-    records.forEach(record => {
-      let groupKey = '';
-      let groupName = '';
-      if (record.drinkId) {
-        const linkedDrink = drinks.find(d => d.id === record.drinkId);
-        groupKey = record.drinkId; // 使用 ID 作为预设饮品的键
-        groupName = linkedDrink ? linkedDrink.name : (record.customName || record.name || '未知饮品');
-      } else {
-        // 对于没有 drinkId 的自定义条目，按其名称分组
-        groupKey = record.customName || record.name || 'custom-manual-entry';
-        groupName = record.customName || record.name || '自定义摄入';
-      }
-      
-      if (!drinkGroupStats[groupKey]) {
-        drinkGroupStats[groupKey] = { count: 0, totalAmount: 0, name: groupName };
-      }
-      drinkGroupStats[groupKey].count += 1;
-      drinkGroupStats[groupKey].totalAmount += record.amount;
-    });
-    
-    let mostFrequentName = '';
-    let mostFrequentCumulativeAmount = 0;
-
-    if (Object.keys(drinkGroupStats).length > 0) {
-      // 找出饮用次数最多的饮品组
-      const topDrinkGroupByCount = Object.values(drinkGroupStats).reduce((a, b) => a.count > b.count ? a : b);
-      mostFrequentName = topDrinkGroupByCount.name;
-      mostFrequentCumulativeAmount = topDrinkGroupByCount.totalAmount;
-    }
-
-    return {
-      totalDays,
-      totalRecords: records.length,
-      maxDaily: Math.round(maxDaily),
-      avgDaily: Math.round(avgDaily),
-      mostFrequentName: mostFrequentName, // 最常饮用（按次数）的饮品名称
-      mostFrequentCumulativeAmount: Math.round(mostFrequentCumulativeAmount), // 该最常饮用饮品的累计摄入量
-      totalAmount: Math.round(overallTotalAmount) // 所有饮品的总累计量，以备后用或可移除
-    };
-  }, [records, drinks]);
 
   const handleAddRecordClick = () => {
     setEditingRecord(null);
@@ -265,6 +337,17 @@ const CurrentStatusView = ({
       borderStyle: 'solid',
     };
   };
+
+  // 优化状态描述
+  const getEnhancedStatusText = () => {
+    if (currentCaffeineAmount <= 10) return { status: '放松状态', desc: '精神平和，适合休息或轻松活动' };
+    if (currentCaffeineAmount <= 50) return { status: '精神饱满', desc: '思维清晰，创造力高峰期' };
+    if (currentCaffeineAmount <= 100) return { status: '高度专注', desc: '注意力集中，工作效率最佳' };
+    if (currentCaffeineAmount <= 150) return { status: '轻微亢奋', desc: '精力旺盛，注意控制摄入' };
+    return { status: '过度刺激', desc: '建议停止摄入并多喝水，进行放松活动' };
+  };
+
+  const enhancedStatus = getEnhancedStatusText();
 
   return (
     <>
@@ -328,16 +411,16 @@ const CurrentStatusView = ({
           </svg>
         </div>
 
-        {/* 状态文本 */}
+        {/* 优化的状态文本 */}
         <div className="text-center mb-4 mt-2">
-          <h3 className={`text-lg font-semibold ${userStatus.color}`}>
-            {userStatus.status}
+          <h3 className="text-lg font-semibold" style={{ color: intelligentAnalysis.alertnessColor }}>
+            {enhancedStatus.status}
           </h3>
           <p
             className="mt-1 transition-colors"
             style={{ color: colors.textSecondary }}
           >
-            {userStatus.recommendation}
+            {enhancedStatus.desc}
           </p>
 
           {/* 健康建议 */}
@@ -353,7 +436,7 @@ const CurrentStatusView = ({
           </aside>
         </div>
 
-        {/* 核心数据统计 */}
+        {/* 核心数据统计 - 重新设计 */}
         <div
           className="grid grid-cols-2 gap-2 text-xs mt-4 pt-4 border-t transition-colors"
           style={{
@@ -385,44 +468,17 @@ const CurrentStatusView = ({
             style={{ backgroundColor: colors.bgBase }}
           >
             <div className="flex items-center justify-center mb-1">
-              <BarChart3 size={12} className="mr-1" />
-              <span className="text-xs">推荐上限</span>
+              <Brain size={12} className="mr-1" />
+              <span className="text-xs">清醒指数</span>
             </div>
             <span
               className="font-semibold text-sm block transition-colors"
-              style={{ color: colors.espresso }}
+              style={{ color: intelligentAnalysis.alertnessColor }}
             >
-              {effectiveMaxDaily} mg
+              {intelligentAnalysis.alertnessScore}/100
             </span>
-            {personalizedRecommendation && effectiveMaxDaily !== personalizedRecommendation && (
-              <span className="text-xs truncate">
-                个性化 {personalizedRecommendation}mg
-              </span>
-            )}
-          </div>
-
-          <div
-            className="text-center p-2 rounded transition-colors"
-            style={{ backgroundColor: colors.bgBase }}
-          >
-            <div className="flex items-center justify-center mb-1">
-              {weekData.trend > 0 ? (
-                <TrendingUp size={12} className="mr-1 text-orange-500" />
-              ) : weekData.trend < 0 ? (
-                <TrendingDown size={12} className="mr-1 text-green-500" />
-              ) : (
-                <Minus size={12} className="mr-1" />
-              )}
-              <span className="text-xs">本周平均</span>
-            </div>
-            <span
-              className="font-semibold text-sm block transition-colors"
-              style={{ color: colors.espresso }}
-            >
-              {weekData.average} mg
-            </span>
-            <span className={`text-xs ${weekData.trend > 0 ? 'text-orange-500' : weekData.trend < 0 ? 'text-green-500' : ''}`}>
-              {weekData.trend > 0 ? '+' : ''}{weekData.trend} vs上周
+            <span className="text-xs">
+              {intelligentAnalysis.alertnessLevel}
             </span>
           </div>
 
@@ -431,22 +487,39 @@ const CurrentStatusView = ({
             style={{ backgroundColor: colors.bgBase }}
           >
             <div className="flex items-center justify-center mb-1">
-              <Zap size={12} className="mr-1" />
-              <span className="text-xs">摄入次数</span>
+              <span className="mr-1" style={{ color: intelligentAnalysis.sleepPhaseColor }}>
+                {intelligentAnalysis.sleepPhaseIcon}
+              </span>
+              <span className="text-xs">睡眠影响</span>
             </div>
             <span
               className="font-semibold text-sm block transition-colors"
               style={{ color: colors.espresso }}
             >
-              {todayData.recordCount} 次
+              {intelligentAnalysis.sleepDescription}
             </span>
-            {todayData.averageInterval > 0 ? (
-              <span className="text-xs">
-                间隔 {todayData.averageInterval}h
-              </span>
-            ) : (
-              <span className="text-xs">今日首次</span>
-            )}
+            <span className="text-xs">
+              {hoursUntilSafeSleep > 0 ? `${hoursUntilSafeSleep.toFixed(1)}h后安全` : '现在可睡'}
+            </span>
+          </div>
+
+          <div
+            className="text-center p-2 rounded transition-colors"
+            style={{ backgroundColor: colors.bgBase }}
+          >
+            <div className="flex items-center justify-center mb-1">
+              <Heart size={12} className="mr-1" />
+              <span className="text-xs">焦虑风险</span>
+            </div>
+            <span
+              className="font-semibold text-sm block transition-colors"
+              style={{ color: intelligentAnalysis.anxietyColor }}
+            >
+              {intelligentAnalysis.anxietyLevel}
+            </span>
+            <span className="text-xs">
+              {todayData.recordCount} 次摄入
+            </span>
           </div>
         </div>
 
@@ -470,17 +543,13 @@ const CurrentStatusView = ({
                 : `建议最早睡眠时间: ${optimalSleepTime}`
             }
           </p>
-          {hoursUntilSafeSleep !== null && hoursUntilSafeSleep > 0 && (
-            <p className="text-xs mt-1">
-              (约 {hoursUntilSafeSleep.toFixed(1)} 小时后达到安全阈值)
-            </p>
-          )}
+          <p className="text-xs mt-1">{intelligentAnalysis.sleepAdvice}</p>
         </div>
       </section>
 
-      {/* 代谢与统计数据卡片 */}
+      {/* 智能分析与预测卡片 */}
       <section
-        aria-labelledby="detailed-stats-heading"
+        aria-labelledby="intelligent-analysis-heading"
         className="mb-5 rounded-xl p-4 sm:p-6 shadow-lg border transition-colors"
         style={{
           backgroundColor: colors.bgCard,
@@ -488,77 +557,80 @@ const CurrentStatusView = ({
         }}
       >
         <h2
-          id="detailed-stats-heading"
+          id="intelligent-analysis-heading"
           className="text-lg font-semibold mb-3 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <Activity size={18} className="mr-2" /> 代谢与统计
+          <Waves size={18} className="mr-2" /> 智能分析与预测
         </h2>
 
-        {/* 代谢信息 - 2x2网格 */}
-        {metabolismInfo && (
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div
-              className="p-2.5 rounded transition-colors"
-              style={{ backgroundColor: colors.bgBase }}
-            >
-              <div className="flex justify-between items-center mb-1">
-                <span style={{ color: colors.textMuted }}>清除速率</span>
-                <span className="font-medium" style={{ color: colors.espresso }}>
-                  {metabolismInfo.clearanceRate} mg/h
-                </span>
-              </div>
-              <div className="text-xs" style={{ color: colors.textMuted }}>
-                半衰期: {metabolismInfo.halfLife}h
-              </div>
-            </div>
-            
-            <div
-              className="p-2.5 rounded transition-colors"
-              style={{ backgroundColor: colors.bgBase }}
-            >
-              <div className="flex justify-between items-center mb-1">
-                <span style={{ color: colors.textMuted }}>距上次摄入</span>
-                <span className="font-medium" style={{ color: colors.espresso }}>
-                  {metabolismInfo.timeSinceLastIntake}h
-                </span>
-              </div>
-              <div className="text-xs" style={{ color: colors.textMuted }}>
-                {metabolismInfo.estimatedPeakTime > 0 ? `预计${metabolismInfo.estimatedPeakTime}h后达峰` : '已过峰值期'}
+        {/* 优化后的智能分析内容 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          {/* 睡眠质量预测（仅晚上显示） */}
+          {sleepQualityPrediction && (
+            <div className="rounded-lg p-4 shadow transition-colors" style={{ backgroundColor: colors.bgBase }}>
+              <h4 className="font-semibold mb-3 text-sm flex items-center" style={{ color: colors.espresso }}>
+                <Moon size={14} className="mr-1" />
+                今晚睡眠质量预测
+              </h4>
+              <div className="grid grid-cols-3 gap-2 text-xs" style={{ color: colors.textSecondary }}>
+                <div className="text-center">
+                  <div className="text-xs mb-1">睡眠质量</div>
+                  <div className="font-medium" style={{ color: colors.espresso }}>
+                    {sleepQualityPrediction.quality}%
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs mb-1">入睡延迟</div>
+                  <div className="font-medium" style={{ color: colors.espresso }}>
+                    +{sleepQualityPrediction.delayMinutes}分钟
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-xs mb-1">深睡减少</div>
+                  <div className="font-medium" style={{ color: colors.espresso }}>
+                    -{sleepQualityPrediction.deepSleepReduction}分钟
+                  </div>
+                </div>
               </div>
             </div>
-            
-            <div
-              className="p-2.5 rounded transition-colors"
-              style={{ backgroundColor: colors.bgBase }}
-            >
-              <div className="flex justify-between items-center mb-1">
-                <span style={{ color: colors.textMuted }}>预计清除</span>
-                <span className="font-medium" style={{ color: colors.espresso }}>
-                  {metabolismInfo.timeToClear}h
-                </span>
-              </div>
-              <div className="text-xs" style={{ color: colors.textMuted }}>
-                降至 5mg 以下
+          )}
+          {/* 体感预报 */}
+          {bodyFeelForecast.length > 0 && (
+            <div className="rounded-lg p-4 shadow transition-colors" style={{ backgroundColor: colors.bgBase }}>
+              <h4 className="font-semibold mb-3 text-sm flex items-center" style={{ color: colors.espresso }}>
+                <Sunrise size={16} className="mr-1.5" />
+                体感预报
+              </h4>
+              <div className="grid grid-cols-2 gap-3">
+                {bodyFeelForecast.map((forecast) => (
+                  <div
+                    key={forecast.label}
+                    className="p-3 rounded-lg text-center transition-colors"
+                    style={{ backgroundColor: colors.bgCard, boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}
+                  >
+                    <div 
+                      className="flex items-center justify-center mb-1.5" 
+                      style={{ color: colors.accent }}
+                    >
+                      {React.cloneElement(forecast.icon, { style: { color: colors.accent }})}
+                      <span className="ml-1.5 text-xs font-medium">{forecast.label}</span>
+                    </div>
+                    <p className="text-sm font-semibold mb-1" style={{ color: colors.espresso }}>
+                      {forecast.feeling}
+                    </p>
+                    <p className="text-xs mb-1" style={{ color: colors.textMuted }}>
+                      {forecast.advice}
+                    </p>
+                    <p className="text-xs" style={{ color: colors.textMuted }}>
+                      约 {forecast.amount} mg
+                    </p>
+                  </div>
+                ))}
               </div>
             </div>
-
-            <div
-              className="p-2.5 rounded transition-colors"
-              style={{ backgroundColor: colors.bgBase }}
-            >
-              <div className="flex justify-between items-center mb-1">
-                <span style={{ color: colors.textMuted }}>1小时后含量</span>
-                <span className="font-medium" style={{ color: colors.espresso }}>
-                  {metabolismInfo.estimatedAmountAfter1Hour}
-                </span>
-              </div>
-              <div className="text-xs" style={{ color: colors.textMuted }}>
-                {metabolismInfo.isLowAmount ? `当前含量低` : `预估值`}
-              </div>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </section>
 
       {/* 代谢曲线图卡片 */}

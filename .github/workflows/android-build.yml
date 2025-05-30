@@ -119,13 +119,13 @@ jobs:
         # Assumes secrets.WEBDAV_URL is like https://cloud.jerryz.com.cn/d/OneDrive/OnlineDrive/Caffeine%20Tracker
         DOWNLOAD_URL="${{ secrets.WEBDAV_URL }}/versions/${APK_NAME}"
 
-        NEW_ENTRY="## 版本 ${VERSION_NAME} (${VERSION_CODE})\n\n"
-        NEW_ENTRY+="* **提交:** \`${COMMIT_SHORT}\`\n"
+        # Process multi-line commit message with proper indentation
+        INDENTED_COMMIT_MESSAGE=$(echo "$COMMIT_MESSAGE" | sed 's/^/    /')
+
+        NEW_ENTRY="## 版本 ${VERSION_NAME} (${VERSION_CODE}) - \`${COMMIT_SHORT}\`\n\n"
+        NEW_ENTRY+="* **下载链接:** [${APK_NAME}](${DOWNLOAD_URL})\n\n---\n\n"
         NEW_ENTRY+="* **提交信息:**\n"
-        NEW_ENTRY+="  \`\`\`\n"
-        NEW_ENTRY+="${COMMIT_MESSAGE}\n"
-        NEW_ENTRY+="  \`\`\`\n"
-        NEW_ENTRY+="* **下载链接:** [${APK_NAME}](${DOWNLOAD_URL})\n\n---\n"
+        NEW_ENTRY+="${INDENTED_COMMIT_MESSAGE}\n"
 
         # Prepend new entry to README.md
         EXISTING_CONTENT=$(cat README.md)
