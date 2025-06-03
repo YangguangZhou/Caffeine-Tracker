@@ -106,7 +106,7 @@ jobs:
     - name: Download existing README.md or create new
       run: |
         curl -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
-          -f -o README.md "${{ secrets.WEBDAV_URL }}/versions/README.md" || touch README.md
+          -f -o README.md "${{ secrets.WEBDAV_DOWNLOAD_URL }}/versions/README.md" || touch README.md
 
     - name: Update README.md
       run: |
@@ -115,9 +115,7 @@ jobs:
         COMMIT_SHORT="${{ steps.commit.outputs.commit_short }}"
         COMMIT_MESSAGE="${{ steps.commit.outputs.commit_message }}"
         APK_NAME="${{ env.APK_NAME }}"
-        # Construct download URL based on user's example format
-        # Assumes secrets.WEBDAV_URL is like https://cloud.jerryz.com.cn/d/OneDrive/OnlineDrive/Caffeine%20Tracker
-        DOWNLOAD_URL="${{ secrets.WEBDAV_URL }}/versions/${APK_NAME}"
+        DOWNLOAD_URL="${{ secrets.WEBDAV_DOWNLOAD_URL }}/versions/${APK_NAME}"
 
         # Process multi-line commit message with proper indentation
         INDENTED_COMMIT_MESSAGE=$(echo "$COMMIT_MESSAGE" | sed 's/^/    /')
@@ -125,7 +123,9 @@ jobs:
         NEW_ENTRY="## 版本 ${VERSION_NAME} (${VERSION_CODE}) - \`${COMMIT_SHORT}\`\n\n"
         NEW_ENTRY+="* **下载链接:** [${APK_NAME}](${DOWNLOAD_URL})\n\n---\n\n"
         NEW_ENTRY+="* **提交信息:**\n"
+        NEW_ENTRY+="  \`\`\`\n"
         NEW_ENTRY+="${INDENTED_COMMIT_MESSAGE}\n"
+        NEW_ENTRY+="  \`\`\`\n"
 
         # Prepend new entry to README.md
         EXISTING_CONTENT=$(cat README.md)

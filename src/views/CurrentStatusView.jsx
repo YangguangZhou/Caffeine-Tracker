@@ -42,28 +42,28 @@ const CurrentStatusView = ({
     const now = new Date();
     const weekStart = getStartOfWeek(now);
     const weekEnd = getEndOfWeek(now);
-    
+
     const weekRecords = records.filter(record => 
       record.timestamp >= weekStart && record.timestamp <= weekEnd
     );
-    
+
     const weekTotal = weekRecords.reduce((sum, record) => sum + record.amount, 0);
     const weekAverage = weekRecords.length > 0 ? weekTotal / 7 : 0;
-    
+
     // 计算趋势（与上周比较）
     const lastWeekStart = new Date(weekStart);
     lastWeekStart.setDate(lastWeekStart.getDate() - 7);
     const lastWeekEnd = new Date(weekEnd);
     lastWeekEnd.setDate(lastWeekEnd.getDate() - 7);
-    
+
     const lastWeekRecords = records.filter(record => 
       record.timestamp >= lastWeekStart && record.timestamp <= lastWeekEnd
     );
     const lastWeekTotal = lastWeekRecords.reduce((sum, record) => sum + record.amount, 0);
     const lastWeekAverage = lastWeekRecords.length > 0 ? lastWeekTotal / 7 : 0;
-    
+
     const trend = weekAverage - lastWeekAverage;
-    
+
     return {
       total: Math.round(weekTotal),
       average: Math.round(weekAverage),
@@ -76,26 +76,27 @@ const CurrentStatusView = ({
   const intelligentAnalysis = useMemo(() => {
     const now = new Date();
     const currentHour = now.getHours();
-    
+
     // 计算清醒指数 (0-100)
     let alertnessScore = 0;
     let alertnessLevel = '';
     let alertnessColor = '';
-    
-    if (currentCaffeineAmount <= 10) {
-      alertnessScore = Math.min(currentCaffeineAmount * 3, 30);
+    const conc = currentCaffeineConcentration;
+
+    if (conc <= 1) {
+      alertnessScore = Math.min(conc * 30, 30);
       alertnessLevel = '昏昏欲睡';
       alertnessColor = '#6b7280';
-    } else if (currentCaffeineAmount <= 50) {
-      alertnessScore = 30 + (currentCaffeineAmount - 10) * 1.5;
+    } else if (conc <= 3) {
+      alertnessScore = 30 + (conc - 1) * 15;
       alertnessLevel = '思维清晰';
       alertnessColor = colors.safe;
-    } else if (currentCaffeineAmount <= 100) {
-      alertnessScore = 60 + (currentCaffeineAmount - 50) * 0.6;
+    } else if (conc <= 6) {
+      alertnessScore = 60 + (conc - 3) * 10;
       alertnessLevel = '高度专注';
       alertnessColor = colors.accent;
-    } else if (currentCaffeineAmount <= 150) {
-      alertnessScore = 90 + (currentCaffeineAmount - 100) * 0.2;
+    } else if (conc <= 10) {
+      alertnessScore = 90 + (conc - 6) * 2.5;
       alertnessLevel = '轻微亢奋';
       alertnessColor = colors.warning;
     } else {
@@ -103,37 +104,37 @@ const CurrentStatusView = ({
       alertnessLevel = '过度刺激';
       alertnessColor = colors.danger;
     }
-    
+
     // 计算效果持续窗口
     const halfLife = userSettings.caffeineHalfLifeHours;
     const timeTo25Percent = halfLife * 2; // 降至25%需要2个半衰期
     const effectDurationHours = Math.max(0, timeTo25Percent);
-    
+
     // 计算焦虑风险等级
     let anxietyRisk = 'low';
     let anxietyLevel = '心情平静';
     let anxietyAdvice = '保持当前状态，适合进行创造性工作';
     let anxietyColor = colors.safe;
-    
-    if (currentCaffeineAmount > 200 || todayTotal > effectiveMaxDaily * 1.2) {
+
+    if (conc > 5 || todayTotal > effectiveMaxDaily * 1.2) {
       anxietyRisk = 'high';
       anxietyLevel = '焦虑风险较高';
       anxietyAdvice = '建议进行10分钟深呼吸练习，避免再次摄入';
       anxietyColor = colors.danger;
-    } else if (currentCaffeineAmount > 100 || todayTotal > effectiveMaxDaily) {
+    } else if (conc > 2.5 || todayTotal > effectiveMaxDaily) {
       anxietyRisk = 'medium';
       anxietyLevel = '轻微紧张感';
       anxietyAdvice = '适当放慢节奏，可以听舒缓音乐';
       anxietyColor = colors.warning;
     }
-    
+
     // 计算睡眠影响（图标和颜色）
     let sleepImpact = 'none';
     let sleepPhaseIcon = <Moon size={12} />;
     let sleepPhaseColor = colors.safe;
     let sleepDescription = '今晚睡眠不受影响';
     let sleepAdvice = '可以正常安排睡眠时间';
-    
+
     if (hoursUntilSafeSleep > 6) {
       sleepImpact = 'severe';
       sleepPhaseIcon = <AlertTriangle size={12} />;
@@ -148,12 +149,12 @@ const CurrentStatusView = ({
       sleepAdvice = '建议睡前进行冥想或阅读';
     } else if (hoursUntilSafeSleep > 1) {
       sleepImpact = 'mild';
-      sleepPhaseIcon = <Moon size={12} />; // Or another icon for mild, e.g., CloudMoon if desired
-      sleepPhaseColor = colors.infoText; // Using info color for mild impact
+      sleepPhaseIcon = <Moon size={12} />;
+      sleepPhaseColor = colors.infoText;
       sleepDescription = '对睡眠影响很小';
       sleepAdvice = '注意睡前放松，避免激烈运动';
     }
-    
+
     return {
       alertnessScore: Math.round(alertnessScore),
       alertnessLevel,
@@ -164,112 +165,118 @@ const CurrentStatusView = ({
       anxietyAdvice,
       anxietyColor,
       sleepImpact,
-      sleepPhaseIcon, // Changed from sleepPhase
-      sleepPhaseColor, // Added
+      sleepPhaseIcon,
+      sleepPhaseColor,
       sleepDescription,
       sleepAdvice
     };
-  }, [currentCaffeineAmount, userSettings.caffeineHalfLifeHours, hoursUntilSafeSleep, todayTotal, effectiveMaxDaily, colors]);
+  }, [currentCaffeineConcentration, userSettings.caffeineHalfLifeHours, hoursUntilSafeSleep, todayTotal, effectiveMaxDaily, colors]);
 
   // 计算睡眠质量预测（仅在晚上显示）
   const sleepQualityPrediction = useMemo(() => {
     const currentHour = new Date().getHours();
     const isEvening = currentHour >= 18 || currentHour <= 6;
-    
+
     if (!isEvening) return null;
-    
-    // 基于当前咖啡因含量预测睡眠质量
+
+    // 基于当前咖啡因浓度预测睡眠质量
     const baseQuality = 90; // 基础睡眠质量
     let qualityReduction = 0;
     let delayMinutes = 0;
     let deepSleepReduction = 0;
-    
-    if (currentCaffeineAmount > 50) {
-      qualityReduction = Math.min((currentCaffeineAmount - 50) * 0.5, 40);
-      delayMinutes = Math.min((currentCaffeineAmount - 50) * 0.8, 60);
-      deepSleepReduction = Math.min((currentCaffeineAmount - 50) * 0.6, 45);
+    const conc = currentCaffeineConcentration;
+
+    if (conc > 2.5) {
+      qualityReduction = Math.min((conc - 2.5) * 10, 40);
+      delayMinutes = Math.min((conc - 2.5) * 16, 60);
+      deepSleepReduction = Math.min((conc - 2.5) * 12, 45);
     }
-    
+
     const predictedQuality = Math.max(baseQuality - qualityReduction, 30);
-    
+
     return {
       quality: Math.round(predictedQuality),
       delayMinutes: Math.round(delayMinutes),
       deepSleepReduction: Math.round(deepSleepReduction),
       isEvening
     };
-  }, [currentCaffeineAmount]);
+  }, [currentCaffeineConcentration]);
 
   // 计算体感预报
   const bodyFeelForecast = useMemo(() => {
     const halfLife = userSettings.caffeineHalfLifeHours;
 
-    if (currentCaffeineAmount <= 0 || halfLife <= 0) {
+    if (currentCaffeineConcentration <= 0 || halfLife <= 0) {
       return [];
     }
-    
-    const forecastHours = [0, 2, 4, 6]; // 当前, 2小时后, 4小时后, 6小时后
+
+    // 总是显示当前和2小时后，4/6小时后仅在2小时后不是困意渐浓时显示
+    const forecastHours = [0, 2, 4, 6];
     const forecasts = [];
-    
+
+    let foundSleepy = false;
     for (const hour of forecastHours) {
-      const futureAmount = hour === 0 
-        ? currentCaffeineAmount 
-        : currentCaffeineAmount * Math.pow(0.5, hour / halfLife);
-      
+      if (hour > 2 && foundSleepy) break; // 只要2小时后是困意渐浓，后面就不显示
+
+      const futureConc = hour === 0 
+        ? currentCaffeineConcentration 
+        : currentCaffeineConcentration * Math.pow(0.5, hour / halfLife);
+
       let feeling = '';
       let advice = '';
       let icon = null;
 
-      if (futureAmount > 150) {
+      if (futureConc > 6) {
         feeling = '精力充沛';
         advice = '高强度工作佳';
         icon = <Zap size={18} />;
-      } else if (futureAmount > 100) {
+      } else if (futureConc > 4) {
         feeling = '思维敏捷';
         advice = '专注高效期';
         icon = <Brain size={18} />;
-      } else if (futureAmount > 50) {
+      } else if (futureConc > 2) {
         feeling = '状态平稳';
         advice = '适合日常任务';
         icon = <Activity size={18} />;
-      } else if (futureAmount > 20) {
+      } else if (futureConc > 1) {
         feeling = '精力下降';
         advice = '考虑放松';
         icon = <TrendingDown size={18} />;
-      } else { // <= 20mg
+      } else {
         feeling = '困意渐浓';
         advice = '准备休息';
         icon = <Moon size={18} />;
+        if (hour === 2) foundSleepy = true;
       }
-      
+
       forecasts.push({
         hour,
         label: hour === 0 ? '当前状态' : `${hour}小时后`,
         feeling,
         advice,
         icon,
-        amount: Math.round(futureAmount)
+        amount: Math.round(futureConc * 10) / 10
       });
     }
-    
+
     return forecasts;
-  }, [currentCaffeineAmount, userSettings.caffeineHalfLifeHours]);
+  }, [currentCaffeineConcentration, userSettings.caffeineHalfLifeHours]);
 
   // 计算今日详细数据
   const todayData = useMemo(() => {
     const today = new Date();
     const dayStart = getStartOfDay(today);
     const dayEnd = getEndOfDay(today);
-    
+
     const todayRecords = records.filter(record => 
       record.timestamp >= dayStart && record.timestamp <= dayEnd
     );
-    
+
     const firstIntake = todayRecords.length > 0 ? 
       formatTime(Math.max(...todayRecords.map(r => r.timestamp))) : null;
     const lastIntake = todayRecords.length > 0 ? 
       formatTime(Math.min(...todayRecords.map(r => r.timestamp))) : null;
-    
+
     return {
       recordCount: todayRecords.length,
       firstIntake,
@@ -340,10 +347,11 @@ const CurrentStatusView = ({
 
   // 优化状态描述
   const getEnhancedStatusText = () => {
-    if (currentCaffeineAmount <= 10) return { status: '放松状态', desc: '精神平和，适合休息或轻松活动' };
-    if (currentCaffeineAmount <= 50) return { status: '精神饱满', desc: '思维清晰，创造力高峰期' };
-    if (currentCaffeineAmount <= 100) return { status: '高度专注', desc: '注意力集中，工作效率最佳' };
-    if (currentCaffeineAmount <= 150) return { status: '轻微亢奋', desc: '精力旺盛，注意控制摄入' };
+    const conc = currentCaffeineConcentration;
+    if (conc <= 1) return { status: '放松状态', desc: '精神平和，适合休息或轻松活动' };
+    if (conc <= 3) return { status: '精神饱满', desc: '思维清晰，创造力高峰期' };
+    if (conc <= 6) return { status: '高度专注', desc: '注意力集中，工作效率最佳' };
+    if (conc <= 10) return { status: '轻微亢奋', desc: '精力旺盛，注意控制摄入' };
     return { status: '过度刺激', desc: '建议停止摄入并多喝水，进行放松活动' };
   };
 
@@ -565,7 +573,7 @@ const CurrentStatusView = ({
         </h2>
 
         {/* 优化后的智能分析内容 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="flex flex-col gap-4 mb-4">
           {/* 睡眠质量预测（仅晚上显示） */}
           {sleepQualityPrediction && (
             <div className="rounded-lg p-4 shadow transition-colors" style={{ backgroundColor: colors.bgBase }}>
@@ -610,16 +618,21 @@ const CurrentStatusView = ({
                     style={{ backgroundColor: colors.bgCard, boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}
                   >
                     <div 
-                      className="flex items-center justify-center mb-1.5" 
+                      className="flex flex-col items-center justify-center mb-1.5" 
                       style={{ color: colors.accent }}
                     >
-                      {React.cloneElement(forecast.icon, { style: { color: colors.accent }})}
-                      <span className="ml-1.5 text-xs font-medium">{forecast.label}</span>
+                      {React.cloneElement(forecast.icon, { 
+                        size: 16,
+                        style: { color: colors.accent }
+                      })}
+                      <span className="mt-1 text-xs font-medium text-center">
+                        {forecast.label}
+                      </span>
                     </div>
-                    <p className="text-sm font-semibold mb-1" style={{ color: colors.espresso }}>
+                    <p className="text-sm font-semibold mb-1 leading-tight" style={{ color: colors.espresso }}>
                       {forecast.feeling}
                     </p>
-                    <p className="text-xs mb-1" style={{ color: colors.textMuted }}>
+                    <p className="text-xs mb-1 leading-tight" style={{ color: colors.textMuted }}>
                       {forecast.advice}
                     </p>
                     <p className="text-xs" style={{ color: colors.textMuted }}>

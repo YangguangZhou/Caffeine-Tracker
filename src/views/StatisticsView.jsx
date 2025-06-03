@@ -11,7 +11,6 @@ import {
   getStartOfMonth, getEndOfMonth,
   getStartOfYear, getEndOfYear,
   getStartOfDay, getEndOfDay,
-  formatDate
 } from '../utils/timeUtils';
 import { computeCaffeineDistribution } from '../utils/distributionUtils';  // 新增
 
@@ -186,7 +185,56 @@ const StatisticsView = ({
       const dateKey = new Date(record.timestamp).toDateString();
       dailyTotals[dateKey] = (dailyTotals[dateKey] || 0) + record.amount;
     });
-    
+
+    // --- 修正连续天数计算 ---
+    // 获取所有有摄入的天的“天起始时间戳”，去重并排序
+    const uniqueDayTimestamps = [...new Set(
+      Object.keys(dailyTotals)
+        .map(dateStr => {
+          const date = new Date(dateStr);
+          const dayStart = getStartOfDay(date);
+          return typeof dayStart === 'number' ? dayStart : dayStart?.getTime?.();
+        })
+        .filter(ts => typeof ts === 'number' && !isNaN(ts))
+    )].sort((a, b) => a - b);
+
+    // 计算最长连续天数
+    let maxStreak = 0;
+    if (uniqueDayTimestamps.length > 0) {
+      let currentStreakCount = 1;
+      maxStreak = 1;
+      for (let i = 1; i < uniqueDayTimestamps.length; i++) {
+        const prev = uniqueDayTimestamps[i - 1];
+        const curr = uniqueDayTimestamps[i];
+        // 判断是否是连续的天
+        if (curr - prev === 24 * 60 * 60 * 1000) {
+          currentStreakCount++;
+        } else {
+          maxStreak = Math.max(maxStreak, currentStreakCount);
+          currentStreakCount = 1;
+        }
+      }
+      maxStreak = Math.max(maxStreak, currentStreakCount);
+    }
+
+    // 计算当前连续天数
+    let currentStreak = 0;
+    if (uniqueDayTimestamps.length > 0) {
+      // 今天的起始时间
+      const todayStart = getStartOfDay(new Date());
+      // 用 Set 方便查找
+      const daySet = new Set(uniqueDayTimestamps);
+      let streak = 0;
+      let day = todayStart;
+      // 如果今天有摄入，从今天往前推
+      while (daySet.has(day)) {
+        streak++;
+        day -= 24 * 60 * 60 * 1000;
+      }
+      currentStreak = streak;
+    }
+
+    // 计算超标天数
     const totalDays = Object.keys(dailyTotals).length;
     const exceedDays = Object.values(dailyTotals).filter(total => total > effectiveMaxDaily).length;
     const exceedRate = totalDays > 0 ? (exceedDays / totalDays) * 100 : 0;
@@ -215,50 +263,70 @@ const StatisticsView = ({
     const maxSingleIntake = Math.max(...records.map(r => r.amount));
 
     // 修复连续摄入天数计算
-    const sortedDates = [...new Set(records.map(r => new Date(r.timestamp).toDateString()))].sort();
-    
-    // 计算最长连续天数
-    let maxStreak = 0;
-    let currentStreakCount = 1;
-    
-    for (let i = 1; i < sortedDates.length; i++) {
-      const prevDate = new Date(sortedDates[i-1]);
-      const currDate = new Date(sortedDates[i]);
-      const dayDiff = (currDate - prevDate) / (1000 * 60 * 60 * 24);
-      
-      if (dayDiff === 1) {
-        currentStreakCount++;
-      } else {
-        maxStreak = Math.max(maxStreak, currentStreakCount);
-        currentStreakCount = 1;
-      }
-    }
-    maxStreak = Math.max(maxStreak, currentStreakCount);
+    // 1. 获取所有记录的日期，确保它们是当天的开始时间，并去重
+    const uniqueDayTimestamps2 = [...new Set(
+      records
+        .map(r => {
+          const recordDate = new Date(r.timestamp);
+          // 检查 recordDate 是否有效
+          if (isNaN(recordDate.getTime())) {
+            console.warn('Invalid timestamp found in record:', r);
+            return null; 
+          }
+          const dayStart = getStartOfDay(recordDate);
+          // 检查 dayStart 是否是一个有效的 Date 对象
+          return dayStart && typeof dayStart.getTime === 'function' ? dayStart.getTime() : null;
+        })
+        .filter(ts => ts !== null) // 过滤掉无效的时间戳
+    )].sort((a, b) => a - b); // 按时间戳升序排序
 
-    // 计算当前连续摄入天数（从今天往前数）
-    let currentStreak = 0;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    // 检查今天是否有记录
-    const todayString = today.toDateString();
-    const hasTodayRecord = sortedDates.includes(todayString);
-    
-    if (hasTodayRecord) {
-      currentStreak = 1;
-      // 从昨天开始往前检查
-      for (let i = 1; i < 365; i++) { // 最多检查365天
-        const checkDate = new Date(today);
-        checkDate.setDate(checkDate.getDate() - i);
-        const checkDateString = checkDate.toDateString();
-        
-        if (sortedDates.includes(checkDateString)) {
-          currentStreak++;
+    // 2. 计算最长连续天数 (maxStreak)
+    let maxStreak2 = 0;
+    if (uniqueDayTimestamps2.length > 0) {
+      maxStreak2 = 1; // 如果有记录，最少是1天
+      let currentStreakCount = 1;
+      for (let i = 1; i < uniqueDayTimestamps2.length; i++) {
+        const prevTimestamp = uniqueDayTimestamps2[i-1];
+        const currTimestamp = uniqueDayTimestamps2[i];
+        const dayDiff = (currTimestamp - prevTimestamp) / (1000 * 60 * 60 * 24);
+
+        if (dayDiff === 1) {
+          currentStreakCount++;
         } else {
-          break;
+          // 如果天数差大于1，说明中断了
+          maxStreak2 = Math.max(maxStreak2, currentStreakCount);
+          currentStreakCount = 1; // 重置为1，因为当前日期是一个新的开始
         }
       }
+      maxStreak2 = Math.max(maxStreak2, currentStreakCount); // 确保最后一个连续段被计算
     }
+
+    // 3. 计算当前连续摄入天数 (currentStreak)
+    let currentStreak2 = 0;
+    const today = new Date();
+    const todayStartObj = getStartOfDay(today);
+    
+    // 确保 todayStartObj 是有效的 Date 对象
+    if (todayStartObj && typeof todayStartObj.getTime === 'function') {
+      const todayStartTimestamp = todayStartObj.getTime();
+      const uniqueDateStrings = uniqueDayTimestamps2.map(ts => new Date(ts).toDateString());
+
+      if (uniqueDateStrings.includes(new Date(todayStartTimestamp).toDateString())) {
+        currentStreak2 = 1;
+        let dayToCheckTimestamp = todayStartTimestamp;
+        for (let i = 1; i < 365; i++) { // 最多检查过去365天
+          dayToCheckTimestamp -= (24 * 60 * 60 * 1000); // 前一天的时间戳
+          if (uniqueDateStrings.includes(new Date(dayToCheckTimestamp).toDateString())) {
+            currentStreak2++;
+          } else {
+            break; // 中断
+          }
+        }
+      }
+    } else {
+      console.warn('Failed to get start of today for currentStreak calculation.');
+    }
+
 
     // 计算摄入频率分析
     const weekdayTotals = [0, 0, 0, 0, 0, 0, 0]; // 周日到周六
@@ -479,6 +547,26 @@ const StatisticsView = ({
 
     return startOfNextPeriod > Date.now();
   }, [statsDate, statsView]);
+
+  // 辅助函数：计算建议停止摄入时间
+  const calculateStopTime = (plannedSleepTimeStr, hoursBefore) => {
+    if (!plannedSleepTimeStr || typeof plannedSleepTimeStr !== 'string' || !plannedSleepTimeStr.includes(':')) {
+      return "特定时间";
+    }
+    const parts = plannedSleepTimeStr.split(':');
+    if (parts.length !== 2) return "特定时间";
+
+    const hours = parseInt(parts[0], 10);
+    const minutes = parseInt(parts[1], 10);
+
+    if (isNaN(hours) || isNaN(minutes)) return "特定时间";
+
+    const plannedDate = new Date();
+    plannedDate.setHours(hours, minutes, 0, 0);
+    plannedDate.setHours(plannedDate.getHours() - hoursBefore);
+    return `${String(plannedDate.getHours()).padStart(2, '0')}:${String(plannedDate.getMinutes()).padStart(2, '0')}`;
+  };
+
 
   return (
     <>
@@ -1138,18 +1226,53 @@ const StatisticsView = ({
           >
             <h4
               id="pattern-assessment-heading"
-              className="font-semibold mb-1 flex items-center transition-colors"
+              className="font-semibold mb-2 flex items-center transition-colors"
               style={{ color: colors.espresso }}
             >
-              <Award size={16} className="mr-1.5" /> 摄入模式分析
+              <Award size={16} className="mr-1.5" /> 摄入模式评估
             </h4>
-            <p>
-              {records.length > 0
-                ? `您的每日推荐上限为 ${effectiveMaxDaily}mg。本周日均摄入 ${Math.round(getWeekTotal(new Date()) / 7)}mg${Math.round(getWeekTotal(new Date()) / 7) > effectiveMaxDaily ? '，建议适当减少摄入量' : '，保持良好'}。`
-                : "开始记录摄入量，获取个性化分析建议。"
-              }
-              {caffeineDistribution[0]?.name && ` 主要来源：${caffeineDistribution[0].name} (${caffeineDistribution[0].percentage}%)。`}
-            </p>
+            {records.length > 0 && detailedStats && lifestyleAnalysis ? (
+              <>
+                <p className="mb-2">
+                  您的每日推荐咖啡因摄入上限为 <strong style={{ color: colors.accent }}>{effectiveMaxDaily}mg</strong>。
+                  本自然周（周一至当前）您的日均摄入量约为 <strong style={{ color: colors.accent }}>{Math.round(getWeekTotal(new Date()) / ((new Date().getDay() === 0 ? 7 : new Date().getDay())) || 1)}mg</strong>。
+                  {Math.round(getWeekTotal(new Date()) / ((new Date().getDay() === 0 ? 7 : new Date().getDay())) || 1) > effectiveMaxDaily
+                    ? <span style={{ color: colors.warningText }}> 这已超出推荐上限，建议您关注并适当减少每日摄入量。</span>
+                    : Math.round(getWeekTotal(new Date()) / ((new Date().getDay() === 0 ? 7 : new Date().getDay())) || 1) > 0.7 * effectiveMaxDaily
+                      ? <span> 接近推荐上限，请留意您的摄入习惯。</span>
+                      : <span> 目前控制在推荐范围内，请继续保持。</span>
+                  }
+                </p>
+                <p className="mb-2">
+                  根据您的整体记录，您被识别为“<strong style={{ color: colors.accent }}>{lifestyleAnalysis.userType}</strong>”。{lifestyleAnalysis.typeAdvice}
+                </p>
+                {detailedStats.totalDays > 0 && (
+                  <p className="mb-2">
+                    在过去有记录的 <strong style={{ color: colors.accent }}>{detailedStats.totalDays}</strong> 天中，您有 <strong style={{ color: detailedStats.exceedDays > 0 ? colors.warningText : colors.accent }}>{detailedStats.exceedDays}</strong> 天（占比 <strong style={{ color: detailedStats.exceedRate > 20 ? colors.warningText : (detailedStats.exceedRate > 0 ? colors.infoText : colors.accent) }}>{detailedStats.exceedRate}%</strong>）的摄入量超过了每日推荐上限。
+                    {detailedStats.exceedRate > 20
+                      ? <span style={{ color: colors.warningText }}> 超标频率较高，请特别注意控制单日总量。</span>
+                      : detailedStats.exceedRate > 0
+                        ? <span> 偶尔出现超标情况，建议审视超标日的原因，避免常态化。</span>
+                        : <span> 您在控制日摄入总量方面做得很好！</span>
+                    }
+                  </p>
+                )}
+                {caffeineDistribution[0]?.name && (
+                  <p className="mb-2">
+                    您的主要咖啡因来源是 <strong style={{ color: colors.accent }}>{caffeineDistribution[0].name}</strong> (占总{pieChartSortBy === 'count' ? '次数' : '摄入量'}的 <strong style={{ color: colors.accent }}>{caffeineDistribution[0].percentage}%</strong>)。
+                    可以考虑是否通过调整此来源的频率、份量或选择低咖啡因替代品来优化摄入。
+                  </p>
+                )}
+                <p className="mb-1">
+                  您的高峰摄入时段通常在 <strong style={{ color: colors.accent }}>{detailedStats.peakHour}:00</strong> 左右。如果此时段接近傍晚，请注意可能对睡眠产生的影响。
+                </p>
+                <p>
+                  平均摄入间隔约为 <strong style={{ color: colors.accent }}>{detailedStats.avgInterval}</strong> 小时。过于频繁的摄入（如间隔小于3-4小时）可能导致咖啡因在体内累积，增加不适风险。
+                </p>
+              </>
+            ) : (
+              <p>开始记录您的咖啡因摄入，以获取更详细的个性化分析与建议。</p>
+            )}
           </article>
           <article
             aria-labelledby="sleep-impact-heading"
@@ -1158,17 +1281,41 @@ const StatisticsView = ({
           >
             <h4
               id="sleep-impact-heading"
-              className="font-semibold mb-1 flex items-center transition-colors"
+              className="font-semibold mb-2 flex items-center transition-colors"
               style={{ color: colors.espresso }}
             >
               <Clock size={16} className="mr-1.5" /> 睡眠影响提醒
             </h4>
-            <p>
-              基于您设置的 {userSettings.caffeineHalfLifeHours} 小时半衰期，建议在体内咖啡因降至 
-              <strong style={{ color: colors.espresso }}> {userSettings.safeSleepThresholdConcentration.toFixed(1)} mg/L </strong>
-              后入睡。计划 <strong className="text-blue-700">{userSettings.plannedSleepTime}</strong> 睡觉的话，
-              请关注首页的最佳睡眠时间提醒。一般建议睡前 6 小时避免摄入咖啡因。
-            </p>
+            {records.length > 0 && detailedStats && userSettings ? (
+              <>
+                <p className="mb-2">
+                  您设定的咖啡因半衰期为 <strong style={{ color: colors.accent }}>{userSettings.caffeineHalfLifeHours}</strong> 小时，计划睡眠时间为 <strong style={{ color: colors.accent }}>{userSettings.plannedSleepTime}</strong>。
+                  一般建议在睡前至少 <strong style={{ color: colors.accent }}>6</strong> 小时（即 <strong style={{ color: colors.accent }}>{calculateStopTime(userSettings.plannedSleepTime, 6)}</strong> 前）避免摄入新的咖啡因，以减少对睡眠的干扰。
+                </p>
+                {detailedStats.avgCaffeineAtSleep !== undefined && (
+                  <p className="mb-2">
+                    根据您的记录分析，平均而言，您在计划入睡时体内可能仍残留约 <strong style={{ color: detailedStats.avgCaffeineAtSleep > 30 ? colors.warningText : colors.accent }}>{detailedStats.avgCaffeineAtSleep}mg</strong> 的咖啡因。
+                    {detailedStats.avgCaffeineAtSleep > 30 
+                      ? <span style={{ color: colors.warningText }}> 此残留量可能较高，可能会影响您的入睡时长、睡眠深度和整体质量。强烈建议您尝试提前最后一次咖啡因的摄入时间，或显著减少傍晚及晚间的摄入量。</span>
+                      : detailedStats.avgCaffeineAtSleep > 10
+                        ? <span> 此残留量尚可，但仍可能对敏感人群的睡眠产生轻微影响。</span>
+                        : <span> 此残留量相对较低，对睡眠影响较小。</span>
+                    }
+                  </p>
+                )}
+                {detailedStats.peakHour >= 15 && ( // 下午3点后
+                   <p className="mb-2" style={{color: colors.infoText}}>
+                     提示：您的高峰摄入时段 (<strong style={{ color: colors.accent }}>{detailedStats.peakHour}:00</strong>) 偏晚，这可能增加夜间咖啡因残留量，请特别留意。
+                   </p>
+                )}
+                <p>
+                  本应用建议在体内咖啡因浓度降至安全阈值 (您设定为 <strong style={{ color: colors.accent }}>{userSettings.safeSleepThresholdConcentration.toFixed(1)} mg/L</strong>) 后入睡，以期获得更佳睡眠。
+                  请密切关注首页根据您实时数据计算的“最佳入睡时间”动态提醒，并据此调整您的咖啡因摄入计划。
+                </p>
+              </>
+            ) : (
+              <p>记录您的咖啡因摄入和睡眠设置，以获取关于睡眠影响的个性化提醒。</p>
+            )}
           </article>
         </div>
       </section>
