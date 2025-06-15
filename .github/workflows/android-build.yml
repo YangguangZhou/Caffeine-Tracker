@@ -105,8 +105,7 @@ jobs:
 
     - name: Download existing README.md or create new
       run: |
-        curl -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
-          -f -o README.md "${{ secrets.WEBDAV_DOWNLOAD_URL }}/versions/README.md" || touch README.md
+        curl -L -f -o README_old.md "${{ secrets.WEBDAV_DOWNLOAD_URL }}/versions/README.md" || touch README_old.md
 
     - name: Update README.md
       run: |
@@ -121,14 +120,23 @@ jobs:
         INDENTED_COMMIT_MESSAGE=$(echo "$COMMIT_MESSAGE" | sed 's/^/    /')
 
         NEW_ENTRY="## 版本 ${VERSION_NAME} (${VERSION_CODE}) - \`${COMMIT_SHORT}\`\n\n"
-        NEW_ENTRY+="* **下载链接:** [${APK_NAME}](${DOWNLOAD_URL})\n\n---\n\n"
+        NEW_ENTRY+="* **下载链接:** [${APK_NAME}](${DOWNLOAD_URL})\n\n"
         NEW_ENTRY+="* **提交信息:**\n"
         NEW_ENTRY+="  \`\`\`\n"
         NEW_ENTRY+="${INDENTED_COMMIT_MESSAGE}\n"
-        NEW_ENTRY+="  \`\`\`\n"
+        NEW_ENTRY+="  \`\`\`\n---\n\n"
 
-        echo -e "${NEW_ENTRY}" > README.md.new
-        mv README.md.new README.md
+        # Prepend new entry to existing content (if any)
+        if [[ -f README_old.md ]]; then
+          cat README_old.md > README.md.tmp
+        fi
+        echo -e "${NEW_ENTRY}" > README.md
+        if [[ -f README.md.tmp ]]; then
+          cat README.md.tmp >> README.md
+          rm README.md.tmp
+        fi
+        rm -f README_old.md
+
 
     - name: Upload updated README.md to WebDAV
       run: |

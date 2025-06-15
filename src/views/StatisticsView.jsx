@@ -20,7 +20,7 @@ const MIN_RECORD_DAYS = 3; // 定义生成详细分析所需的最小记录天�
 /**
  * 新增：仪表盘组件，用于可视化健康指标
  */
-const Gauge = ({ value, maxValue, label, unit, size = 100, strokeWidth = 10, colors }) => {
+const Gauge = ({ value, maxValue, label, unit, size = 80, strokeWidth = 8, colors }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   
@@ -37,7 +37,7 @@ const Gauge = ({ value, maxValue, label, unit, size = 100, strokeWidth = 10, col
 
   return (
     <div className="flex flex-col items-center justify-center text-center">
-      <svg width={size} height={size * 0.85} viewBox={`0 0 ${size} ${size}`}>
+      <svg width={size} height={size * 0.75} viewBox={`0 0 ${size} ${size * 0.9}`}>
         <defs>
             <linearGradient id={`gradient-${label}`} x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor={color} stopOpacity="0.7" />
@@ -73,7 +73,7 @@ const Gauge = ({ value, maxValue, label, unit, size = 100, strokeWidth = 10, col
           y="50%"
           dy="0.1em"
           textAnchor="middle"
-          className="text-xl font-bold"
+          className="text-lg font-bold"
           fill={color}
         >
           {Math.round(value)}
@@ -89,7 +89,7 @@ const Gauge = ({ value, maxValue, label, unit, size = 100, strokeWidth = 10, col
           {unit}
         </text>
       </svg>
-      <p className="text-xs font-medium mt-1" style={{ color: colors.textSecondary }}>{label}</p>
+      <p className="text-xs font-medium mt-1 text-center" style={{ color: colors.textSecondary }}>{label}</p>
     </div>
   );
 };
@@ -633,14 +633,14 @@ const StatisticsView = ({
 
   // 辅助组件：用于展示单个详细统计指标
   const StatItem = ({ icon, label, value, unit, colorClass = '' }) => (
-    <div className="p-3 rounded-lg text-center" style={{ backgroundColor: colors.bgBase }}>
-      <div className="flex items-center justify-center mb-1.5" style={{ color: colors.accent }}>
+    <div className="p-2 rounded-lg text-center" style={{ backgroundColor: colors.bgBase }}>
+      <div className="flex items-center justify-center mb-1" style={{ color: colors.accent }}>
         {icon}
       </div>
       <p className="text-xs font-medium truncate" style={{ color: colors.textSecondary }}>
         {label}
       </p>
-      <p className={`text-base font-bold mt-1 ${colorClass}`} style={{ color: !colorClass ? colors.espresso : undefined }}>
+      <p className={`text-sm font-bold mt-1 ${colorClass}`} style={{ color: !colorClass ? colors.espresso : undefined }}>
         {value} <span className="text-xs font-normal">{unit}</span>
       </p>
     </div>
@@ -1038,21 +1038,21 @@ const StatisticsView = ({
           if (detailedStats && daysRecorded >= MIN_RECORD_DAYS) {
             return (
               <>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm mb-6">
-                  <StatItem icon={<Calendar size={20} />} label="记录天数" value={detailedStats.totalDays} unit="天" />
-                  <StatItem icon={<AlertCircle size={20} />} label="超标天数" value={detailedStats.exceedDays} unit="天" colorClass={detailedStats.exceedDays > 0 ? 'text-orange-500' : ''} />
-                  <StatItem icon={<Percent size={20} />} label="超标率" value={detailedStats.exceedRate} unit="%" colorClass={detailedStats.exceedRate > 20 ? 'text-red-500' : detailedStats.exceedRate > 10 ? 'text-orange-500' : ''} />
-                  <StatItem icon={<Target size={20} />} label="最大单次" value={detailedStats.maxSingleIntake} unit="mg" />
+                <div className="grid grid-cols-4 gap-2 text-sm mb-6">
+                  <StatItem icon={<Calendar size={16} />} label="记录天数" value={detailedStats.totalDays} unit="天" />
+                  <StatItem icon={<AlertCircle size={16} />} label="超标天数" value={detailedStats.exceedDays} unit="天" colorClass={detailedStats.exceedDays > 0 ? 'text-orange-500' : ''} />
+                  <StatItem icon={<Percent size={16} />} label="超标率" value={detailedStats.exceedRate} unit="%" colorClass={detailedStats.exceedRate > 20 ? 'text-red-500' : detailedStats.exceedRate > 10 ? 'text-orange-500' : ''} />
+                  <StatItem icon={<Target size={16} />} label="最大单次" value={detailedStats.maxSingleIntake} unit="mg" />
                   
-                  <StatItem icon={<TrendingUp size={20} />} label="最长连续" value={detailedStats.maxStreak} unit="天" />
-                  <StatItem icon={<Zap size={20} />} label="当前连续" value={detailedStats.currentStreak} unit="天" />
-                  <StatItem icon={<Droplet size={20} />} label="平均单次" value={detailedStats.avgPerIntake} unit="mg" />
-                  <StatItem icon={<Clock size={20} />} label="平均间隔" value={detailedStats.avgInterval} unit="h" />
+                  <StatItem icon={<TrendingUp size={16} />} label="最长连续" value={detailedStats.maxStreak} unit="天" />
+                  <StatItem icon={<Zap size={16} />} label="当前连续" value={detailedStats.currentStreak} unit="天" />
+                  <StatItem icon={<Droplet size={16} />} label="平均单次" value={detailedStats.avgPerIntake} unit="mg" />
+                  <StatItem icon={<Clock size={16} />} label="平均间隔" value={detailedStats.avgInterval} unit="h" />
                   
-                  <StatItem icon={<Brain size={20} />} label="平均时间" value={`${Math.floor(detailedStats.avgIntakeTime)}:${String(Math.round((detailedStats.avgIntakeTime % 1) * 60)).padStart(2, '0')}`} unit="" />
-                  <StatItem icon={<TrendingDown size={20} />} label="高峰时段" value={`${detailedStats.peakHour}:00`} unit="" />
-                  <StatItem icon={<Moon size={20} />} label="睡前残留" value={detailedStats.avgCaffeineAtSleep} unit="mg" colorClass={detailedStats.avgCaffeineAtSleep > 30 ? 'text-orange-500' : ''} />
-                  <StatItem icon={<Coffee size={20} />} label="高峰摄入" value={detailedStats.peakAmount} unit="mg" />
+                  <StatItem icon={<Brain size={16} />} label="平均时间" value={`${Math.floor(detailedStats.avgIntakeTime)}:${String(Math.round((detailedStats.avgIntakeTime % 1) * 60)).padStart(2, '0')}`} unit="" />
+                  <StatItem icon={<TrendingDown size={16} />} label="高峰时段" value={`${detailedStats.peakHour}:00`} unit="" />
+                  <StatItem icon={<Moon size={16} />} label="睡前残留" value={detailedStats.avgCaffeineAtSleep} unit="mg" colorClass={detailedStats.avgCaffeineAtSleep > 30 ? 'text-orange-500' : ''} />
+                  <StatItem icon={<Coffee size={16} />} label="高峰摄入" value={detailedStats.peakAmount} unit="mg" />
                 </div>
 
                 {/* 周度分析 */}
@@ -1237,7 +1237,7 @@ const StatisticsView = ({
             return (
               <div className="space-y-6">
                 {/* 仪表盘区域 */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4">
                    <Gauge
                       value={Math.round(getWeekTotal(new Date()) / ((new Date().getDay() === 0 ? 7 : new Date().getDay())) || 1)}
                       maxValue={effectiveMaxDaily}

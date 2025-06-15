@@ -342,6 +342,20 @@ const CaffeineTracker = () => {
     return Math.round(records.filter(record => record && record.timestamp >= todayStartTime && record.timestamp <= todayEndTime).reduce((sum, record) => sum + record.amount, 0));
   }, [records]);
 
+  // 计算有效每日最大摄入量
+  const effectiveMaxDaily = useMemo(() => {
+    const { weight, recommendedDosePerKg, maxDailyCaffeine } = userSettings;
+    const generalMax = maxDailyCaffeine > 0 ? maxDailyCaffeine : 400;
+    
+    // 计算个性化推荐摄入量
+    if (weight > 0 && recommendedDosePerKg > 0) {
+      const personalizedRecommendation = Math.round(weight * recommendedDosePerKg);
+      return Math.min(generalMax, personalizedRecommendation);
+    }
+    
+    return generalMax;
+  }, [userSettings.weight, userSettings.recommendedDosePerKg, userSettings.maxDailyCaffeine]);
+
   // WebDAV同步功能
   const performWebDAVSync = useCallback(async (settingsToUse, currentRecords, currentDrinks) => {
     console.log("=== performWebDAVSync 被调用 ===");
@@ -785,6 +799,7 @@ const CaffeineTracker = () => {
               setStatsView={setStatsView}
               statsDate={statsDate}
               setStatsDate={setStatsDate}
+              effectiveMaxDaily={effectiveMaxDaily}
               userSettings={userSettings}
               drinks={drinks}
               colors={colors}
