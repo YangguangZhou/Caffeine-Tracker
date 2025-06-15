@@ -127,9 +127,7 @@ jobs:
         NEW_ENTRY+="${INDENTED_COMMIT_MESSAGE}\n"
         NEW_ENTRY+="  \`\`\`\n"
 
-        # Prepend new entry to README.md
-        EXISTING_CONTENT=$(cat README.md)
-        echo -e "${NEW_ENTRY}${EXISTING_CONTENT}" > README.md.new
+        echo -e "${NEW_ENTRY}" > README.md.new
         mv README.md.new README.md
 
     - name: Upload updated README.md to WebDAV

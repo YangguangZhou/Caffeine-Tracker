@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   BarChart2, ChevronLeft, ChevronRight,
   Heart, Award, Clock, Info, AlertCircle, Target, PieChart as PieChartIcon,
-  Users, Coffee, Sparkles
+  Users, Coffee, Sparkles, TrendingUp, TrendingDown, Calendar, Percent, Moon, Droplet, Zap, Brain, Activity as ActivityIcon // Added ActivityIcon for motivational message
 } from 'lucide-react';
 import StatsChart from '../components/StatsChart';
 import PieChart from '../components/PieChart';
@@ -13,6 +13,102 @@ import {
   getStartOfDay, getEndOfDay,
 } from '../utils/timeUtils';
 import { computeCaffeineDistribution } from '../utils/distributionUtils';  // 新增
+import { DEFAULT_CATEGORY } from '../utils/constants'; // Assuming this import exists or is added if needed for DEFAULT_CATEGORY
+
+const MIN_RECORD_DAYS = 3; // 定义生成详细分析所需的最小记录天数
+
+/**
+ * 新增：仪表盘组件，用于可视化健康指标
+ */
+const Gauge = ({ value, maxValue, label, unit, size = 100, strokeWidth = 10, colors }) => {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  
+  // Ensure value and maxValue are valid numbers and maxValue is not zero
+  const validValue = typeof value === 'number' && !isNaN(value) ? value : 0;
+  const validMaxValue = typeof maxValue === 'number' && !isNaN(maxValue) && maxValue > 0 ? maxValue : 1; // Avoid division by zero
+
+  const progress = Math.min(validValue / validMaxValue, 1);
+  const offset = circumference * (1 - progress * 0.75); // 0.75 makes it a 3/4 circle
+
+  let color = colors.safe;
+  if (progress > 0.5) color = colors.infoText;
+  if (progress > 0.8) color = colors.warningText;
+
+  return (
+    <div className="flex flex-col items-center justify-center text-center">
+      <svg width={size} height={size * 0.85} viewBox={`0 0 ${size} ${size}`}>
+        <defs>
+            <linearGradient id={`gradient-${label}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor={color} stopOpacity="0.7" />
+              <stop offset="100%" stopColor={color} stopOpacity="1" />
+            </linearGradient>
+        </defs>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={colors.borderSubtle}
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - 0.75)}
+          transform={`rotate(135 ${size / 2} ${size / 2})`}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={`url(#gradient-${label})`}
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          transform={`rotate(135 ${size / 2} ${size / 2})`}
+          style={{ transition: 'stroke-dashoffset 0.5s ease-in-out' }}
+        />
+        <text
+          x="50%"
+          y="50%"
+          dy="0.1em"
+          textAnchor="middle"
+          className="text-xl font-bold"
+          fill={color}
+        >
+          {Math.round(value)}
+        </text>
+        <text
+          x="50%"
+          y="50%"
+          dy="1.6em"
+          textAnchor="middle"
+          className="text-xs"
+          fill={colors.textMuted}
+        >
+          {unit}
+        </text>
+      </svg>
+      <p className="text-xs font-medium mt-1" style={{ color: colors.textSecondary }}>{label}</p>
+    </div>
+  );
+};
+
+
+/**
+ * 激励信息组件
+ */
+const MotivationalMessage = ({ colors, title, requiredDays, icon }) => (
+  <div className="text-center py-10 px-4" style={{ color: colors.textMuted }}>
+    {icon}
+    <h4 className="text-lg font-semibold mb-2" style={{ color: colors.espresso }}>{title}</h4>
+    <p className="mb-1">
+      再坚持记录 <strong style={{ color: colors.accent }}>{Math.max(1, requiredDays)}</strong> 天，就能解锁详细分析啦！
+    </p>
+    <p className="text-sm">数据越多，分析越准。继续记录更多数据，发现您的咖啡因摄入模式！</p>
+  </div>
+);
+
 
 /**
  * 统计数据视图组件
@@ -182,7 +278,12 @@ const StatisticsView = ({
     // 计算超标天数
     const dailyTotals = {};
     records.forEach(record => {
-      const dateKey = new Date(record.timestamp).toDateString();
+      const recordDate = new Date(record.timestamp);
+      if (isNaN(recordDate.getTime())) {
+        console.warn('Invalid timestamp in record for dailyTotals:', record);
+        return;
+      }
+      const dateKey = recordDate.toDateString();
       dailyTotals[dateKey] = (dailyTotals[dateKey] || 0) + record.amount;
     });
 
@@ -192,8 +293,9 @@ const StatisticsView = ({
       Object.keys(dailyTotals)
         .map(dateStr => {
           const date = new Date(dateStr);
-          const dayStart = getStartOfDay(date);
-          return typeof dayStart === 'number' ? dayStart : dayStart?.getTime?.();
+          if (isNaN(date.getTime())) return null;
+          const dayStartTimestamp = getStartOfDay(date); // Returns a number
+          return (typeof dayStartTimestamp === 'number' && !isNaN(dayStartTimestamp)) ? dayStartTimestamp : null;
         })
         .filter(ts => typeof ts === 'number' && !isNaN(ts))
     )].sort((a, b) => a - b);
@@ -215,23 +317,6 @@ const StatisticsView = ({
         }
       }
       maxStreak = Math.max(maxStreak, currentStreakCount);
-    }
-
-    // 计算当前连续天数
-    let currentStreak = 0;
-    if (uniqueDayTimestamps.length > 0) {
-      // 今天的起始时间
-      const todayStart = getStartOfDay(new Date());
-      // 用 Set 方便查找
-      const daySet = new Set(uniqueDayTimestamps);
-      let streak = 0;
-      let day = todayStart;
-      // 如果今天有摄入，从今天往前推
-      while (daySet.has(day)) {
-        streak++;
-        day -= 24 * 60 * 60 * 1000;
-      }
-      currentStreak = streak;
     }
 
     // 计算超标天数
@@ -262,62 +347,41 @@ const StatisticsView = ({
     // 最大单次摄入
     const maxSingleIntake = Math.max(...records.map(r => r.amount));
 
-    // 修复连续摄入天数计算
+    // 统一并修复连续摄入天数计算
     // 1. 获取所有记录的日期，确保它们是当天的开始时间，并去重
-    const uniqueDayTimestamps2 = [...new Set(
+    const uniqueDayTimestampsForStreak = [...new Set(
       records
         .map(r => {
           const recordDate = new Date(r.timestamp);
-          // 检查 recordDate 是否有效
           if (isNaN(recordDate.getTime())) {
-            console.warn('Invalid timestamp found in record:', r);
-            return null; 
+            console.warn('Invalid timestamp found in record for streak calculation:', r);
+            return null;
           }
-          const dayStart = getStartOfDay(recordDate);
-          // 检查 dayStart 是否是一个有效的 Date 对象
-          return dayStart && typeof dayStart.getTime === 'function' ? dayStart.getTime() : null;
+          const dayStartTimestamp = getStartOfDay(recordDate); // Returns a number
+          return (typeof dayStartTimestamp === 'number' && !isNaN(dayStartTimestamp)) ? dayStartTimestamp : null;
         })
-        .filter(ts => ts !== null) // 过滤掉无效的时间戳
-    )].sort((a, b) => a - b); // 按时间戳升序排序
+        .filter(ts => ts !== null)
+    )].sort((a, b) => a - b);
 
-    // 2. 计算最长连续天数 (maxStreak)
-    let maxStreak2 = 0;
-    if (uniqueDayTimestamps2.length > 0) {
-      maxStreak2 = 1; // 如果有记录，最少是1天
-      let currentStreakCount = 1;
-      for (let i = 1; i < uniqueDayTimestamps2.length; i++) {
-        const prevTimestamp = uniqueDayTimestamps2[i-1];
-        const currTimestamp = uniqueDayTimestamps2[i];
-        const dayDiff = (currTimestamp - prevTimestamp) / (1000 * 60 * 60 * 24);
-
-        if (dayDiff === 1) {
-          currentStreakCount++;
-        } else {
-          // 如果天数差大于1，说明中断了
-          maxStreak2 = Math.max(maxStreak2, currentStreakCount);
-          currentStreakCount = 1; // 重置为1，因为当前日期是一个新的开始
-        }
-      }
-      maxStreak2 = Math.max(maxStreak2, currentStreakCount); // 确保最后一个连续段被计算
-    }
+    // 2. 计算最长连续天数 (maxStreak - 使用上面已有的 maxStreak 变量)
+    // maxStreak 的计算逻辑已在前面，这里不再重复
 
     // 3. 计算当前连续摄入天数 (currentStreak)
-    let currentStreak2 = 0;
+    let currentStreak = 0;
     const today = new Date();
-    const todayStartObj = getStartOfDay(today);
+    const todayStartTimestamp = getStartOfDay(today); // Returns a number
     
-    // 确保 todayStartObj 是有效的 Date 对象
-    if (todayStartObj && typeof todayStartObj.getTime === 'function') {
-      const todayStartTimestamp = todayStartObj.getTime();
-      const uniqueDateStrings = uniqueDayTimestamps2.map(ts => new Date(ts).toDateString());
+    if (typeof todayStartTimestamp === 'number' && !isNaN(todayStartTimestamp)) {
+      // 使用 uniqueDayTimestampsForStreak 进行检查
+      const uniqueDateStringsForStreak = uniqueDayTimestampsForStreak.map(ts => new Date(ts).toDateString());
 
-      if (uniqueDateStrings.includes(new Date(todayStartTimestamp).toDateString())) {
-        currentStreak2 = 1;
+      if (uniqueDateStringsForStreak.includes(new Date(todayStartTimestamp).toDateString())) {
+        currentStreak = 1;
         let dayToCheckTimestamp = todayStartTimestamp;
         for (let i = 1; i < 365; i++) { // 最多检查过去365天
           dayToCheckTimestamp -= (24 * 60 * 60 * 1000); // 前一天的时间戳
-          if (uniqueDateStrings.includes(new Date(dayToCheckTimestamp).toDateString())) {
-            currentStreak2++;
+          if (uniqueDateStringsForStreak.includes(new Date(dayToCheckTimestamp).toDateString())) {
+            currentStreak++;
           } else {
             break; // 中断
           }
@@ -343,7 +407,7 @@ const StatisticsView = ({
 
     // 计算平均每天摄入时间（以小时为单位）
     const intakeHours = records.map(r => new Date(r.timestamp).getHours() + new Date(r.timestamp).getMinutes() / 60);
-    const avgIntakeTime = intakeHours.reduce((sum, hour) => sum + hour, 0) / intakeHours.length;
+    const avgIntakeTime = intakeHours.length > 0 ? intakeHours.reduce((sum, hour) => sum + hour, 0) / intakeHours.length : 0;
 
     // 计算平均摄入后睡眠前残留咖啡因量
     const sleepHour = parseInt(userSettings.plannedSleepTime.split(':')[0]) || 23;
@@ -496,11 +560,11 @@ const StatisticsView = ({
     const nonZeroValues = values.filter(v => v > 0);
     
     const maxDay = Math.max(...values);
-    const minDay = Math.min(...nonZeroValues);
+    const minDay = nonZeroValues.length > 0 ? Math.min(...nonZeroValues) : 0;
     const avgDay = nonZeroValues.length > 0 ? nonZeroValues.reduce((a, b) => a + b) / nonZeroValues.length : 0;
     const activeDays = nonZeroValues.length;
     const totalDays = values.length;
-    const consistencyRate = (activeDays / totalDays) * 100;
+    const consistencyRate = totalDays > 0 ? (activeDays / totalDays) * 100 : 0;
 
     // 计算标准差（数据分散程度）
     const variance = nonZeroValues.length > 0 ? 
@@ -540,9 +604,9 @@ const StatisticsView = ({
     else if (statsView === 'month') nextDate.setMonth(nextDate.getMonth() + 1, 1);
     else nextDate.setFullYear(nextDate.getFullYear() + 1);
 
-    let startOfNextPeriod, startOfPeriod;
+    let startOfNextPeriod;
     if (statsView === 'week') startOfNextPeriod = getStartOfWeek(nextDate);
-    else if (statsView === 'month') startOfPeriod = getStartOfMonth(nextDate);
+    else if (statsView === 'month') startOfNextPeriod = getStartOfMonth(nextDate);
     else startOfNextPeriod = getStartOfYear(nextDate);
 
     return startOfNextPeriod > Date.now();
@@ -566,6 +630,21 @@ const StatisticsView = ({
     plannedDate.setHours(plannedDate.getHours() - hoursBefore);
     return `${String(plannedDate.getHours()).padStart(2, '0')}:${String(plannedDate.getMinutes()).padStart(2, '0')}`;
   };
+
+  // 辅助组件：用于展示单个详细统计指标
+  const StatItem = ({ icon, label, value, unit, colorClass = '' }) => (
+    <div className="p-3 rounded-lg text-center" style={{ backgroundColor: colors.bgBase }}>
+      <div className="flex items-center justify-center mb-1.5" style={{ color: colors.accent }}>
+        {icon}
+      </div>
+      <p className="text-xs font-medium truncate" style={{ color: colors.textSecondary }}>
+        {label}
+      </p>
+      <p className={`text-base font-bold mt-1 ${colorClass}`} style={{ color: !colorClass ? colors.espresso : undefined }}>
+        {value} <span className="text-xs font-normal">{unit}</span>
+      </p>
+    </div>
+  );
 
 
   return (
@@ -703,7 +782,7 @@ const StatisticsView = ({
                 if (statsView === 'week') { total = getWeekTotal(statsDate); days = 7; }
                 else if (statsView === 'month') { total = getMonthTotal(statsDate); days = new Date(statsDate.getFullYear(), statsDate.getMonth() + 1, 0).getDate(); }
                 else { total = getYearTotal(statsDate); const year = statsDate.getFullYear(); days = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365; }
-                return days > 0 && total > 0 ? Math.round(total / days) : 0;
+                return days > 0 && total > 0 ? Math.round(total / (periodStats?.activeDays || days)) : 0;
               })()} mg
             </p>
           </div>
@@ -838,366 +917,303 @@ const StatisticsView = ({
       </section>
 
       {/* 咖啡因生活方式画像 */}
-      {lifestyleAnalysis && (
-        <section
-          aria-labelledby="lifestyle-analysis-heading"
-          className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
-          style={{
-            backgroundColor: colors.bgCard,
-            borderColor: colors.borderSubtle
-          }}
+      <section
+        aria-labelledby="lifestyle-analysis-heading"
+        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        style={{
+          backgroundColor: colors.bgCard,
+          borderColor: colors.borderSubtle
+        }}
+      >
+        <h3
+          id="lifestyle-analysis-heading"
+          className="text-xl font-semibold mb-4 flex items-center transition-colors"
+          style={{ color: colors.espresso }}
         >
-          <h3
-            id="lifestyle-analysis-heading"
-            className="text-xl font-semibold mb-4 flex items-center transition-colors"
-            style={{ color: colors.espresso }}
-          >
-            <Users size={20} className="mr-2" /> 咖啡因生活方式画像
-          </h3>
-          
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center px-4 py-2 rounded-full mb-3"
-                 style={{ backgroundColor: colors.accent + '20' }}>
-              <Coffee size={20} className="mr-2" style={{ color: colors.accent }} />
-              <span className="text-lg font-semibold" style={{ color: colors.accent }}>
-                {lifestyleAnalysis.userType}
-              </span>
-            </div>
-            <p className="text-sm" style={{ color: colors.textSecondary }}>
-              {lifestyleAnalysis.typeDescription}
-            </p>
-          </div>
+          <Users size={20} className="mr-2" /> 咖啡因生活方式画像
+        </h3>
+        {(() => {
+          const daysRecorded = lifestyleAnalysis ? lifestyleAnalysis.totalDays : 0;
+          if (lifestyleAnalysis && daysRecorded >= MIN_RECORD_DAYS) {
+            return (
+              <>
+                <div className="text-center mb-6">
+                  <div className="inline-flex items-center px-4 py-2 rounded-full mb-3"
+                       style={{ backgroundColor: colors.accent + '20' }}>
+                    <Coffee size={20} className="mr-2" style={{ color: colors.accent }} />
+                    <span className="text-lg font-semibold" style={{ color: colors.accent }}>
+                      {lifestyleAnalysis.userType}
+                    </span>
+                  </div>
+                  <p className="text-sm" style={{ color: colors.textSecondary }}>
+                    {lifestyleAnalysis.typeDescription}
+                  </p>
+                </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <div className="p-3 rounded-lg text-center shadow-inner" style={{ backgroundColor: colors.bgBase }}>
-              <p className="text-xs mb-1" style={{ color: colors.textMuted }}>日均摄入</p>
-              <p className="text-lg font-semibold" style={{ color: colors.espresso }}>
-                {lifestyleAnalysis.avgDailyAmount} mg
-              </p>
-              <p className="text-xs" style={{ color: colors.textSecondary }}>
-                {lifestyleAnalysis.avgDailyCount} 次/天
-              </p>
-            </div>
-            <div className="p-3 rounded-lg text-center shadow-inner" style={{ backgroundColor: colors.bgBase }}>
-              <p className="text-xs mb-1" style={{ color: colors.textMuted }}>周末模式</p>
-              <p className="text-lg font-semibold" style={{ color: colors.espresso }}>
-                {lifestyleAnalysis.weekendPattern}
-              </p>
-              <p className="text-xs" style={{ color: colors.textSecondary }}>
-                平日 {lifestyleAnalysis.weekdayAvg}mg vs 周末 {lifestyleAnalysis.weekendAvg}mg
-              </p>
-            </div>
-          </div>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="p-3 rounded-lg text-center shadow-inner" style={{ backgroundColor: colors.bgBase }}>
+                    <p className="text-xs mb-1" style={{ color: colors.textMuted }}>日均摄入</p>
+                    <p className="text-lg font-semibold" style={{ color: colors.espresso }}>
+                      {lifestyleAnalysis.avgDailyAmount} mg
+                    </p>
+                    <p className="text-xs" style={{ color: colors.textSecondary }}>
+                      {lifestyleAnalysis.avgDailyCount} 次/天
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg text-center shadow-inner" style={{ backgroundColor: colors.bgBase }}>
+                    <p className="text-xs mb-1" style={{ color: colors.textMuted }}>周末模式</p>
+                    <p className="text-lg font-semibold" style={{ color: colors.espresso }}>
+                      {lifestyleAnalysis.weekendPattern}
+                    </p>
+                    <p className="text-xs" style={{ color: colors.textSecondary }}>
+                      平日 {lifestyleAnalysis.weekdayAvg}mg vs 周末 {lifestyleAnalysis.weekendAvg}mg
+                    </p>
+                  </div>
+                </div>
 
-          <div 
-            className="p-3 rounded-lg flex items-start" 
-            style={{ 
-              backgroundColor: lifestyleAnalysis.userType === '重度使用者' || lifestyleAnalysis.userType === '高频依赖者' ? colors.warningBg : colors.infoBg,
-            }}
-          >
-            <Sparkles 
-              size={20} 
-              className="mr-2 flex-shrink-0 mt-0.5" 
-              style={{ 
-                color: lifestyleAnalysis.userType === '重度使用者' || lifestyleAnalysis.userType === '高频依赖者' ? colors.warningText : colors.infoText,
-              }} 
-            />
-            <p 
-              className="text-sm" 
-              style={{ 
-                color: lifestyleAnalysis.userType === '重度使用者' || lifestyleAnalysis.userType === '高频依赖者' ? colors.warningText : colors.infoText,
-              }}
-            >
-              {lifestyleAnalysis.typeAdvice}
-            </p>
-          </div>
-        </section>
-      )}
+                <div
+                  className="p-3 rounded-lg flex items-start"
+                  style={{
+                    backgroundColor: lifestyleAnalysis.userType === '重度使用者' || lifestyleAnalysis.userType === '高频依赖者' ? colors.warningBg : colors.infoBg,
+                  }}
+                >
+                  <Sparkles
+                    size={20}
+                    className="mr-2 flex-shrink-0 mt-0.5"
+                    style={{
+                      color: lifestyleAnalysis.userType === '重度使用者' || lifestyleAnalysis.userType === '高频依赖者' ? colors.warningText : colors.infoText,
+                    }}
+                  />
+                  <p
+                    className="text-sm"
+                    style={{
+                      color: lifestyleAnalysis.userType === '重度使用者' || lifestyleAnalysis.userType === '高频依赖者' ? colors.warningText : colors.infoText,
+                    }}
+                  >
+                    {lifestyleAnalysis.typeAdvice}
+                  </p>
+                </div>
+              </>
+            );
+          } else if (records.length > 0) {
+            const daysNeeded = MIN_RECORD_DAYS - daysRecorded;
+            return (
+              <MotivationalMessage
+                colors={colors}
+                title="需要更多数据解锁咖啡因画像"
+                requiredDays={daysNeeded}
+                icon={<Users size={48} className="mx-auto mb-4 opacity-70" style={{ color: colors.accent }} />}
+              />
+            );
+          } else { // records.length === 0
+            return (
+              <div className="text-center py-8" style={{ color: colors.textMuted }}>
+                <Users size={48} className="mx-auto mb-3 opacity-50" />
+                <p>暂无足够数据生成画像。</p>
+                <p className="text-xs mt-1">开始记录，了解您的咖啡因习惯。</p>
+              </div>
+            );
+          }
+        })()}
+      </section>
 
       {/* 详细统计分析卡片 */}
-      {detailedStats && (
-        <section
-          aria-labelledby="detailed-stats-heading"
-          className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
-          style={{
-            backgroundColor: colors.bgCard,
-            borderColor: colors.borderSubtle
-          }}
+      <section
+        aria-labelledby="detailed-stats-heading"
+        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        style={{
+          backgroundColor: colors.bgCard,
+          borderColor: colors.borderSubtle
+        }}
+      >
+        <h3
+          id="detailed-stats-heading"
+          className="text-xl font-semibold mb-4 flex items-center transition-colors"
+          style={{ color: colors.espresso }}
         >
-          <h3
-            id="detailed-stats-heading"
-            className="text-xl font-semibold mb-4 flex items-center transition-colors"
-            style={{ color: colors.espresso }}
-          >
-            <BarChart2 size={20} className="mr-2" /> 详细统计分析
-          </h3>
-          
-          <div className="grid grid-cols-1 gap-4 text-sm mb-6">
-            {/* 超标分析 */}
-            <div
-              className="p-3 rounded-lg transition-colors"
-              style={{ backgroundColor: colors.bgBase }}
-            >
-              <h4 className="font-semibold mb-3 flex items-center text-sm" style={{ color: colors.espresso }}>
-                <AlertCircle size={14} className="mr-1" />
-                超标分析
-              </h4>
-              <div className="grid grid-cols-3 gap-2 text-xs" style={{ color: colors.textSecondary }}>
-                <div className="text-center">
-                  <div className="text-xs mb-1">记录天数</div>
-                  <div className="font-medium" style={{ color: colors.espresso }}>
-                    {detailedStats.totalDays}天
-                  </div>
+          <BarChart2 size={20} className="mr-2" /> 详细统计分析
+        </h3>
+        {(() => {
+          const daysRecorded = lifestyleAnalysis ? lifestyleAnalysis.totalDays : 0;
+          if (detailedStats && daysRecorded >= MIN_RECORD_DAYS) {
+            return (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm mb-6">
+                  <StatItem icon={<Calendar size={20} />} label="记录天数" value={detailedStats.totalDays} unit="天" />
+                  <StatItem icon={<AlertCircle size={20} />} label="超标天数" value={detailedStats.exceedDays} unit="天" colorClass={detailedStats.exceedDays > 0 ? 'text-orange-500' : ''} />
+                  <StatItem icon={<Percent size={20} />} label="超标率" value={detailedStats.exceedRate} unit="%" colorClass={detailedStats.exceedRate > 20 ? 'text-red-500' : detailedStats.exceedRate > 10 ? 'text-orange-500' : ''} />
+                  <StatItem icon={<Target size={20} />} label="最大单次" value={detailedStats.maxSingleIntake} unit="mg" />
+                  
+                  <StatItem icon={<TrendingUp size={20} />} label="最长连续" value={detailedStats.maxStreak} unit="天" />
+                  <StatItem icon={<Zap size={20} />} label="当前连续" value={detailedStats.currentStreak} unit="天" />
+                  <StatItem icon={<Droplet size={20} />} label="平均单次" value={detailedStats.avgPerIntake} unit="mg" />
+                  <StatItem icon={<Clock size={20} />} label="平均间隔" value={detailedStats.avgInterval} unit="h" />
+                  
+                  <StatItem icon={<Brain size={20} />} label="平均时间" value={`${Math.floor(detailedStats.avgIntakeTime)}:${String(Math.round((detailedStats.avgIntakeTime % 1) * 60)).padStart(2, '0')}`} unit="" />
+                  <StatItem icon={<TrendingDown size={20} />} label="高峰时段" value={`${detailedStats.peakHour}:00`} unit="" />
+                  <StatItem icon={<Moon size={20} />} label="睡前残留" value={detailedStats.avgCaffeineAtSleep} unit="mg" colorClass={detailedStats.avgCaffeineAtSleep > 30 ? 'text-orange-500' : ''} />
+                  <StatItem icon={<Coffee size={20} />} label="高峰摄入" value={detailedStats.peakAmount} unit="mg" />
                 </div>
-                <div className="text-center">
-                  <div className="text-xs mb-1">超标天数</div>
-                  <div className={`font-medium ${detailedStats.exceedDays > 0 ? 'text-orange-600' : ''}`} 
-                        style={{ color: detailedStats.exceedDays > 0 ? undefined : colors.espresso }}>
-                    {detailedStats.exceedDays}天
+
+                {/* 周度分析 */}
+                <div
+                  className="mb-6"
+                  onClick={() => setSelectedWeekday(null)} // 点击此区域空白处清除
+                >
+                  <h4
+                    className="font-semibold mb-3 text-sm"
+                    style={{ color: colors.espresso }}
+                    onClick={(e) => e.stopPropagation()} // 点击标题不清除
+                  >
+                    星期分布分析
+                  </h4>
+                  <div
+                    className="grid grid-cols-7 gap-2"
+                    // onClick handler removed from here, handled by parent div
+                  >
+                    {detailedStats.weekdayTotals.map((amount, index) => {
+                      const maxAmount = Math.max(...detailedStats.weekdayTotals);
+                      const percentage = maxAmount > 0 ? (amount / maxAmount) * 100 : 0;
+                      const isMax = index === detailedStats.maxWeekdayIndex;
+                      const isSelected = selectedWeekday === index;
+                      return (
+                        <div key={index} className="text-center">
+                          <div
+                            className="h-16 rounded transition-colors mb-1 flex items-end justify-center cursor-pointer hover:opacity-80"
+                            style={{
+                              backgroundColor: amount > 0 ? (isMax ? colors.accent : colors.grid) : colors.borderSubtle,
+                              transform: isSelected ? 'scale(1.05)' : 'scale(1)',
+                              boxShadow: isSelected ? '0 4px 8px rgba(0,0,0,0.2)' : 'none'
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation(); // 点击柱状图区域不清除，并切换选中
+                              setSelectedWeekday(selectedWeekday === index ? null : index);
+                            }}
+                          >
+                            <div
+                              className="w-full rounded transition-all duration-500"
+                              style={{
+                                height: `${Math.max(percentage, 5)}%`,
+                                backgroundColor: amount > 0 ? (isMax ? colors.accent : colors.safe) : 'transparent'
+                              }}
+                              title={`${detailedStats.weekdayNames[index]}: ${Math.round(amount)}mg`}
+                            />
+                          </div>
+                          <span
+                            className="text-xs"
+                            style={{ color: colors.textMuted }}
+                            onClick={(e) => e.stopPropagation()} // 点击文字不清除
+                          >
+                            {detailedStats.weekdayNames[index]}
+                          </span>
+                          {isSelected && (
+                            <div
+                              className="text-xs mt-1 font-medium"
+                              style={{ color: colors.espresso }}
+                              onClick={(e) => e.stopPropagation()} // 点击数值不清除
+                            >
+                              {Math.round(amount)}mg
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
+                  <p
+                    className="text-xs mt-2 text-center"
+                    style={{ color: colors.textMuted }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    最常摄入: {detailedStats.weekdayNames[detailedStats.maxWeekdayIndex]}
+                    ({Math.round(detailedStats.weekdayTotals[detailedStats.maxWeekdayIndex])}mg)
+                  </p>
                 </div>
-                <div className="text-center">
-                  <div className="text-xs mb-1">超标率</div>
-                  <div className={`font-medium ${detailedStats.exceedRate > 20 ? 'text-red-600' : detailedStats.exceedRate > 10 ? 'text-orange-600' : ''}`}
-                        style={{ color: detailedStats.exceedRate <= 10 ? colors.espresso : undefined }}>
-                    {detailedStats.exceedRate}%
+
+                {/* 时间分布图 */}
+                <div onClick={() => setSelectedHour(null)}>
+                  <h4
+                    className="font-semibold mb-3 text-sm"
+                    style={{ color: colors.espresso }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    24小时摄入分布
+                  </h4>
+                  <div
+                    className="grid grid-cols-12 gap-1 mb-2"
+                  >
+                    {detailedStats.hourlyDistribution.map((amount, hour) => {
+                      const maxAmount = Math.max(...detailedStats.hourlyDistribution);
+                      const height = maxAmount > 0 ? (amount / maxAmount) * 100 : 0;
+                      const isSelected = selectedHour === hour;
+                      return (
+                        <div key={hour} className="flex flex-col items-center">
+                          <div
+                            className="w-full rounded-t transition-colors mb-1 cursor-pointer hover:opacity-80"
+                            style={{
+                              height: `${Math.max(height, 2)}px`,
+                              backgroundColor: amount > 0 ? colors.accent : colors.borderSubtle,
+                              minHeight: '2px',
+                              maxHeight: '40px',
+                              transform: isSelected ? 'scale(1.1)' : 'scale(1)',
+                              boxShadow: isSelected ? '0 2px 4px rgba(0,0,0,0.3)' : 'none'
+                            }}
+                            title={`${hour}:00 - ${Math.round(amount)}mg`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedHour(selectedHour === hour ? null : hour);
+                            }}
+                          />
+                          <span
+                            className="text-xs"
+                            style={{ color: colors.textMuted }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {hour}
+                          </span>
+                          {isSelected && (
+                            <div
+                              className="text-xs mt-1 font-medium"
+                              style={{ color: colors.espresso }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {Math.round(amount)}mg
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
+                  <p
+                    className="text-xs text-center"
+                    style={{ color: colors.textMuted }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    高峰时段: {detailedStats.peakHour}:00 ({detailedStats.peakAmount}mg)
+                  </p>
                 </div>
+              </>
+            );
+          } else if (records.length > 0) {
+            const daysNeeded = MIN_RECORD_DAYS - daysRecorded;
+            return (
+              <MotivationalMessage
+                colors={colors}
+                title="需要更多数据解锁详细统计"
+                requiredDays={daysNeeded}
+                icon={<BarChart2 size={48} className="mx-auto mb-4 opacity-70" style={{ color: colors.accent }} />}
+              />
+            );
+          } else { // records.length === 0
+            return (
+              <div className="text-center py-8" style={{ color: colors.textMuted }}>
+                <BarChart2 size={48} className="mx-auto mb-3 opacity-50" />
+                <p>暂无足够数据进行详细分析。</p>
+                <p className="text-xs mt-1">请先添加一些咖啡因摄入记录。</p>
               </div>
-            </div>
-
-            {/* 摄入模式 */}
-            <div
-              className="p-3 rounded-lg transition-colors"
-              style={{ backgroundColor: colors.bgBase }}
-            >
-              <h4 className="font-semibold mb-3 flex items-center text-sm" style={{ color: colors.espresso }}>
-                <Clock size={14} className="mr-1" />
-                摄入模式
-              </h4>
-              <div className="grid grid-cols-3 gap-2 text-xs" style={{ color: colors.textSecondary }}>
-                <div className="text-center">
-                  <div className="text-xs mb-1">高峰时段</div>
-                  <div className="font-medium" style={{ color: colors.espresso }}>
-                    {detailedStats.peakHour}:00
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xs mb-1">高峰摄入</div>
-                  <div className="font-medium" style={{ color: colors.espresso }}>
-                    {detailedStats.peakAmount}mg
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xs mb-1">平均间隔</div>
-                  <div className="font-medium" style={{ color: colors.espresso }}>
-                    {detailedStats.avgInterval}h
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 摄入记录 */}
-            <div
-              className="p-3 rounded-lg transition-colors"
-              style={{ backgroundColor: colors.bgBase }}
-            >
-              <h4 className="font-semibold mb-3 flex items-center text-sm" style={{ color: colors.espresso }}>
-                <Target size={14} className="mr-1" />
-                摄入记录
-              </h4>
-              <div className="grid grid-cols-3 gap-2 text-xs" style={{ color: colors.textSecondary }}>
-                <div className="text-center">
-                  <div className="text-xs mb-1">最大单次</div>
-                  <div className="font-medium" style={{ color: colors.espresso }}>
-                    {detailedStats.maxSingleIntake}mg
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xs mb-1">最长连续</div>
-                  <div className="font-medium" style={{ color: colors.espresso }}>
-                    {detailedStats.maxStreak}天
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xs mb-1">当前连续</div>
-                  <div className="font-medium" style={{ color: colors.espresso }}>
-                    {detailedStats.currentStreak}天
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 新增：摄入习惯分析 */}
-            <div
-              className="p-3 rounded-lg transition-colors"
-              style={{ backgroundColor: colors.bgBase }}
-            >
-              <h4 className="font-semibold mb-3 flex items-center text-sm" style={{ color: colors.espresso }}>
-                <Heart size={14} className="mr-1" />
-                摄入习惯分析
-              </h4>
-              <div className="grid grid-cols-3 gap-2 text-xs" style={{ color: colors.textSecondary }}>
-                <div className="text-center">
-                  <div className="text-xs mb-1">平均单次</div>
-                  <div className="font-medium" style={{ color: colors.espresso }}>
-                    {detailedStats.avgPerIntake}mg
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xs mb-1">平均时间</div>
-                  <div className="font-medium" style={{ color: colors.espresso }}>
-                    {Math.floor(detailedStats.avgIntakeTime)}:{String(Math.round((detailedStats.avgIntakeTime % 1) * 60)).padStart(2, '0')}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-xs mb-1">睡前残留</div>
-                  <div className="font-medium" style={{ color: colors.espresso }}>
-                    {detailedStats.avgCaffeineAtSleep}mg
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 周度分析 */}
-          <div 
-            className="mb-6"
-            onClick={() => setSelectedWeekday(null)} // 点击此区域空白处清除
-          >
-            <h4 
-              className="font-semibold mb-3 text-sm" 
-              style={{ color: colors.espresso }}
-              onClick={(e) => e.stopPropagation()} // 点击标题不清除
-            >
-              星期分布分析
-            </h4>
-            <div 
-              className="grid grid-cols-7 gap-2"
-              // onClick handler removed from here, handled by parent div
-            >
-              {detailedStats.weekdayTotals.map((amount, index) => {
-                const maxAmount = Math.max(...detailedStats.weekdayTotals);
-                const percentage = maxAmount > 0 ? (amount / maxAmount) * 100 : 0;
-                const isMax = index === detailedStats.maxWeekdayIndex;
-                const isSelected = selectedWeekday === index;
-                return (
-                  <div key={index} className="text-center">
-                    <div
-                      className="h-16 rounded transition-colors mb-1 flex items-end justify-center cursor-pointer hover:opacity-80"
-                      style={{
-                        backgroundColor: amount > 0 ? (isMax ? colors.accent : colors.grid) : colors.borderSubtle,
-                        transform: isSelected ? 'scale(1.05)' : 'scale(1)',
-                        boxShadow: isSelected ? '0 4px 8px rgba(0,0,0,0.2)' : 'none'
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation(); // 点击柱状图区域不清除，并切换选中
-                        setSelectedWeekday(selectedWeekday === index ? null : index);
-                      }}
-                    >
-                      <div
-                        className="w-full rounded transition-all duration-500"
-                        style={{
-                          height: `${Math.max(percentage, 5)}%`,
-                          backgroundColor: amount > 0 ? (isMax ? colors.accent : colors.safe) : 'transparent'
-                        }}
-                        title={`${detailedStats.weekdayNames[index]}: ${Math.round(amount)}mg`}
-                      />
-                    </div>
-                    <span 
-                      className="text-xs" 
-                      style={{ color: colors.textMuted }}
-                      onClick={(e) => e.stopPropagation()} // 点击文字不清除
-                    >
-                      {detailedStats.weekdayNames[index]}
-                    </span>
-                    {isSelected && (
-                      <div 
-                        className="text-xs mt-1 font-medium" 
-                        style={{ color: colors.espresso }}
-                        onClick={(e) => e.stopPropagation()} // 点击数值不清除
-                      >
-                        {Math.round(amount)}mg
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <p 
-              className="text-xs mt-2 text-center" 
-              style={{ color: colors.textMuted }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              最常摄入: {detailedStats.weekdayNames[detailedStats.maxWeekdayIndex]} 
-              ({Math.round(detailedStats.weekdayTotals[detailedStats.maxWeekdayIndex])}mg)
-            </p>
-          </div>
-
-          {/* 时间分布图 */}
-          <div onClick={() => setSelectedHour(null)}>
-            <h4 
-              className="font-semibold mb-3 text-sm" 
-              style={{ color: colors.espresso }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              24小时摄入分布
-            </h4>
-            <div 
-              className="grid grid-cols-12 gap-1 mb-2"
-            >
-              {detailedStats.hourlyDistribution.map((amount, hour) => {
-                const maxAmount = Math.max(...detailedStats.hourlyDistribution);
-                const height = maxAmount > 0 ? (amount / maxAmount) * 100 : 0;
-                const isSelected = selectedHour === hour;
-                return (
-                  <div key={hour} className="flex flex-col items-center">
-                    <div
-                      className="w-full rounded-t transition-colors mb-1 cursor-pointer hover:opacity-80"
-                      style={{
-                        height: `${Math.max(height, 2)}px`,
-                        backgroundColor: amount > 0 ? colors.accent : colors.borderSubtle,
-                        minHeight: '2px',
-                        maxHeight: '40px',
-                        transform: isSelected ? 'scale(1.1)' : 'scale(1)',
-                        boxShadow: isSelected ? '0 2px 4px rgba(0,0,0,0.3)' : 'none'
-                      }}
-                      title={`${hour}:00 - ${Math.round(amount)}mg`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedHour(selectedHour === hour ? null : hour);
-                      }}
-                    />
-                    <span 
-                      className="text-xs" 
-                      style={{ color: colors.textMuted }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {hour}
-                    </span>
-                    {isSelected && (
-                      <div 
-                        className="text-xs mt-1 font-medium" 
-                        style={{ color: colors.espresso }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {Math.round(amount)}mg
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <p 
-              className="text-xs text-center" 
-              style={{ color: colors.textMuted }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              高峰时段: {detailedStats.peakHour}:00 ({detailedStats.peakAmount}mg)
-            </p>
-          </div>
-        </section>
-      )}
+            );
+          }
+        })()}
+      </section>
 
       {/* 健康分析报告卡片 */}
       <section
@@ -1210,114 +1226,97 @@ const StatisticsView = ({
       >
         <h3
           id="health-analysis-heading"
-          className="text-xl font-semibold mb-4 flex items-center transition-colors"
+          className="text-xl font-semibold mb-6 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <Heart size={20} className="mr-2" /> 健康分析与建议
+          <Heart size={20} className="mr-2" /> 健康分析报告
         </h3>
-        <div
-          className="space-y-4 text-sm transition-colors"
-          style={{ color: colors.textSecondary }}
-        >
-          <article
-            aria-labelledby="pattern-assessment-heading"
-            className="p-4 rounded-lg shadow-inner transition-colors"
-            style={{ backgroundColor: colors.bgBase }}
-          >
-            <h4
-              id="pattern-assessment-heading"
-              className="font-semibold mb-2 flex items-center transition-colors"
-              style={{ color: colors.espresso }}
-            >
-              <Award size={16} className="mr-1.5" /> 摄入模式评估
-            </h4>
-            {records.length > 0 && detailedStats && lifestyleAnalysis ? (
-              <>
-                <p className="mb-2">
-                  您的每日推荐咖啡因摄入上限为 <strong style={{ color: colors.accent }}>{effectiveMaxDaily}mg</strong>。
-                  本自然周（周一至当前）您的日均摄入量约为 <strong style={{ color: colors.accent }}>{Math.round(getWeekTotal(new Date()) / ((new Date().getDay() === 0 ? 7 : new Date().getDay())) || 1)}mg</strong>。
-                  {Math.round(getWeekTotal(new Date()) / ((new Date().getDay() === 0 ? 7 : new Date().getDay())) || 1) > effectiveMaxDaily
-                    ? <span style={{ color: colors.warningText }}> 这已超出推荐上限，建议您关注并适当减少每日摄入量。</span>
-                    : Math.round(getWeekTotal(new Date()) / ((new Date().getDay() === 0 ? 7 : new Date().getDay())) || 1) > 0.7 * effectiveMaxDaily
-                      ? <span> 接近推荐上限，请留意您的摄入习惯。</span>
-                      : <span> 目前控制在推荐范围内，请继续保持。</span>
-                  }
-                </p>
-                <p className="mb-2">
-                  根据您的整体记录，您被识别为“<strong style={{ color: colors.accent }}>{lifestyleAnalysis.userType}</strong>”。{lifestyleAnalysis.typeAdvice}
-                </p>
-                {detailedStats.totalDays > 0 && (
-                  <p className="mb-2">
-                    在过去有记录的 <strong style={{ color: colors.accent }}>{detailedStats.totalDays}</strong> 天中，您有 <strong style={{ color: detailedStats.exceedDays > 0 ? colors.warningText : colors.accent }}>{detailedStats.exceedDays}</strong> 天（占比 <strong style={{ color: detailedStats.exceedRate > 20 ? colors.warningText : (detailedStats.exceedRate > 0 ? colors.infoText : colors.accent) }}>{detailedStats.exceedRate}%</strong>）的摄入量超过了每日推荐上限。
-                    {detailedStats.exceedRate > 20
-                      ? <span style={{ color: colors.warningText }}> 超标频率较高，请特别注意控制单日总量。</span>
-                      : detailedStats.exceedRate > 0
-                        ? <span> 偶尔出现超标情况，建议审视超标日的原因，避免常态化。</span>
-                        : <span> 您在控制日摄入总量方面做得很好！</span>
-                    }
-                  </p>
-                )}
-                {caffeineDistribution[0]?.name && (
-                  <p className="mb-2">
-                    您的主要咖啡因来源是 <strong style={{ color: colors.accent }}>{caffeineDistribution[0].name}</strong> (占总{pieChartSortBy === 'count' ? '次数' : '摄入量'}的 <strong style={{ color: colors.accent }}>{caffeineDistribution[0].percentage}%</strong>)。
-                    可以考虑是否通过调整此来源的频率、份量或选择低咖啡因替代品来优化摄入。
-                  </p>
-                )}
-                <p className="mb-1">
-                  您的高峰摄入时段通常在 <strong style={{ color: colors.accent }}>{detailedStats.peakHour}:00</strong> 左右。如果此时段接近傍晚，请注意可能对睡眠产生的影响。
-                </p>
-                <p>
-                  平均摄入间隔约为 <strong style={{ color: colors.accent }}>{detailedStats.avgInterval}</strong> 小时。过于频繁的摄入（如间隔小于3-4小时）可能导致咖啡因在体内累积，增加不适风险。
-                </p>
-              </>
-            ) : (
-              <p>开始记录您的咖啡因摄入，以获取更详细的个性化分析与建议。</p>
-            )}
-          </article>
-          <article
-            aria-labelledby="sleep-impact-heading"
-            className="p-4 rounded-lg shadow-inner transition-colors"
-            style={{ backgroundColor: colors.bgBase }}
-          >
-            <h4
-              id="sleep-impact-heading"
-              className="font-semibold mb-2 flex items-center transition-colors"
-              style={{ color: colors.espresso }}
-            >
-              <Clock size={16} className="mr-1.5" /> 睡眠影响提醒
-            </h4>
-            {records.length > 0 && detailedStats && userSettings ? (
-              <>
-                <p className="mb-2">
-                  您设定的咖啡因半衰期为 <strong style={{ color: colors.accent }}>{userSettings.caffeineHalfLifeHours}</strong> 小时，计划睡眠时间为 <strong style={{ color: colors.accent }}>{userSettings.plannedSleepTime}</strong>。
-                  一般建议在睡前至少 <strong style={{ color: colors.accent }}>6</strong> 小时（即 <strong style={{ color: colors.accent }}>{calculateStopTime(userSettings.plannedSleepTime, 6)}</strong> 前）避免摄入新的咖啡因，以减少对睡眠的干扰。
-                </p>
-                {detailedStats.avgCaffeineAtSleep !== undefined && (
-                  <p className="mb-2">
-                    根据您的记录分析，平均而言，您在计划入睡时体内可能仍残留约 <strong style={{ color: detailedStats.avgCaffeineAtSleep > 30 ? colors.warningText : colors.accent }}>{detailedStats.avgCaffeineAtSleep}mg</strong> 的咖啡因。
-                    {detailedStats.avgCaffeineAtSleep > 30 
-                      ? <span style={{ color: colors.warningText }}> 此残留量可能较高，可能会影响您的入睡时长、睡眠深度和整体质量。强烈建议您尝试提前最后一次咖啡因的摄入时间，或显著减少傍晚及晚间的摄入量。</span>
-                      : detailedStats.avgCaffeineAtSleep > 10
-                        ? <span> 此残留量尚可，但仍可能对敏感人群的睡眠产生轻微影响。</span>
-                        : <span> 此残留量相对较低，对睡眠影响较小。</span>
-                    }
-                  </p>
-                )}
-                {detailedStats.peakHour >= 15 && ( // 下午3点后
-                   <p className="mb-2" style={{color: colors.infoText}}>
-                     提示：您的高峰摄入时段 (<strong style={{ color: colors.accent }}>{detailedStats.peakHour}:00</strong>) 偏晚，这可能增加夜间咖啡因残留量，请特别留意。
-                   </p>
-                )}
-                <p>
-                  本应用建议在体内咖啡因浓度降至安全阈值 (您设定为 <strong style={{ color: colors.accent }}>{userSettings.safeSleepThresholdConcentration.toFixed(1)} mg/L</strong>) 后入睡，以期获得更佳睡眠。
-                  请密切关注首页根据您实时数据计算的“最佳入睡时间”动态提醒，并据此调整您的咖啡因摄入计划。
-                </p>
-              </>
-            ) : (
-              <p>记录您的咖啡因摄入和睡眠设置，以获取关于睡眠影响的个性化提醒。</p>
-            )}
-          </article>
-        </div>
+        {(() => {
+          const daysRecorded = lifestyleAnalysis ? lifestyleAnalysis.totalDays : 0;
+          if (detailedStats && lifestyleAnalysis && daysRecorded >= MIN_RECORD_DAYS) {
+            return (
+              <div className="space-y-6">
+                {/* 仪表盘区域 */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                   <Gauge
+                      value={Math.round(getWeekTotal(new Date()) / ((new Date().getDay() === 0 ? 7 : new Date().getDay())) || 1)}
+                      maxValue={effectiveMaxDaily}
+                      label="本周日均摄入"
+                      unit="mg"
+                      colors={colors}
+                   />
+                   <Gauge
+                      value={detailedStats.avgCaffeineAtSleep}
+                      maxValue={50} // 设定50mg为影响睡眠的较高阈值
+                      label="睡前残留咖啡因"
+                      unit="mg"
+                      colors={colors}
+                   />
+                   <Gauge
+                      value={detailedStats.exceedRate}
+                      maxValue={100}
+                      label="超标天数比例"
+                      unit="%"
+                      colors={colors}
+                   />
+                </div>
+
+                {/* 核心建议 */}
+                <div className="space-y-3 text-sm" style={{color: colors.textSecondary}}>
+                  <div className="flex items-start p-3 rounded-lg" style={{backgroundColor: colors.bgBase}}>
+                    <Award size={18} className="mr-3 mt-0.5 flex-shrink-0" style={{color: colors.accent}} />
+                    <div>
+                      <h4 className="font-semibold" style={{color: colors.espresso}}>摄入画像</h4>
+                      <p>
+                        您被识别为“<strong style={{ color: colors.accent }}>{lifestyleAnalysis.userType}</strong>”。{lifestyleAnalysis.typeAdvice}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start p-3 rounded-lg" style={{backgroundColor: colors.bgBase}}>
+                    <Clock size={18} className="mr-3 mt-0.5 flex-shrink-0" style={{color: colors.accent}} />
+                    <div>
+                      <h4 className="font-semibold" style={{color: colors.espresso}}>睡眠建议</h4>
+                      <p>
+                        为减少对 <strong style={{color: colors.espresso}}>{userSettings.plannedSleepTime}</strong> 睡眠的影响, 建议在 <strong className="font-bold" style={{color: colors.accent}}>{calculateStopTime(userSettings.plannedSleepTime, 6)}</strong> 前停止摄入。
+                        {detailedStats.peakHour >= calculateStopTime(userSettings.plannedSleepTime, 6)-1 && (
+                          <span style={{color: colors.infoText}}> 您的摄入高峰 (<strong style={{color: colors.accent}}>{detailedStats.peakHour}:00</strong>) 偏晚，请特别留意。</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  {caffeineDistribution[0]?.name && (
+                    <div className="flex items-start p-3 rounded-lg" style={{backgroundColor: colors.bgBase}}>
+                      <Coffee size={18} className="mr-3 mt-0.5 flex-shrink-0" style={{color: colors.accent}} />
+                      <div>
+                        <h4 className="font-semibold" style={{color: colors.espresso}}>主要来源</h4>
+                        <p>
+                          主要来源是 <strong style={{ color: colors.accent }}>{caffeineDistribution[0].name}</strong>，占总{pieChartSortBy === 'count' ? '次数' : '摄入量'}的 <strong style={{ color: colors.accent }}>{caffeineDistribution[0].percentage}%</strong>。可考虑适度调整。
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          } else if (records.length > 0) {
+            const daysNeeded = MIN_RECORD_DAYS - daysRecorded;
+            return (
+              <MotivationalMessage
+                colors={colors}
+                title="需要更多数据解锁健康分析报告"
+                requiredDays={daysNeeded}
+                icon={<Heart size={48} className="mx-auto mb-4 opacity-70" style={{ color: colors.accent }} />}
+              />
+            );
+          } else { // records.length === 0
+            return (
+              <div className="text-center py-8" style={{color: colors.textMuted}}>
+                <Heart size={48} className="mx-auto mb-3 opacity-50" />
+                <p>开始记录您的咖啡因摄入，以获取个性化健康报告。</p>
+              </div>
+            );
+          }
+        })()}
       </section>
 
       {/* 咖啡因知识卡片 */}

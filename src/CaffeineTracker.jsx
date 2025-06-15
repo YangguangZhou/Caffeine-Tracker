@@ -37,8 +37,6 @@ const CaffeineTracker = () => {
   const [records, setRecords] = useState([]);
   const [currentCaffeineAmount, setCurrentCaffeineAmount] = useState(0);
   const [currentCaffeineConcentration, setCurrentCaffeineConcentration] = useState(0);
-  const [optimalSleepTime, setOptimalSleepTime] = useState('');
-  const [hoursUntilSafeSleep, setHoursUntilSafeSleep] = useState(null);
   const [drinks, setDrinks] = useState([]);
   const [viewMode, setViewMode] = useState('current');
   const [statsView, setStatsView] = useState('week');
@@ -282,22 +280,6 @@ const CaffeineTracker = () => {
       setCurrentCaffeineAmount(totalAmount);
       const concentration = estimateConcentration(totalAmount, weight, volumeOfDistribution);
       setCurrentCaffeineConcentration(concentration ?? 0);
-      const safeTargetAmount = estimateAmountFromConcentration(safeSleepThresholdConcentration, weight, volumeOfDistribution);
-      if (safeTargetAmount !== null && safeTargetAmount >= 0) {
-        const hoursNeeded = calculateHoursToReachTarget(totalAmount, safeTargetAmount, caffeineHalfLifeHours);
-        setHoursUntilSafeSleep(hoursNeeded);
-        if (hoursNeeded !== null && hoursNeeded > 0) {
-          const sleepTime = new Date(now + hoursNeeded * 60 * 60 * 1000);
-          setOptimalSleepTime(sleepTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }));
-        } else if (hoursNeeded === 0) {
-          setOptimalSleepTime('现在');
-        } else {
-          setOptimalSleepTime('N/A');
-        }
-      } else {
-        setHoursUntilSafeSleep(null);
-        setOptimalSleepTime('N/A');
-      }
     };
     calculateCurrentStatus();
     const timer = setInterval(calculateCurrentStatus, 60000);
@@ -347,62 +329,18 @@ const CaffeineTracker = () => {
 
   // 计算今日总摄入量
   const getTodayTotal = useCallback(() => {
-    const todayStart = getStartOfDay(new Date());
-    const todayEnd = getEndOfDay(new Date());
-    return Math.round(records.filter(record => record && record.timestamp >= todayStart && record.timestamp <= todayEnd).reduce((sum, record) => sum + record.amount, 0));
+    const today = new Date();
+    const todayStartTime = getStartOfDay(today); // Returns a number
+    const todayEndTime = getEndOfDay(today);     // Returns a number
+
+    if (typeof todayStartTime !== 'number' || isNaN(todayStartTime) || 
+        typeof todayEndTime !== 'number' || isNaN(todayEndTime)) {
+      console.warn("Failed to get valid start/end of day for getTodayTotal calculation.");
+      return 0;
+    }
+    // todayStartTime and todayEndTime are already timestamps
+    return Math.round(records.filter(record => record && record.timestamp >= todayStartTime && record.timestamp <= todayEndTime).reduce((sum, record) => sum + record.amount, 0));
   }, [records]);
-
-  const personalizedRecommendation = useMemo(() => {
-    const { weight, recommendedDosePerKg } = userSettings;
-    if (weight > 0 && recommendedDosePerKg > 0) return Math.round(weight * recommendedDosePerKg);
-    return null;
-  }, [userSettings.weight, userSettings.recommendedDosePerKg]);
-
-  const effectiveMaxDaily = useMemo(() => {
-    const generalMax = userSettings.maxDailyCaffeine > 0 ? userSettings.maxDailyCaffeine : 400;
-    if (personalizedRecommendation !== null) return Math.min(generalMax, personalizedRecommendation);
-    return generalMax;
-  }, [userSettings.maxDailyCaffeine, personalizedRecommendation]);
-
-  const userStatus = useMemo(() => {
-    const currentRounded = Math.round(currentCaffeineAmount);
-    const maxDaily = effectiveMaxDaily;
-    if (currentRounded < maxDaily * 0.1) return { status: '咖啡因含量极低', recommendation: '可以安全地摄入咖啡因。', color: `text-emerald-600` };
-    if (currentRounded < maxDaily * 0.5) return { status: '咖啡因含量低', recommendation: '如有需要，可以适量摄入更多。', color: `text-emerald-500` };
-    if (currentRounded < maxDaily) return { status: '咖啡因含量中等', recommendation: '请注意避免过量摄入。', color: `text-amber-500` };
-    return { status: '咖啡因含量高', recommendation: '建议暂时避免摄入更多咖啡因。', color: `text-red-500` };
-  }, [currentCaffeineAmount, effectiveMaxDaily]);
-
-  const healthAdvice = useMemo(() => {
-    const dailyTotal = getTodayTotal();
-    const maxDaily = effectiveMaxDaily;
-    const currentRounded = Math.round(currentCaffeineAmount);
-
-    if (dailyTotal > maxDaily) {
-      return {
-        advice: `您今日的咖啡因摄入量 (${dailyTotal}mg) 已超过您的个性化或通用上限 (${maxDaily}mg)，建议减少摄入。`,
-        type: 'danger'
-      };
-    }
-    if (currentRounded > 100 && new Date().getHours() >= 16) {
-      return {
-        advice: '下午体内咖啡因含量较高可能影响睡眠，建议限制晚间摄入。',
-        type: 'warning'
-      };
-    }
-    return {
-      advice: '您的咖啡因摄入量处于健康范围内，继续保持良好习惯。',
-      type: 'success'
-    };
-  }, [getTodayTotal, effectiveMaxDaily, currentCaffeineAmount]);
-
-  const percentFilled = useMemo(() => {
-    const maxDailyCaffeineForProgress = effectiveMaxDaily;
-    if (maxDailyCaffeineForProgress <= 0) return 0;
-    return Math.min(Math.max(0, (currentCaffeineAmount / maxDailyCaffeineForProgress) * 100), 100);
-  }, [currentCaffeineAmount, effectiveMaxDaily]);
-
-  const todayTotal = useMemo(() => getTodayTotal(), [getTodayTotal]);
 
   // WebDAV同步功能
   const performWebDAVSync = useCallback(async (settingsToUse, currentRecords, currentDrinks) => {
@@ -826,18 +764,10 @@ const CaffeineTracker = () => {
             <CurrentStatusView
               currentCaffeineAmount={currentCaffeineAmount}
               currentCaffeineConcentration={currentCaffeineConcentration}
-              optimalSleepTime={optimalSleepTime}
-              hoursUntilSafeSleep={hoursUntilSafeSleep}
-              userStatus={userStatus}
-              healthAdvice={healthAdvice}
               records={records}
               drinks={drinks}
               metabolismChartData={metabolismChartData}
               userSettings={userSettings}
-              percentFilled={percentFilled}
-              todayTotal={todayTotal}
-              effectiveMaxDaily={effectiveMaxDaily}
-              personalizedRecommendation={personalizedRecommendation}
               onAddRecord={handleAddRecord}
               onEditRecord={handleEditRecord}
               onDeleteRecord={handleDeleteRecord}
@@ -855,7 +785,6 @@ const CaffeineTracker = () => {
               setStatsView={setStatsView}
               statsDate={statsDate}
               setStatsDate={setStatsDate}
-              effectiveMaxDaily={effectiveMaxDaily}
               userSettings={userSettings}
               drinks={drinks}
               colors={colors}
