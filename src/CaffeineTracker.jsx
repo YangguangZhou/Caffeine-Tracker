@@ -1,6 +1,7 @@
 // 导入 React 相关模块
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { Coffee, Sun, Moon, RefreshCw, Code, Laptop, Loader2, TrendingUp, BarChart2, Settings as SettingsIcon, Info } from 'lucide-react';
+import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar';
 import { Preferences } from '@capacitor/preferences';
 import { Capacitor } from '@capacitor/core';
@@ -31,6 +32,19 @@ const ADSENSE_CLIENT = "ca-pub-2597042766299857";
  * 应用主组件
  */
 const CaffeineTracker = () => {
+  return (
+    <Router>
+      <CaffeineTrackerApp />
+    </Router>
+  );
+};
+
+/**
+ * 应用核心组件（包含路由逻辑）
+ */
+const CaffeineTrackerApp = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   // 状态变量
   const [userSettings, setUserSettings] = useState(defaultSettings);
   const [effectiveTheme, setEffectiveTheme] = useState('light');
@@ -38,7 +52,6 @@ const CaffeineTracker = () => {
   const [currentCaffeineAmount, setCurrentCaffeineAmount] = useState(0);
   const [currentCaffeineConcentration, setCurrentCaffeineConcentration] = useState(0);
   const [drinks, setDrinks] = useState([]);
-  const [viewMode, setViewMode] = useState('current');
   const [statsView, setStatsView] = useState('week');
   const [statsDate, setStatsDate] = useState(new Date());
   const [metabolismChartData, setMetabolismChartData] = useState([]);
@@ -52,6 +65,15 @@ const CaffeineTracker = () => {
   const [isNativePlatform, setIsNativePlatform] = useState(null);
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const [webdavConfigured, setWebdavConfigured] = useState(false);
+
+  // 根据当前路径确定视图模式
+  const viewMode = useMemo(() => {
+    const path = location.pathname;
+    if (path === '/statistics') return 'stats';
+    if (path === '/settings') return 'settings';
+    if (path === '/about') return 'about';
+    return 'current'; // 默认为当前状态
+  }, [location.pathname]);
 
   // 检查平台类型
   useEffect(() => {
@@ -717,54 +739,54 @@ const CaffeineTracker = () => {
           }}
           aria-label="主导航"
         >
-          <button
-            onClick={() => setViewMode('current')}
+          <Link
+            to="/"
             className={`flex-1 py-3 flex justify-center items-center transition-colors duration-200 text-sm font-medium ${viewMode === 'current' ? 'text-white shadow-inner' : 'hover:bg-opacity-10'
               }`}
             style={viewMode === 'current'
               ? { backgroundColor: colors.accent }
-              : { color: colors.accent, ':hover': { backgroundColor: colors.accentHover } }
+              : { color: colors.accent }
             }
             aria-current={viewMode === 'current' ? 'page' : undefined}
           >
             <TrendingUp size={16} className="mr-1.5" aria-hidden="true" /> 当前状态
-          </button>
-          <button
-            onClick={() => setViewMode('stats')}
+          </Link>
+          <Link
+            to="/statistics"
             className={`flex-1 py-3 flex justify-center items-center transition-colors duration-200 text-sm font-medium border-l border-r ${viewMode === 'stats' ? 'text-white shadow-inner' : 'hover:bg-opacity-10'
               }`}
             style={viewMode === 'stats'
               ? { backgroundColor: colors.accent, borderColor: colors.borderSubtle }
-              : { color: colors.accent, borderColor: colors.borderSubtle, ':hover': { backgroundColor: colors.accentHover } }
+              : { color: colors.accent, borderColor: colors.borderSubtle }
             }
             aria-current={viewMode === 'stats' ? 'page' : undefined}
           >
             <BarChart2 size={16} className="mr-1.5" aria-hidden="true" /> 数据统计
-          </button>
-          <button
-            onClick={() => setViewMode('settings')}
+          </Link>
+          <Link
+            to="/settings"
             className={`flex-1 py-3 flex justify-center items-center transition-colors duration-200 text-sm font-medium border-l border-r ${viewMode === 'settings' ? 'text-white shadow-inner' : 'hover:bg-opacity-10'
               }`}
             style={viewMode === 'settings'
               ? { backgroundColor: colors.accent, borderColor: colors.borderSubtle }
-              : { color: colors.accent, borderColor: colors.borderSubtle, ':hover': { backgroundColor: colors.accentHover } }
+              : { color: colors.accent, borderColor: colors.borderSubtle }
             }
             aria-current={viewMode === 'settings' ? 'page' : undefined}
           >
             <SettingsIcon size={16} className="mr-1.5" aria-hidden="true" /> 设置
-          </button>
-          <button
-            onClick={() => setViewMode('about')}
+          </Link>
+          <Link
+            to="/about"
             className={`flex-1 py-3 flex justify-center items-center transition-colors duration-200 text-sm font-medium ${viewMode === 'about' ? 'text-white shadow-inner' : 'hover:bg-opacity-10'
               }`}
             style={viewMode === 'about'
               ? { backgroundColor: colors.accent }
-              : { color: colors.accent, ':hover': { backgroundColor: colors.accentHover } }
+              : { color: colors.accent }
             }
             aria-current={viewMode === 'about' ? 'page' : undefined}
           >
             <Info size={16} className="mr-1.5" aria-hidden="true" /> 关于
-          </button>
+          </Link>
         </nav>
 
         {/* 视图渲染 */}
@@ -774,62 +796,64 @@ const CaffeineTracker = () => {
             <p className="ml-3 text-lg" style={{ color: colors.textSecondary }}>加载中...</p>
           </div>
         }>
-          {viewMode === 'current' && (
-            <CurrentStatusView
-              currentCaffeineAmount={currentCaffeineAmount}
-              currentCaffeineConcentration={currentCaffeineConcentration}
-              records={records}
-              drinks={drinks}
-              metabolismChartData={metabolismChartData}
-              userSettings={userSettings}
-              onAddRecord={handleAddRecord}
-              onEditRecord={handleEditRecord}
-              onDeleteRecord={handleDeleteRecord}
-              estimateAmountFromConcentration={estimateAmountFromConcentration}
-              formatTime={formatTime}
-              formatDate={formatDate}
-              colors={colors}
-            />
-          )}
-
-          {viewMode === 'stats' && (
-            <StatisticsView
-              records={records}
-              statsView={statsView}
-              setStatsView={setStatsView}
-              statsDate={statsDate}
-              setStatsDate={setStatsDate}
-              effectiveMaxDaily={effectiveMaxDaily}
-              userSettings={userSettings}
-              drinks={drinks}
-              colors={colors}
-            />
-          )}
-
-          {viewMode === 'settings' && (
-            <SettingsView
-              userSettings={userSettings}
-              onUpdateSettings={handleUpdateSettings}
-              drinks={drinks}
-              setDrinks={handleSetDrinks}
-              originalPresetDrinkIds={originalPresetDrinkIds}
-              onManualSync={handleManualSync}
-              syncStatus={syncStatus}
-              records={records}
-              setRecords={setRecords}
-              colors={colors}
-              appConfig={appConfig}
-              isNativePlatform={isNativePlatform}
-            />
-          )}
-
-          {viewMode === 'about' && (
-            <AboutView
-              colors={colors}
-              appConfig={appConfig}
-              isNativePlatform={isNativePlatform}
-            />
-          )}
+          <Routes>
+            <Route path="/" element={
+              <CurrentStatusView
+                currentCaffeineAmount={currentCaffeineAmount}
+                currentCaffeineConcentration={currentCaffeineConcentration}
+                records={records}
+                drinks={drinks}
+                metabolismChartData={metabolismChartData}
+                userSettings={userSettings}
+                onAddRecord={handleAddRecord}
+                onEditRecord={handleEditRecord}
+                onDeleteRecord={handleDeleteRecord}
+                estimateAmountFromConcentration={estimateAmountFromConcentration}
+                formatTime={formatTime}
+                formatDate={formatDate}
+                colors={colors}
+              />
+            } />
+            
+            <Route path="/statistics" element={
+              <StatisticsView
+                records={records}
+                statsView={statsView}
+                setStatsView={setStatsView}
+                statsDate={statsDate}
+                setStatsDate={setStatsDate}
+                effectiveMaxDaily={effectiveMaxDaily}
+                userSettings={userSettings}
+                drinks={drinks}
+                colors={colors}
+              />
+            } />
+            
+            <Route path="/settings" element={
+              <SettingsView
+                userSettings={userSettings}
+                onUpdateSettings={handleUpdateSettings}
+                drinks={drinks}
+                setDrinks={handleSetDrinks}
+                originalPresetDrinkIds={originalPresetDrinkIds}
+                onManualSync={handleManualSync}
+                syncStatus={syncStatus}
+                records={records}
+                setRecords={setRecords}
+                colors={colors}
+                appConfig={appConfig}
+                isNativePlatform={isNativePlatform}
+              />
+            } />
+            
+            <Route path="/about" element={
+              <AboutView
+                colors={colors}
+                appConfig={appConfig}
+                isNativePlatform={isNativePlatform}
+              />
+            } />
+          </Routes>
         </Suspense>
 
         <footer className="mt-8 text-center text-xs transition-colors" style={{ color: colors.textMuted }}>

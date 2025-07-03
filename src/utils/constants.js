@@ -1,8 +1,8 @@
 // constants.js - 应用常量和默认值
 
 // 饮品分类
-export const DRINK_CATEGORIES = ['手工咖啡', '速溶咖啡', '连锁品牌', '瓶装茶饮', '碳酸饮料', '功能饮料'];
 export const DEFAULT_CATEGORY = '其他';
+export const DRINK_CATEGORIES = ['手工咖啡', '速溶咖啡', '连锁品牌', '瓶装茶饮', '碳酸饮料', '功能饮料', DEFAULT_CATEGORY];
 
 // 默认设置
 export const defaultSettings = {

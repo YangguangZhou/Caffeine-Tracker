@@ -97,7 +97,7 @@ const SettingsView = ({
         setNewDrinkCaffeinePerGram('');
         setNewDrinkCalculationMode('per100ml');
         setNewDrinkVolume('');
-        setNewDrinkCategory(DEFAULT_CATEGORY);
+        setNewDrinkCategory(DEFAULT_CATEGORY); // 确保重置为DEFAULT_CATEGORY
     }, []);
 
     // 处理添加/更新饮品
@@ -193,7 +193,7 @@ const SettingsView = ({
         setNewDrinkCaffeineContent(mode === 'per100ml' ? (drink.caffeineContent?.toString() ?? '') : '');
         setNewDrinkCaffeinePerGram(mode === 'perGram' ? (drink.caffeinePerGram?.toString() ?? '') : '');
         setNewDrinkVolume(drink.defaultVolume?.toString() ?? '');
-        setNewDrinkCategory(drink.category || DEFAULT_CATEGORY);
+        setNewDrinkCategory(drink.category || DEFAULT_CATEGORY); // 确保使用饮品已有分类或DEFAULT_CATEGORY
         setShowDrinkEditor(true);
     }, []);
 

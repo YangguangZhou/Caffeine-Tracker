@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Activity, Clock, Edit, Trash2, Plus,
+  Activity, Clock, Edit, Trash2, Plus, Coffee,
   AlertCircle, Moon, Calendar, Droplet, TrendingUp, TrendingDown,
   Zap, Target, BarChart3, Minus, Timer, Heart, Brain, Waves, Sunrise,
-  AlertTriangle
+  AlertTriangle, Copy // <-- Added Copy icon
 } from 'lucide-react';
 import MetabolismChart from '../components/MetabolismChart';
 import IntakeForm from '../components/IntakeForm';
@@ -771,6 +771,7 @@ const CurrentStatusView = ({
           className="text-xl font-semibold mb-2 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
+          <BarChart3 size={20} className="mr-2" />
           咖啡因代谢曲线
         </h2>
         <MetabolismChart
@@ -782,7 +783,6 @@ const CurrentStatusView = ({
         />
       </section>
 
-      {/* 添加/编辑表单卡片 */}
       <section
         aria-labelledby="intake-form-heading"
         className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
@@ -799,14 +799,16 @@ const CurrentStatusView = ({
             onCancel={handleFormCancel}
             initialValues={editingRecord}
             colors={colors}
+            lastRecord={records.length > 0 ? records[0] : null}
           />
         ) : (
           <button
             onClick={handleAddRecordClick}
-            className="w-full py-3 text-white rounded-md hover:opacity-90 transition-opacity duration-200 flex items-center justify-center shadow-md font-medium"
+            className="w-full py-3 px-4 text-white rounded-lg transition-all duration-200 flex items-center justify-center shadow-md font-medium hover:opacity-90 transform hover:scale-[1.01] active:scale-[0.99]"
             style={{ backgroundColor: colors.accent }}
           >
-            <Plus size={18} className="mr-1.5" /> 添加咖啡因摄入记录
+            <Coffee size={18} className="mr-2" />
+            添加摄入记录
           </button>
         )}
       </section>
@@ -820,79 +822,153 @@ const CurrentStatusView = ({
           borderColor: colors.borderSubtle
         }}
       >
-        <h2
-          id="intake-history-heading"
-          className="text-xl font-semibold mb-4 flex items-center transition-colors"
-          style={{ color: colors.espresso }}
-        >
-          <Clock size={20} className="mr-2" /> 摄入历史
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2
+            id="intake-history-heading"
+            className="text-xl font-semibold flex items-center transition-colors"
+            style={{ color: colors.espresso }}
+          >
+            <Clock size={20} className="mr-2" /> 摄入历史
+          </h2>
+          {records.length > 0 && (
+            <div className="flex items-center text-sm" style={{ color: colors.textMuted }}>
+              <span>共 {records.length} 条记录</span>
+            </div>
+          )}
+        </div>
 
         {records.length === 0 ? (
-          <p
-            className="text-center py-4 transition-colors"
-            style={{ color: colors.textMuted }}
-          >
-            暂无记录。添加您的第一条咖啡因摄入记录吧！
-          </p>
+          <div className="text-center py-6">
+            <Coffee size={32} className="mx-auto mb-2 opacity-40" style={{ color: colors.accent }} />
+            <p className="text-sm mb-3" style={{ color: colors.textMuted }}>
+              暂无记录。添加您的第一条咖啡因摄入记录吧！
+            </p>
+            <button
+              onClick={handleAddRecordClick}
+              className="inline-flex items-center px-4 py-2 rounded-lg text-white font-medium transition-all duration-200 shadow-md hover:opacity-90 transform hover:scale-[1.02] active:scale-[0.98]"
+              style={{ backgroundColor: colors.accent }}
+            >
+              <Plus size={16} className="mr-1.5" />
+              添加记录
+            </button>
+          </div>
         ) : (
           <ul
-            className="divide-y max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-rounded-full scrollbar-track-rounded-full transition-colors"
+            className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-rounded-full scrollbar-track-rounded-full transition-colors"
             style={{
               borderColor: colors.borderSubtle,
               scrollbarColor: `${colors.borderStrong} transparent`
             }}
           >
             {records.map(record => (
-              <li key={record.id} className="py-3.5 flex justify-between items-center">
+              <li
+                key={record.id}
+                className="flex justify-between items-start px-1 py-2 rounded-md group transition-colors duration-150 hover:bg-opacity-80"
+                style={{
+                  cursor: 'pointer',
+                  marginBottom: '2px',
+                  backgroundColor: 'transparent'
+                }}
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = colors.accent + '12'}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
                 <div className="flex-1 overflow-hidden mr-2">
-                  <p
-                    className="font-medium text-sm truncate transition-colors"
-                    style={{ color: colors.textPrimary }}
-                    title={record.name}
-                  >
-                    {record.name} - <span style={{ color: colors.accent }}>{record.amount} mg</span>
-                    {record.customName && record.drinkId && (
-                      <span className="text-xs text-gray-500 ml-1 italic">
-                        (来自: {drinks.find(d => d.id === record.drinkId)?.name ?? '未知饮品'})
+                  <div className="flex items-start justify-between mb-1">
+                    <div
+                      className="font-semibold text-sm flex items-center transition-colors"
+                      style={{ color: colors.textPrimary }}
+                      title={record.name}
+                    >
+                      <div 
+                        className="w-2 h-2 rounded-full mr-2 flex-shrink-0 mt-1"
+                        style={{ backgroundColor: colors.accent }}
+                      ></div>
+                      <span className="truncate">{record.name}</span>
+                    </div>
+                    <div className="flex items-center px-2 py-0.5 rounded-full ml-2 flex-shrink-0" style={{
+                      backgroundColor: colors.accent + '18',
+                      color: colors.accent,
+                      fontSize: '13px'
+                    }}>
+                      <span className="font-bold">{record.amount} mg</span>
+                    </div>
+                  </div>
+                  
+                  {/* 附加信息 */}
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs items-center" style={{ color: colors.textMuted }}>
+                    {(record.customName && record.drinkId) && (
+                      <span className="flex items-center">
+                        <Coffee size={10} className="mr-1" />
+                        来自: {drinks.find(d => d.id === record.drinkId)?.name ?? '未知饮品'}
                       </span>
                     )}
-                    {!record.customName && record.drinkId && record.volume === null && (
-                      <span className="text-xs text-gray-500 ml-1 italic">(手动)</span>
+                    {(!record.customName && record.drinkId && record.volume === null) && (
+                      <span className="flex items-center">
+                        <Edit size={10} className="mr-1" />
+                        手动调整
+                      </span>
                     )}
-                  </p>
-                  <div
-                    className="text-xs flex items-center flex-wrap gap-x-3 gap-y-1 mt-1 transition-colors"
-                    style={{ color: colors.textMuted }}
-                  >
                     <span className="flex items-center">
-                      <Calendar size={12} className="mr-1" /> {formatDate(record.timestamp)}
+                      <Calendar size={11} className="mr-1.5" /> {formatDate(record.timestamp)}
                     </span>
                     <span className="flex items-center">
-                      <Clock size={12} className="mr-1" /> {formatTime(record.timestamp)}
+                      <Clock size={11} className="mr-1.5" /> {formatTime(record.timestamp)}
                     </span>
                     {record.volume && (
                       <span className="flex items-center">
-                        <Droplet size={12} className="mr-1" /> {record.volume} ml
+                        <Droplet size={11} className="mr-1.5" /> {record.volume} ml
                       </span>
                     )}
                   </div>
                 </div>
-                <div className="flex space-x-1 flex-shrink-0">
+                
+                {/* 操作按钮 - 紧凑排列 */}
+                <div className="flex space-x-1 opacity-70 group-hover:opacity-100 transition-opacity duration-200">
+                  <button
+                    onClick={() => {
+                      // 快速重复此记录
+                      const newRecord = {
+                        ...record,
+                        id: `record_${Date.now()}`,
+                        timestamp: Date.now(),
+                        updatedAt: Date.now()
+                      };
+                      onAddRecord(newRecord);
+                    }}
+                    className="p-1.5 rounded-md transition-all duration-200 hover:shadow-sm transform hover:scale-105 active:scale-95"
+                    style={{ 
+                      color: colors.accent,
+                      backgroundColor: colors.bgBase,
+                      border: `1px solid ${colors.borderSubtle}`
+                    }}
+                    aria-label={`快速重复 ${record.name} 记录`}
+                    title="快速重复此记录"
+                  >
+                    <Copy size={13} />
+                  </button>
                   <button
                     onClick={() => handleEditRecord(record)}
-                    className="p-1.5 rounded-full hover:bg-amber-100 transition-colors duration-150"
-                    style={{ color: colors.textSecondary }}
+                    className="p-1.5 rounded-md transition-all duration-200 hover:shadow-sm transform hover:scale-105 active:scale-95"
+                    style={{ 
+                      color: colors.textSecondary,
+                      backgroundColor: colors.bgBase,
+                      border: `1px solid ${colors.borderSubtle}`
+                    }}
                     aria-label={`编辑 ${record.name} 记录`}
                   >
-                    <Edit size={16} />
+                    <Edit size={13} />
                   </button>
                   <button
                     onClick={() => onDeleteRecord(record.id)}
-                    className="p-1.5 rounded-full hover:bg-red-100 transition-colors duration-150 text-red-600"
+                    className="p-1.5 rounded-md transition-all duration-200 hover:shadow-sm transform hover:scale-105 active:scale-95"
+                    style={{
+                      color: colors.danger,
+                      backgroundColor: colors.bgBase,
+                      border: `1px solid ${colors.dangerBorder || '#fecaca'}`
+                    }}
                     aria-label={`删除 ${record.name} 记录`}
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={13} />
                   </button>
                 </div>
               </li>

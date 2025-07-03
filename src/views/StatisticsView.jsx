@@ -13,9 +13,8 @@ import {
   getStartOfDay, getEndOfDay,
 } from '../utils/timeUtils';
 import { computeCaffeineDistribution } from '../utils/distributionUtils';  // 新增
-import { DEFAULT_CATEGORY } from '../utils/constants'; // Assuming this import exists or is added if needed for DEFAULT_CATEGORY
 
-const MIN_RECORD_DAYS = 3; // 定义生成详细分析所需的最小记录天数
+const MIN_RECORD_DAYS = 3;
 
 /**
  * 新增：仪表盘组件，用于可视化健康指标
@@ -24,7 +23,6 @@ const Gauge = ({ value, maxValue, label, unit, size = 80, strokeWidth = 8, color
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   
-  // Ensure value and maxValue are valid numbers and maxValue is not zero
   const validValue = typeof value === 'number' && !isNaN(value) ? value : 0;
   const validMaxValue = typeof maxValue === 'number' && !isNaN(maxValue) && maxValue > 0 ? maxValue : 1; // Avoid division by zero
 
@@ -125,10 +123,7 @@ const StatisticsView = ({
   drinks,
   colors
 }) => {
-  // 添加饼图排序状态
   const [pieChartSortBy, setPieChartSortBy] = useState('count'); // 'count', 'amount'
-  
-  // 添加交互状态
   const [selectedWeekday, setSelectedWeekday] = useState(null);
   const [selectedHour, setSelectedHour] = useState(null);
 
@@ -287,7 +282,6 @@ const StatisticsView = ({
       dailyTotals[dateKey] = (dailyTotals[dateKey] || 0) + record.amount;
     });
 
-    // --- 修正连续天数计算 ---
     // 获取所有有摄入的天的“天起始时间戳”，去重并排序
     const uniqueDayTimestamps = [...new Set(
       Object.keys(dailyTotals)
@@ -563,8 +557,39 @@ const StatisticsView = ({
     const minDay = nonZeroValues.length > 0 ? Math.min(...nonZeroValues) : 0;
     const avgDay = nonZeroValues.length > 0 ? nonZeroValues.reduce((a, b) => a + b) / nonZeroValues.length : 0;
     const activeDays = nonZeroValues.length;
+    
+    // 计算已过去的天数，不包括未来的日期
+    const now = new Date();
+    let pastDays = 0;
+    
+    if (statsView === 'week') {
+      const weekStart = getStartOfWeek(statsDate);
+      const weekEnd = getEndOfWeek(statsDate);
+      const periodEnd = Math.min(weekEnd, now.getTime());
+      pastDays = Math.max(0, Math.ceil((periodEnd - weekStart) / (24 * 60 * 60 * 1000)));
+    } else if (statsView === 'month') {
+      const monthStart = getStartOfMonth(statsDate);
+      const monthEnd = getEndOfMonth(statsDate);
+      const periodEnd = Math.min(monthEnd, now.getTime());
+      pastDays = Math.max(0, Math.ceil((periodEnd - monthStart) / (24 * 60 * 60 * 1000)));
+    } else if (statsView === 'year') {
+      const yearStart = getStartOfYear(statsDate);
+      const yearEnd = getEndOfYear(statsDate);
+      const periodEnd = Math.min(yearEnd, now.getTime());
+      // 对于年度统计，计算已过去的月数
+      const startMonth = new Date(yearStart).getMonth();
+      const endMonth = new Date(periodEnd).getMonth();
+      const endYear = new Date(periodEnd).getFullYear();
+      const statsYear = statsDate.getFullYear();
+      if (endYear === statsYear) {
+        pastDays = endMonth - startMonth + 1;
+      } else {
+        pastDays = 12; // 整年
+      }
+    }
+    
     const totalDays = values.length;
-    const consistencyRate = totalDays > 0 ? (activeDays / totalDays) * 100 : 0;
+    const consistencyRate = pastDays > 0 ? (activeDays / pastDays) * 100 : 0;
 
     // 计算标准差（数据分散程度）
     const variance = nonZeroValues.length > 0 ? 
@@ -581,6 +606,7 @@ const StatisticsView = ({
       avgDay: Math.round(avgDay),
       activeDays,
       totalDays,
+      pastDays, // 新增：已过去的天数
       consistencyRate: Math.round(consistencyRate),
       stdDev: Math.round(stdDev),
       maxDayData,
@@ -827,10 +853,10 @@ const StatisticsView = ({
                 className="text-lg font-bold mt-1 transition-colors"
                 style={{ color: colors.espresso }}
               >
-                {periodStats.activeDays}/{periodStats.totalDays}
+                {periodStats.activeDays}/{statsView === 'year' ? periodStats.totalDays : periodStats.pastDays}
               </p>
               <p className="text-xs mt-1 truncate" style={{ color: colors.textMuted }}>
-                一致性 {periodStats.consistencyRate}%
+                活跃比例 {periodStats.consistencyRate}%
               </p>
             </div>
           )}
@@ -1143,17 +1169,36 @@ const StatisticsView = ({
                   >
                     {detailedStats.hourlyDistribution.map((amount, hour) => {
                       const maxAmount = Math.max(...detailedStats.hourlyDistribution);
-                      const height = maxAmount > 0 ? (amount / maxAmount) * 100 : 0;
+                      
+                      // 改进高度计算方法，使用非线性比例（平方根比例）
+                      // 这会使小值和大值之间的视觉差异更加明显
+                      const heightRatio = maxAmount > 0 ? Math.sqrt(amount / maxAmount) : 0;
+                      const height = heightRatio * 80; // 增加基础高度倍数
+                      
                       const isSelected = selectedHour === hour;
+                      
+                      // 优化颜色逻辑，使其更具表现力
+                      const getBarColor = () => {
+                        if (amount === 0) return colors.borderSubtle;
+                        
+                        const ratio = maxAmount > 0 ? amount / maxAmount : 0;
+                        
+                        if (ratio >= 0.9) return colors.danger; // 接近峰值时使用危险色
+                        if (ratio > 0.65) return colors.warning; // 较高值使用警告色
+                        if (ratio > 0.4) return colors.accent; // 中高值使用主题色
+                        if (ratio > 0.1) return colors.safe; // 中低值使用安全色
+                        return colors.grid; // 极低值使用基础格网色
+                      };
+                      
                       return (
                         <div key={hour} className="flex flex-col items-center">
                           <div
                             className="w-full rounded-t transition-colors mb-1 cursor-pointer hover:opacity-80"
                             style={{
-                              height: `${Math.max(height, 2)}px`,
-                              backgroundColor: amount > 0 ? colors.accent : colors.borderSubtle,
-                              minHeight: '2px',
-                              maxHeight: '40px',
+                              height: `${Math.max(height, 3)}px`, // 增加最小高度为3px
+                              backgroundColor: getBarColor(),
+                              minHeight: '3px',
+                              maxHeight: '80px', // 增加最大高度限制
                               transform: isSelected ? 'scale(1.1)' : 'scale(1)',
                               boxShadow: isSelected ? '0 2px 4px rgba(0,0,0,0.3)' : 'none'
                             }}

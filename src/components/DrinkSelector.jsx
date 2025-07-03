@@ -133,10 +133,25 @@ const DrinkSelector = ({
   };
 
   return (
-    <div className="mb-4 border rounded-lg p-3 transition-colors" style={{
+    <div className="mb-4 border rounded-lg p-4 transition-colors overflow-x-hidden" style={{
       borderColor: colors.borderSubtle,
-      backgroundColor: `${colors.bgCard}80` // 添加透明度
+      backgroundColor: colors.bgCard
     }}>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-medium transition-colors flex items-center" style={{ color: colors.textSecondary }}>
+          <Coffee size={14} className="mr-2" />
+          选择饮品
+        </h3>
+        {selectedDrinkId && (
+          <span className="text-xs px-2 py-0.5 rounded-full" style={{
+            backgroundColor: colors.accent + '20',
+            color: colors.accent
+          }}>
+            已选择
+          </span>
+        )}
+      </div>
+      
       <div className="flex flex-col sm:flex-row gap-2 mb-3">
         {/* 搜索输入框 */}
         <div className="relative flex-grow">
@@ -152,14 +167,23 @@ const DrinkSelector = ({
               borderColor: colors.borderStrong,
             }}
           />
-          <Search size={16} className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <Search size={16} className="absolute left-2.5 top-1/2 transform -translate-y-1/2 transition-colors" 
+                  style={{ color: searchTerm ? colors.accent : colors.textMuted }} />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 transition-colors"
+            >
+              <X size={12} style={{ color: colors.textMuted }} />
+            </button>
+          )}
         </div>
         {/* 分类过滤器 */}
         <div className="relative flex-shrink-0">
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
-            className="w-full sm:w-auto p-2 pl-8 border rounded-md focus:outline-none focus:ring-1 text-sm appearance-none transition-colors"
+            className="w-full sm:w-auto p-2 pl-8 pr-6 border rounded-md focus:outline-none focus:ring-1 text-sm appearance-none transition-colors"
             style={{
               backgroundColor: colors.bgBase,
               color: colors.textPrimary,
@@ -175,34 +199,47 @@ const DrinkSelector = ({
               </option>
             ))}
           </select>
-          <Filter size={16} className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <Filter size={14} className="absolute left-2.5 top-1/2 transform -translate-y-1/2 pointer-events-none transition-colors" 
+                  style={{ color: filterCategory === 'all' ? colors.textMuted : colors.accent }} />
         </div>
       </div>
 
-      {/* 饮品网格 */}
-      <div className="max-h-60 overflow-y-auto space-y-3 pr-1 scrollbar-thin scrollbar-thumb-rounded-full scrollbar-track-rounded-full transition-colors"
+      {/* 饮品网格 - 修改布局使其更紧凑且防止横向滚动 */}
+      <div className="max-h-60 overflow-y-auto overflow-x-hidden space-y-3 pr-1 scrollbar-thin scrollbar-thumb-rounded-full scrollbar-track-rounded-full transition-colors"
         style={{
           scrollbarColor: `${colors.borderStrong} transparent`,
         }}>
         {groupedDrinks.length > 0 ? groupedDrinks.map(({ category, items }) => (
-          <div key={category}>
-            <h4 className="text-sm font-semibold mb-1.5 transition-colors" style={{ color: colors.textSecondary }}>{category}</h4>
-            <div className="grid grid-cols-3 gap-2">
+          <div key={category} className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-medium transition-colors flex items-center" style={{ color: colors.textSecondary }}>
+                <div className="w-1.5 h-1.5 rounded-full mr-2" style={{ backgroundColor: colors.accent }}></div>
+                {category}
+              </h4>
+              <span className="text-xs px-1.5 py-0.5 rounded" style={{
+                backgroundColor: colors.bgBase,
+                color: colors.textMuted,
+                border: `1px solid ${colors.borderSubtle}`
+              }}>
+                {items.length}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-3 gap-1 sm:gap-2">
               {items.map(drink => (
                 <button
                   key={drink.id}
                   onClick={() => onSelectDrink(drink.id)}
-                  className={`p-2 border rounded-lg text-center text-xs font-medium transition-all duration-150 
-                              focus:outline-none focus:ring-2 focus:ring-offset-1 flex flex-col items-center justify-center h-20 
-                              shadow-sm hover:shadow-md`}
+                  className={`p-1.5 sm:p-2 border rounded-lg text-center text-xs font-medium transition-all duration-200 
+                              focus:outline-none focus:ring-1 flex flex-col items-center justify-between min-h-[72px] 
+                              shadow-sm hover:shadow-md hover:scale-105 active:scale-95 relative group`}
                   style={{
                     backgroundColor: selectedDrinkId === drink.id
-                      ? colors.accent + "40" // 选中状态
+                      ? colors.accent + "20" // 选中状态
                       : drink.isPreset
                         ? colors.bgBase // 预设饮品
                         : colors.customDrinkBg, // 自定义饮品
                     color: selectedDrinkId === drink.id
-                      ? colors.textPrimary
+                      ? colors.accent
                       : drink.isPreset
                         ? colors.textPrimary
                         : colors.customDrinkText,
@@ -211,38 +248,63 @@ const DrinkSelector = ({
                       : drink.isPreset
                         ? colors.borderSubtle
                         : colors.customDrinkBorder,
-                    boxShadow: selectedDrinkId === drink.id
-                      ? `0 0 0 2px ${colors.accent}40`
-                      : 'none',
+                    borderWidth: selectedDrinkId === drink.id ? '2px' : '1px',
                   }}
-                  title={`${drink.name} (${drink.caffeineContent}mg/100ml${drink.defaultVolume ? `, ${drink.defaultVolume}ml` : ''})`}
+                  title={`${drink.name} (${
+                    drink.calculationMode === 'perGram' 
+                      ? `${drink.caffeinePerGram}mg/g` 
+                      : `${drink.caffeineContent}mg/100ml`
+                  }${drink.defaultVolume ? `, ${drink.defaultVolume}${drink.calculationMode === 'perGram' ? 'g' : 'ml'}` : ''})`}
                 >
-                  {getDrinkIcon(drink)}
-                  <span className="leading-tight line-clamp-2">{drink.name}</span>
+                  <div className="mb-1 transition-transform duration-200 group-hover:scale-110 flex-shrink-0">
+                    {getDrinkIcon(drink)}
+                  </div>
+                  <span className="leading-tight line-clamp-2 px-0.5 w-full text-[10px] sm:text-xs">{drink.name}</span>
+                  <div className="text-[9px] sm:text-xs opacity-60 mt-0.5">
+                    {drink.calculationMode === 'perGram' 
+                      ? `${drink.caffeinePerGram}mg/g` 
+                      : `${drink.caffeineContent}mg/100ml`}
+                  </div>
+                  {selectedDrinkId === drink.id && (
+                    <div 
+                      className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full"
+                      style={{ backgroundColor: colors.accent }}
+                    >
+                      <div 
+                        className="w-full h-full rounded-full animate-ping"
+                        style={{ backgroundColor: colors.accent }}
+                      ></div>
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
           </div>
         )) : (
-          <p className="text-center py-4 text-sm transition-colors" style={{ color: colors.textMuted }}>
-            没有找到匹配的饮品。
-          </p>
+          <div className="text-center py-6">
+            <Search size={24} className="mx-auto mb-2 opacity-30" style={{ color: colors.textMuted }} />
+            <p className="text-sm transition-colors" style={{ color: colors.textMuted }}>
+              没有找到匹配的饮品
+            </p>
+          </div>
         )}
       </div>
 
-      {/* 清除选择按钮 */}
+      {/* 清除选择按钮 - 增强设计 */}
       {selectedDrinkId && (
-        <button
-          onClick={onClearSelection}
-          className="mt-3 w-full py-1.5 px-3 text-xs border rounded-md transition-colors duration-200 flex items-center justify-center"
-          style={{
-            borderColor: colors.borderSubtle,
-            color: colors.textSecondary,
-            backgroundColor: `${colors.bgBase}80`
-          }}
-        >
-          <X size={14} className="mr-1" /> 清除选择 (手动输入)
-        </button>
+        <div className="mt-4 pt-3 border-t" style={{ borderColor: colors.borderSubtle }}>
+          <button
+            onClick={onClearSelection}
+            className="w-full py-2 px-3 text-sm border rounded-lg transition-all duration-200 flex items-center justify-center hover:shadow-md transform hover:scale-[1.01] active:scale-[0.99]"
+            style={{
+              borderColor: colors.borderSubtle,
+              color: colors.textSecondary,
+              backgroundColor: colors.bgBase
+            }}
+          >
+            <X size={16} className="mr-2" /> 清除选择 (手动输入)
+          </button>
+        </div>
       )}
     </div>
   );
