@@ -15,7 +15,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
     const timer = setTimeout(() => {
       setIsTransitioning(false);
     }, 200); // 与CSS transition时间保持一致
-    
+
     return () => clearTimeout(timer);
   }, [sortBy]);
 
@@ -62,7 +62,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
   let mainItems = [];
   let otherTotal = 0;
   let otherCount = 0;
-  let otherItemCount = 0; // 修复：记录"其他"项目的实际次数
+  let otherItemCount = 0;
 
   data.forEach(item => {
     if (item.percentage >= threshold) {
@@ -70,7 +70,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
     } else {
       otherTotal += item.amount;
       otherCount += item.percentage;
-      otherItemCount += item.count; // 修复：累加实际次数
+      otherItemCount += item.count;
     }
   });
 
@@ -80,7 +80,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
       id: 'others',
       name: '其他',
       amount: Math.round(otherTotal),
-      count: otherItemCount, // 修复：使用正确的次数
+      count: otherItemCount,
       percentage: Math.round(otherCount)
     });
   }
@@ -90,13 +90,13 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
   const sectors = mainItems.map((item, index) => {
     const isLastItem = index === mainItems.length - 1;
     let angle;
-    
+
     if (isLastItem) {
       angle = 360 - currentAngle;
     } else {
       angle = (item.percentage / 100) * 360;
     }
-    
+
     const startAngle = currentAngle;
     const endAngle = currentAngle + angle;
     currentAngle = endAngle;
@@ -121,7 +121,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
     const largeArcFlag = angleDiff > 180 ? "1" : "0";
 
     const outerArc = [
-      "M", start.x, start.y, 
+      "M", start.x, start.y,
       "A", outerRadius, outerRadius, 0, largeArcFlag, 0, end.x, end.y
     ].join(" ");
 
@@ -169,13 +169,13 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
   const currentSelectedSectorData = selectedSectorId ? sectors.find(s => s.id === selectedSectorId) : null;
 
   return (
-    <div 
-      className="flex flex-col items-center gap-6" 
+    <div
+      className="flex flex-col items-center gap-6"
       onClick={handleContainerClick}
     >
       {/* 饼状图 */}
-      <div 
-        className="flex-shrink-0" 
+      <div
+        className="flex-shrink-0"
         ref={chartRef}
         onClick={(e) => e.stopPropagation()}
         style={{
@@ -184,10 +184,10 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
           transition: 'opacity 0.2s ease-in-out, transform 0.2s ease-in-out'
         }}
       >
-        <svg 
-          width="200" 
-          height="200" 
-          viewBox="0 0 200 200" 
+        <svg
+          width="200"
+          height="200"
+          viewBox="0 0 200 200"
           className="drop-shadow-sm cursor-pointer"
         >
           <circle
@@ -217,7 +217,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
                 onMouseEnter={e => e.currentTarget.style.opacity = '1'}
                 onMouseLeave={e => {
                   if (!(selectedSectorId && selectedSectorId === sector.id)) {
-                     e.currentTarget.style.opacity = selectedSectorId ? '0.7' : '1';
+                    e.currentTarget.style.opacity = selectedSectorId ? '0.7' : '1';
                   }
                 }}
                 onClick={(e) => {
@@ -229,12 +229,12 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
             </g>
           ))}
         </svg>
-        
+
         {/* 点击提示信息 */}
         {currentSelectedSectorData && (
-          <div 
+          <div
             className="mt-3 p-3 rounded-lg border-2 text-center"
-            style={{ 
+            style={{
               backgroundColor: currentSelectedSectorData.color + '20',
               borderColor: currentSelectedSectorData.color,
               color: defaultColors.textPrimary,
@@ -245,7 +245,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
           >
             <div className="font-semibold text-sm">{currentSelectedSectorData.name}</div>
             <div className="text-xs mt-1" style={{ color: defaultColors.textSecondary }}>
-              {sortBy === 'count' 
+              {sortBy === 'count'
                 ? `${currentSelectedSectorData.count}次 • ${Math.round(currentSelectedSectorData.percentage)}% • ${currentSelectedSectorData.amount}mg`
                 : `${currentSelectedSectorData.amount}mg • ${Math.round(currentSelectedSectorData.percentage)}% • ${currentSelectedSectorData.count}次`
               }
@@ -255,7 +255,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
       </div>
 
       {/* 图例 */}
-      <div 
+      <div
         className="flex-1 min-w-0"
         onClick={(e) => e.stopPropagation()} // 阻止事件冒泡到根容器
         style={{
@@ -266,8 +266,8 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
       >
         <div className="grid grid-cols-2 gap-1"> {/* 统一使用两列布局 */}
           {sectors.map((sector) => (
-            <div 
-              key={sector.id} 
+            <div
+              key={sector.id}
               className="flex items-center text-xs py-1 px-1.5 rounded cursor-pointer hover:bg-gray-50 transition-colors" // 统一使用紧凑padding
               onClick={(e) => {
                 e.stopPropagation(); // 阻止冒泡
@@ -279,7 +279,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
             >
               <div
                 className="w-2.5 h-2.5 rounded-full mr-1.5 flex-shrink-0 border" // 统一使用小图标尺寸
-                style={{ 
+                style={{
                   backgroundColor: sector.color,
                   borderColor: 'white'
                 }}
@@ -296,7 +296,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
                   className="text-xs leading-tight" // 统一使用紧凑行高
                   style={{ color: defaultColors.textMuted }}
                 >
-                  {sortBy === 'count' 
+                  {sortBy === 'count'
                     ? `${sector.count}次 (${Math.round(sector.percentage)}%) • ${sector.amount}mg`
                     : `${sector.amount}mg (${Math.round(sector.percentage)}%) • ${sector.count}次`
                   }
@@ -305,7 +305,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
             </div>
           ))}
         </div>
-        
+
         {/* 总计信息 */}
         <div
           className="mt-3 pt-2 border-t text-sm" // 统一使用紧凑间距
@@ -324,7 +324,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
             </span>
           </div>
         </div>
-        
+
       </div>
     </div>
   );

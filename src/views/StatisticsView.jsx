@@ -22,7 +22,7 @@ const MIN_RECORD_DAYS = 3;
 const Gauge = ({ value, maxValue, label, unit, size = 80, strokeWidth = 8, colors }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  
+
   const validValue = typeof value === 'number' && !isNaN(value) ? value : 0;
   const validMaxValue = typeof maxValue === 'number' && !isNaN(maxValue) && maxValue > 0 ? maxValue : 1; // Avoid division by zero
 
@@ -37,10 +37,10 @@ const Gauge = ({ value, maxValue, label, unit, size = 80, strokeWidth = 8, color
     <div className="flex flex-col items-center justify-center text-center">
       <svg width={size} height={size * 0.75} viewBox={`0 0 ${size} ${size * 0.9}`}>
         <defs>
-            <linearGradient id={`gradient-${label}`} x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor={color} stopOpacity="0.7" />
-              <stop offset="100%" stopColor={color} stopOpacity="1" />
-            </linearGradient>
+          <linearGradient id={`gradient-${label}`} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor={color} stopOpacity="0.7" />
+            <stop offset="100%" stopColor={color} stopOpacity="1" />
+          </linearGradient>
         </defs>
         <circle
           cx={size / 2}
@@ -324,7 +324,7 @@ const StatisticsView = ({
       const hour = new Date(record.timestamp).getHours();
       hourlyDistribution[hour] += record.amount;
     });
-    
+
     // 找出高峰时段
     const peakHour = hourlyDistribution.indexOf(Math.max(...hourlyDistribution));
     const peakAmount = hourlyDistribution[peakHour];
@@ -333,7 +333,7 @@ const StatisticsView = ({
     const sortedRecords = [...records].sort((a, b) => b.timestamp - a.timestamp);
     let intervals = [];
     for (let i = 1; i < sortedRecords.length; i++) {
-      const interval = (sortedRecords[i-1].timestamp - sortedRecords[i].timestamp) / (1000 * 60 * 60);
+      const interval = (sortedRecords[i - 1].timestamp - sortedRecords[i].timestamp) / (1000 * 60 * 60);
       if (interval <= 24) intervals.push(interval);
     }
     const avgInterval = intervals.length > 0 ? intervals.reduce((a, b) => a + b) / intervals.length : 0;
@@ -341,7 +341,6 @@ const StatisticsView = ({
     // 最大单次摄入
     const maxSingleIntake = Math.max(...records.map(r => r.amount));
 
-    // 统一并修复连续摄入天数计算
     // 1. 获取所有记录的日期，确保它们是当天的开始时间，并去重
     const uniqueDayTimestampsForStreak = [...new Set(
       records
@@ -358,13 +357,12 @@ const StatisticsView = ({
     )].sort((a, b) => a - b);
 
     // 2. 计算最长连续天数 (maxStreak - 使用上面已有的 maxStreak 变量)
-    // maxStreak 的计算逻辑已在前面，这里不再重复
 
     // 3. 计算当前连续摄入天数 (currentStreak)
     let currentStreak = 0;
     const today = new Date();
     const todayStartTimestamp = getStartOfDay(today); // Returns a number
-    
+
     if (typeof todayStartTimestamp === 'number' && !isNaN(todayStartTimestamp)) {
       // 使用 uniqueDayTimestampsForStreak 进行检查
       const uniqueDateStringsForStreak = uniqueDayTimestampsForStreak.map(ts => new Date(ts).toDateString());
@@ -407,24 +405,24 @@ const StatisticsView = ({
     const sleepHour = parseInt(userSettings.plannedSleepTime.split(':')[0]) || 23;
     const sleepMinute = parseInt(userSettings.plannedSleepTime.split(':')[1]) || 0;
     const sleepTimeInHours = sleepHour + sleepMinute / 60;
-    
+
     let avgCaffeineAtSleep = 0;
     if (records.length > 0) {
       const caffeineAtSleepValues = records.map(record => {
         const intakeTime = new Date(record.timestamp);
         const intakeHour = intakeTime.getHours() + intakeTime.getMinutes() / 60;
-        
+
         // 计算从摄入到睡眠的时间差
         let timeDiff = sleepTimeInHours - intakeHour;
         if (timeDiff < 0) timeDiff += 24; // 处理跨天情况
-        
+
         // 使用指数衰减公式计算残留量
         const halfLife = userSettings.caffeineHalfLifeHours;
         const remainingCaffeine = record.amount * Math.pow(0.5, timeDiff / halfLife);
-        
+
         return remainingCaffeine;
       });
-      
+
       avgCaffeineAtSleep = caffeineAtSleepValues.reduce((sum, val) => sum + val, 0) / caffeineAtSleepValues.length;
     }
 
@@ -455,7 +453,7 @@ const StatisticsView = ({
     // 计算总记录天数
     const dates = [...new Set(records.map(r => new Date(r.timestamp).toDateString()))];
     const totalDays = dates.length;
-    
+
     // 计算平均每日摄入量和次数
     const totalAmount = records.reduce((sum, r) => sum + r.amount, 0);
     const avgDailyAmount = totalDays > 0 ? totalAmount / totalDays : 0; // 避免除以0
@@ -482,7 +480,7 @@ const StatisticsView = ({
         weekdayDays.add(dateString);
       }
     });
-    
+
     // 使用实际有记录的天数来计算平均值
     const numWeekdayDays = weekdayDays.size;
     const numWeekendDays = weekendDays.size;
@@ -494,7 +492,7 @@ const StatisticsView = ({
     let userType = '';
     let typeDescription = '';
     let typeAdvice = '';
-    
+
     if (avgDailyAmount < 100) {
       userType = '轻度消费者';
       typeDescription = '您的咖啡因摄入量较低，保持适度即可。';
@@ -520,11 +518,11 @@ const StatisticsView = ({
     // 判断周末模式
     let weekendPattern = '';
     if (numWeekdayDays === 0 && numWeekendDays === 0) {
-        weekendPattern = '数据不足';
+      weekendPattern = '数据不足';
     } else if (numWeekdayDays === 0) {
-        weekendPattern = '仅周末摄入';
+      weekendPattern = '仅周末摄入';
     } else if (numWeekendDays === 0) {
-        weekendPattern = '仅工作日摄入';
+      weekendPattern = '仅工作日摄入';
     } else if (Math.abs(weekdayAvg - weekendAvg) < (avgDailyAmount * 0.15)) { // 差异小于平均值的15%
       weekendPattern = '稳定型';
     } else if (weekendAvg > weekdayAvg) {
@@ -552,16 +550,16 @@ const StatisticsView = ({
 
     const values = statsChartData.map(d => d.value);
     const nonZeroValues = values.filter(v => v > 0);
-    
+
     const maxDay = Math.max(...values);
     const minDay = nonZeroValues.length > 0 ? Math.min(...nonZeroValues) : 0;
     const avgDay = nonZeroValues.length > 0 ? nonZeroValues.reduce((a, b) => a + b) / nonZeroValues.length : 0;
     const activeDays = nonZeroValues.length;
-    
+
     // 计算已过去的天数，不包括未来的日期
     const now = new Date();
     let pastDays = 0;
-    
+
     if (statsView === 'week') {
       const weekStart = getStartOfWeek(statsDate);
       const weekEnd = getEndOfWeek(statsDate);
@@ -587,12 +585,12 @@ const StatisticsView = ({
         pastDays = 12; // 整年
       }
     }
-    
+
     const totalDays = values.length;
     const consistencyRate = pastDays > 0 ? (activeDays / pastDays) * 100 : 0;
 
     // 计算标准差（数据分散程度）
-    const variance = nonZeroValues.length > 0 ? 
+    const variance = nonZeroValues.length > 0 ?
       nonZeroValues.reduce((sum, val) => sum + Math.pow(val - avgDay, 2), 0) / nonZeroValues.length : 0;
     const stdDev = Math.sqrt(variance);
 
@@ -893,14 +891,13 @@ const StatisticsView = ({
           >
             <PieChartIcon size={20} className="mr-2" /> 摄入来源分析
           </h3>
-          
+
           {/* 排序选择器 */}
           <div className="flex gap-2">
             <button
               onClick={() => setPieChartSortBy('count')}
-              className={`px-3 py-1 rounded text-xs transition-colors ${
-                pieChartSortBy === 'count' ? 'text-white' : 'hover:bg-gray-100'
-              }`}
+              className={`px-3 py-1 rounded text-xs transition-colors ${pieChartSortBy === 'count' ? 'text-white' : 'hover:bg-gray-100'
+                }`}
               style={pieChartSortBy === 'count'
                 ? { backgroundColor: colors.accent }
                 : { backgroundColor: colors.bgBase, color: colors.textSecondary }
@@ -910,9 +907,8 @@ const StatisticsView = ({
             </button>
             <button
               onClick={() => setPieChartSortBy('amount')}
-              className={`px-3 py-1 rounded text-xs transition-colors ${
-                pieChartSortBy === 'amount' ? 'text-white' : 'hover:bg-gray-100'
-              }`}
+              className={`px-3 py-1 rounded text-xs transition-colors ${pieChartSortBy === 'amount' ? 'text-white' : 'hover:bg-gray-100'
+                }`}
               style={pieChartSortBy === 'amount'
                 ? { backgroundColor: colors.accent }
                 : { backgroundColor: colors.bgBase, color: colors.textSecondary }
@@ -922,11 +918,11 @@ const StatisticsView = ({
             </button>
           </div>
         </div>
-        
+
         {caffeineDistribution.length > 0 ? (
-          <PieChart 
-            data={caffeineDistribution} 
-            colors={colors} 
+          <PieChart
+            data={caffeineDistribution}
+            colors={colors}
             sortBy={pieChartSortBy}
             totalRecords={records.length}
           />
@@ -965,7 +961,7 @@ const StatisticsView = ({
               <>
                 <div className="text-center mb-6">
                   <div className="inline-flex items-center px-4 py-2 rounded-full mb-3"
-                       style={{ backgroundColor: colors.accent + '20' }}>
+                    style={{ backgroundColor: colors.accent + '20' }}>
                     <Coffee size={20} className="mr-2" style={{ color: colors.accent }} />
                     <span className="text-lg font-semibold" style={{ color: colors.accent }}>
                       {lifestyleAnalysis.userType}
@@ -1069,12 +1065,12 @@ const StatisticsView = ({
                   <StatItem icon={<AlertCircle size={16} />} label="超标天数" value={detailedStats.exceedDays} unit="天" colorClass={detailedStats.exceedDays > 0 ? 'text-orange-500' : ''} />
                   <StatItem icon={<Percent size={16} />} label="超标率" value={detailedStats.exceedRate} unit="%" colorClass={detailedStats.exceedRate > 20 ? 'text-red-500' : detailedStats.exceedRate > 10 ? 'text-orange-500' : ''} />
                   <StatItem icon={<Target size={16} />} label="最大单次" value={detailedStats.maxSingleIntake} unit="mg" />
-                  
+
                   <StatItem icon={<TrendingUp size={16} />} label="最长连续" value={detailedStats.maxStreak} unit="天" />
                   <StatItem icon={<Zap size={16} />} label="当前连续" value={detailedStats.currentStreak} unit="天" />
                   <StatItem icon={<Droplet size={16} />} label="平均单次" value={detailedStats.avgPerIntake} unit="mg" />
                   <StatItem icon={<Clock size={16} />} label="平均间隔" value={detailedStats.avgInterval} unit="h" />
-                  
+
                   <StatItem icon={<Brain size={16} />} label="平均时间" value={`${Math.floor(detailedStats.avgIntakeTime)}:${String(Math.round((detailedStats.avgIntakeTime % 1) * 60)).padStart(2, '0')}`} unit="" />
                   <StatItem icon={<TrendingDown size={16} />} label="高峰时段" value={`${detailedStats.peakHour}:00`} unit="" />
                   <StatItem icon={<Moon size={16} />} label="睡前残留" value={detailedStats.avgCaffeineAtSleep} unit="mg" colorClass={detailedStats.avgCaffeineAtSleep > 30 ? 'text-orange-500' : ''} />
@@ -1095,7 +1091,7 @@ const StatisticsView = ({
                   </h4>
                   <div
                     className="grid grid-cols-7 gap-2"
-                    // onClick handler removed from here, handled by parent div
+                  // onClick handler removed from here, handled by parent div
                   >
                     {detailedStats.weekdayTotals.map((amount, index) => {
                       const maxAmount = Math.max(...detailedStats.weekdayTotals);
@@ -1169,36 +1165,57 @@ const StatisticsView = ({
                   >
                     {detailedStats.hourlyDistribution.map((amount, hour) => {
                       const maxAmount = Math.max(...detailedStats.hourlyDistribution);
-                      
-                      // 改进高度计算方法，使用非线性比例（平方根比例）
-                      // 这会使小值和大值之间的视觉差异更加明显
+
                       const heightRatio = maxAmount > 0 ? Math.sqrt(amount / maxAmount) : 0;
-                      const height = heightRatio * 80; // 增加基础高度倍数
-                      
+                      const height = heightRatio * 80;
+
                       const isSelected = selectedHour === hour;
-                      
-                      // 优化颜色逻辑，使其更具表现力
+
                       const getBarColor = () => {
                         if (amount === 0) return colors.borderSubtle;
-                        
                         const ratio = maxAmount > 0 ? amount / maxAmount : 0;
-                        
-                        if (ratio >= 0.9) return colors.danger; // 接近峰值时使用危险色
-                        if (ratio > 0.65) return colors.warning; // 较高值使用警告色
-                        if (ratio > 0.4) return colors.accent; // 中高值使用主题色
-                        if (ratio > 0.1) return colors.safe; // 中低值使用安全色
-                        return colors.grid; // 极低值使用基础格网色
+                        if (ratio < 0.01) return colors.grid; // 极低值
+
+                        // 颜色插值函数
+                        const interpolateColor = (color1, color2, factor) => {
+                          const result = color1.slice();
+                          for (let i = 0; i < 3; i++) {
+                            result[i] = Math.round(result[i] + factor * (color2[i] - result[i]));
+                          }
+                          return `rgb(${result.join(',')})`;
+                        };
+
+                        // 将 hex 颜色转换为 rgb 数组
+                        const hexToRgb = (hex) => {
+                          const r = parseInt(hex.slice(1, 3), 16);
+                          const g = parseInt(hex.slice(3, 5), 16);
+                          const b = parseInt(hex.slice(5, 7), 16);
+                          return [r, g, b];
+                        };
+
+                        const safeRgb = hexToRgb(colors.safe);
+                        const accentRgb = hexToRgb(colors.accent);
+                        const warningRgb = hexToRgb(colors.warning);
+                        const dangerRgb = hexToRgb(colors.danger);
+
+                        if (ratio < 0.4) { // 0% to 40% -> safe to accent
+                          return interpolateColor(safeRgb, accentRgb, ratio / 0.4);
+                        } else if (ratio < 0.7) { // 40% to 70% -> accent to warning
+                          return interpolateColor(accentRgb, warningRgb, (ratio - 0.4) / 0.3);
+                        } else { // 70% to 100% -> warning to danger
+                          return interpolateColor(warningRgb, dangerRgb, (ratio - 0.7) / 0.3);
+                        }
                       };
-                      
+
                       return (
                         <div key={hour} className="flex flex-col items-center">
                           <div
                             className="w-full rounded-t transition-colors mb-1 cursor-pointer hover:opacity-80"
                             style={{
-                              height: `${Math.max(height, 3)}px`, // 增加最小高度为3px
+                              height: `${Math.max(height, 3)}px`,
                               backgroundColor: getBarColor(),
                               minHeight: '3px',
-                              maxHeight: '80px', // 增加最大高度限制
+                              maxHeight: '80px',
                               transform: isSelected ? 'scale(1.1)' : 'scale(1)',
                               boxShadow: isSelected ? '0 2px 4px rgba(0,0,0,0.3)' : 'none'
                             }}
@@ -1283,57 +1300,57 @@ const StatisticsView = ({
               <div className="space-y-6">
                 {/* 仪表盘区域 */}
                 <div className="grid grid-cols-3 gap-2 sm:gap-4">
-                   <Gauge
-                      value={Math.round(getWeekTotal(new Date()) / ((new Date().getDay() === 0 ? 7 : new Date().getDay())) || 1)}
-                      maxValue={effectiveMaxDaily}
-                      label="本周日均摄入"
-                      unit="mg"
-                      colors={colors}
-                   />
-                   <Gauge
-                      value={detailedStats.avgCaffeineAtSleep}
-                      maxValue={50} // 设定50mg为影响睡眠的较高阈值
-                      label="睡前残留咖啡因"
-                      unit="mg"
-                      colors={colors}
-                   />
-                   <Gauge
-                      value={detailedStats.exceedRate}
-                      maxValue={100}
-                      label="超标天数比例"
-                      unit="%"
-                      colors={colors}
-                   />
+                  <Gauge
+                    value={Math.round(getWeekTotal(new Date()) / ((new Date().getDay() === 0 ? 7 : new Date().getDay())) || 1)}
+                    maxValue={effectiveMaxDaily}
+                    label="本周日均摄入"
+                    unit="mg"
+                    colors={colors}
+                  />
+                  <Gauge
+                    value={detailedStats.avgCaffeineAtSleep}
+                    maxValue={50} // 设定50mg为影响睡眠的较高阈值
+                    label="睡前残留咖啡因"
+                    unit="mg"
+                    colors={colors}
+                  />
+                  <Gauge
+                    value={detailedStats.exceedRate}
+                    maxValue={100}
+                    label="超标天数比例"
+                    unit="%"
+                    colors={colors}
+                  />
                 </div>
 
                 {/* 核心建议 */}
-                <div className="space-y-3 text-sm" style={{color: colors.textSecondary}}>
-                  <div className="flex items-start p-3 rounded-lg" style={{backgroundColor: colors.bgBase}}>
-                    <Award size={18} className="mr-3 mt-0.5 flex-shrink-0" style={{color: colors.accent}} />
+                <div className="space-y-3 text-sm" style={{ color: colors.textSecondary }}>
+                  <div className="flex items-start p-3 rounded-lg" style={{ backgroundColor: colors.bgBase }}>
+                    <Award size={18} className="mr-3 mt-0.5 flex-shrink-0" style={{ color: colors.accent }} />
                     <div>
-                      <h4 className="font-semibold" style={{color: colors.espresso}}>摄入画像</h4>
+                      <h4 className="font-semibold" style={{ color: colors.espresso }}>摄入画像</h4>
                       <p>
                         您被识别为“<strong style={{ color: colors.accent }}>{lifestyleAnalysis.userType}</strong>”。{lifestyleAnalysis.typeAdvice}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-start p-3 rounded-lg" style={{backgroundColor: colors.bgBase}}>
-                    <Clock size={18} className="mr-3 mt-0.5 flex-shrink-0" style={{color: colors.accent}} />
+                  <div className="flex items-start p-3 rounded-lg" style={{ backgroundColor: colors.bgBase }}>
+                    <Clock size={18} className="mr-3 mt-0.5 flex-shrink-0" style={{ color: colors.accent }} />
                     <div>
-                      <h4 className="font-semibold" style={{color: colors.espresso}}>睡眠建议</h4>
+                      <h4 className="font-semibold" style={{ color: colors.espresso }}>睡眠建议</h4>
                       <p>
-                        为减少对 <strong style={{color: colors.espresso}}>{userSettings.plannedSleepTime}</strong> 睡眠的影响, 建议在 <strong className="font-bold" style={{color: colors.accent}}>{calculateStopTime(userSettings.plannedSleepTime, 6)}</strong> 前停止摄入。
-                        {detailedStats.peakHour >= calculateStopTime(userSettings.plannedSleepTime, 6)-1 && (
-                          <span style={{color: colors.infoText}}> 您的摄入高峰 (<strong style={{color: colors.accent}}>{detailedStats.peakHour}:00</strong>) 偏晚，请特别留意。</span>
+                        为减少对 <strong style={{ color: colors.espresso }}>{userSettings.plannedSleepTime}</strong> 睡眠的影响, 建议在 <strong className="font-bold" style={{ color: colors.accent }}>{calculateStopTime(userSettings.plannedSleepTime, 6)}</strong> 前停止摄入。
+                        {detailedStats.peakHour >= calculateStopTime(userSettings.plannedSleepTime, 6) - 1 && (
+                          <span style={{ color: colors.infoText }}> 您的摄入高峰 (<strong style={{ color: colors.accent }}>{detailedStats.peakHour}:00</strong>) 偏晚，请特别留意。</span>
                         )}
                       </p>
                     </div>
                   </div>
                   {caffeineDistribution[0]?.name && (
-                    <div className="flex items-start p-3 rounded-lg" style={{backgroundColor: colors.bgBase}}>
-                      <Coffee size={18} className="mr-3 mt-0.5 flex-shrink-0" style={{color: colors.accent}} />
+                    <div className="flex items-start p-3 rounded-lg" style={{ backgroundColor: colors.bgBase }}>
+                      <Coffee size={18} className="mr-3 mt-0.5 flex-shrink-0" style={{ color: colors.accent }} />
                       <div>
-                        <h4 className="font-semibold" style={{color: colors.espresso}}>主要来源</h4>
+                        <h4 className="font-semibold" style={{ color: colors.espresso }}>主要来源</h4>
                         <p>
                           主要来源是 <strong style={{ color: colors.accent }}>{caffeineDistribution[0].name}</strong>，占总{pieChartSortBy === 'count' ? '次数' : '摄入量'}的 <strong style={{ color: colors.accent }}>{caffeineDistribution[0].percentage}%</strong>。可考虑适度调整。
                         </p>
@@ -1355,7 +1372,7 @@ const StatisticsView = ({
             );
           } else { // records.length === 0
             return (
-              <div className="text-center py-8" style={{color: colors.textMuted}}>
+              <div className="text-center py-8" style={{ color: colors.textMuted }}>
                 <Heart size={48} className="mx-auto mb-3 opacity-50" />
                 <p>开始记录您的咖啡因摄入，以获取个性化健康报告。</p>
               </div>

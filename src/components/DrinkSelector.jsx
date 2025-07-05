@@ -151,7 +151,7 @@ const DrinkSelector = ({
           </span>
         )}
       </div>
-      
+
       <div className="flex flex-col sm:flex-row gap-2 mb-3">
         {/* 搜索输入框 */}
         <div className="relative flex-grow">
@@ -167,8 +167,8 @@ const DrinkSelector = ({
               borderColor: colors.borderStrong,
             }}
           />
-          <Search size={16} className="absolute left-2.5 top-1/2 transform -translate-y-1/2 transition-colors" 
-                  style={{ color: searchTerm ? colors.accent : colors.textMuted }} />
+          <Search size={16} className="absolute left-2.5 top-1/2 transform -translate-y-1/2 transition-colors"
+            style={{ color: searchTerm ? colors.accent : colors.textMuted }} />
           {searchTerm && (
             <button
               onClick={() => setSearchTerm('')}
@@ -199,8 +199,8 @@ const DrinkSelector = ({
               </option>
             ))}
           </select>
-          <Filter size={14} className="absolute left-2.5 top-1/2 transform -translate-y-1/2 pointer-events-none transition-colors" 
-                  style={{ color: filterCategory === 'all' ? colors.textMuted : colors.accent }} />
+          <Filter size={14} className="absolute left-2.5 top-1/2 transform -translate-y-1/2 pointer-events-none transition-colors"
+            style={{ color: filterCategory === 'all' ? colors.textMuted : colors.accent }} />
         </div>
       </div>
 
@@ -250,27 +250,26 @@ const DrinkSelector = ({
                         : colors.customDrinkBorder,
                     borderWidth: selectedDrinkId === drink.id ? '2px' : '1px',
                   }}
-                  title={`${drink.name} (${
-                    drink.calculationMode === 'perGram' 
-                      ? `${drink.caffeinePerGram}mg/g` 
+                  title={`${drink.name} (${drink.calculationMode === 'perGram'
+                      ? `${drink.caffeinePerGram}mg/g`
                       : `${drink.caffeineContent}mg/100ml`
-                  }${drink.defaultVolume ? `, ${drink.defaultVolume}${drink.calculationMode === 'perGram' ? 'g' : 'ml'}` : ''})`}
+                    }${drink.defaultVolume ? `, ${drink.defaultVolume}${drink.calculationMode === 'perGram' ? 'g' : 'ml'}` : ''})`}
                 >
                   <div className="mb-1 transition-transform duration-200 group-hover:scale-110 flex-shrink-0">
                     {getDrinkIcon(drink)}
                   </div>
                   <span className="leading-tight line-clamp-2 px-0.5 w-full text-[10px] sm:text-xs">{drink.name}</span>
                   <div className="text-[9px] sm:text-xs opacity-60 mt-0.5">
-                    {drink.calculationMode === 'perGram' 
-                      ? `${drink.caffeinePerGram}mg/g` 
+                    {drink.calculationMode === 'perGram'
+                      ? `${drink.caffeinePerGram}mg/g`
                       : `${drink.caffeineContent}mg/100ml`}
                   </div>
                   {selectedDrinkId === drink.id && (
-                    <div 
+                    <div
                       className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full"
                       style={{ backgroundColor: colors.accent }}
                     >
-                      <div 
+                      <div
                         className="w-full h-full rounded-full animate-ping"
                         style={{ backgroundColor: colors.accent }}
                       ></div>

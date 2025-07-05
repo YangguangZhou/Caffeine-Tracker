@@ -34,7 +34,7 @@ export const COFFEE_COLORS = {
   warning: '#f59e0b',   // amber-500（警告）
   danger: '#ef4444',    // red-500（危险/高水平）
   safe: '#10b981',      // emerald-500（安全/低水平）
-  grid: '#e0d6c7',      // 较浅的棕褐色（网格线/边框）
+  grid: '#edeae4',      // 更柔和的网格线/边框
   tooltipBg: 'rgba(255, 255, 255, 0.95)', // 白色带透明度
   tooltipText: '#4a2c2a',
   bgBase: '#fdfbf6',    // 非常浅的米色背景
@@ -74,35 +74,26 @@ export const NIGHT_COLORS = {
   warning: '#f59e0b',   // amber-500（警告）
   danger: '#ef4444',    // red-500（危险/高水平）
   safe: '#10b981',      // emerald-500（安全/低水平）
-  grid: '#2d2922',      // 深棕色（网格线/边框）
+  grid: '#312e2b',      // 更柔和的深色网格线/边框
   tooltipBg: 'rgba(28, 25, 23, 0.95)', // 深棕色带透明度
   tooltipText: '#e7e5e4',
   bgBase: '#1c1917',    // 非常深的背景
-  bgCard: '#292524',    // 卡片深棕色
-  textPrimary: '#e7e5e4', // 浅色文本
-  textSecondary: '#d6d3d1', // 较浅文本
-  textMuted: '#a8a29e',   // 低调文本
-  borderSubtle: '#44403c', // 细微边框
-  borderStrong: '#78716c', // 强调边框
-  customDrinkBg: '#022c22', // 自定义饮品的深绿色背景
-  customDrinkBorder: '#065f46', // 自定义饮品边框
-  customDrinkText: '#6ee7b7', // 自定义饮品文本
-  chartLine: '#c39065', // 代谢线的浅棕色
-  chartNowLine: '#ef4444', // 当前时间的红线
-  chartSleepLine: '#3b82f6', // 睡眠阈值的蓝线
-  customDrinkBg: '#3D3222',
-  customDrinkBorder: '#5E4C32',
-  customDrinkText: '#D4A76A',
-
-  // Standard status colors
-  successBg: '#22332E', // 更深的绿色背景
-  successText: '#6ee7b7', // Lighter green text
-  warningBg: '#332B22', // 更深的黄色/橙色背景
-  warningText: '#fcd34d', // Lighter yellow text
-  dangerBg: '#332222',  // 更深的红色背景
-  dangerText: '#fca5a5', // Lighter red text
-  infoBg: '#222833',    // 更深的蓝色背景
-  infoText: '#93c5fd', // Lighter blue text
+  bgCard: '#24211e',    // 深色卡片背景
+  borderSubtle: '#3f3b36', // 微妙的边框
+  borderStrong: '#57534e', // 强边框
+  espresso: '#f5e5d3',  // 浓缩咖啡色（亮文本）
+  textPrimary: '#e7e5e4', // 主要文本
+  textSecondary: '#a8a29e', // 次要文本
+  textMuted: '#78716c',   // 静音文本
+  infoBg: 'rgba(59, 130, 246, 0.1)',
+  infoText: '#93c5fd',
+  successBg: 'rgba(16, 185, 129, 0.1)',
+  successText: '#6ee7b7',
+  warningBg: 'rgba(245, 158, 11, 0.1)',
+  warningText: '#fcd34d',
+  dangerBg: 'rgba(239, 68, 68, 0.1)',
+  dangerText: '#fca5a5',
+  dangerBorder: '#5f2b2b', // 深色模式下的危险边框
 };
 
 // 预设饮品定义

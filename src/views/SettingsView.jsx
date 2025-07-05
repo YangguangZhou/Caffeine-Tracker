@@ -902,8 +902,8 @@ const SettingsView = ({
                     {/* 测试结果 */}
                     {webDAVTestResult && (
                         <div className={`p-3 rounded-lg text-sm border ${webDAVTestResult.success
-                                ? 'bg-green-50 text-green-800 border-green-200'
-                                : 'bg-red-50 text-red-800 border-red-200'
+                            ? 'bg-green-50 text-green-800 border-green-200'
+                            : 'bg-red-50 text-red-800 border-red-200'
                             }`}>
                             <div className="flex items-start">
                                 <div className={`flex-shrink-0 w-4 h-4 rounded-full mt-0.5 mr-2 ${webDAVTestResult.success ? 'bg-green-500' : 'bg-red-500'
@@ -930,9 +930,9 @@ const SettingsView = ({
                                             <div className="bg-blue-50 border border-blue-200 rounded p-2 mb-2">
                                                 <p className="font-medium text-blue-800">📱 使用Android APP (推荐)</p>
                                                 <p className="text-blue-700 mt-1">Android APP不受CORS限制，同步成功率更高。</p>
-                                                <a 
-                                                    href={appConfig.download_url} 
-                                                    target="_blank" 
+                                                <a
+                                                    href={appConfig.download_url}
+                                                    target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="inline-block mt-1 text-blue-600 underline hover:text-blue-800"
                                                 >
@@ -942,8 +942,8 @@ const SettingsView = ({
                                             <div className="bg-gray-50 border border-gray-200 rounded p-2 mb-2">
                                                 <p className="font-medium text-gray-800">📧 联系支持</p>
                                                 <p className="text-gray-700 mt-1">如果问题持续存在，请发送邮件至:</p>
-                                                <a 
-                                                    href="mailto:i@jerryz.com.cn?subject=咖啡因追踪器WebDAV同步问题&body=请描述您遇到的问题，并附上您的WebDAV服务商信息（如坚果云、NextCloud等）。" 
+                                                <a
+                                                    href="mailto:i@jerryz.com.cn?subject=咖啡因追踪器WebDAV同步问题&body=请描述您遇到的问题，并附上您的WebDAV服务商信息（如坚果云、NextCloud等）。"
                                                     className="inline-block mt-1 text-gray-600 underline hover:text-gray-800"
                                                 >
                                                     i@jerryz.com.cn
@@ -962,9 +962,8 @@ const SettingsView = ({
                             <p>
                                 上次同步: {formatDatetimeLocal(syncStatus.lastSyncTime).replace('T', ' ')}
                                 {syncStatus.lastSyncResult && (
-                                    <span className={`ml-2 font-medium ${
-                                        syncStatus.lastSyncResult.success ? 'text-green-600' : 'text-red-600'
-                                    }`}>
+                                    <span className={`ml-2 font-medium ${syncStatus.lastSyncResult.success ? 'text-green-600' : 'text-red-600'
+                                        }`}>
                                         ({syncStatus.lastSyncResult.success ? '成功' : '失败'}: {syncStatus.lastSyncResult.message})
                                     </span>
                                 )}
@@ -973,13 +972,13 @@ const SettingsView = ({
                                 <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
                                     <p className="text-yellow-800 font-medium">💡 同步失败解决建议:</p>
                                     <p className="text-yellow-700 mt-1">
-                                        建议使用 <a 
-                                            href={appConfig.download_url} 
-                                            target="_blank" 
+                                        建议使用 <a
+                                            href={appConfig.download_url}
+                                            target="_blank"
                                             rel="noopener noreferrer"
                                             className="underline hover:text-yellow-900"
-                                        >Android APP</a> 或联系 <a 
-                                            href="mailto:i@jerryz.com.cn?subject=咖啡因追踪器WebDAV同步问题" 
+                                        >Android APP</a> 或联系 <a
+                                            href="mailto:i@jerryz.com.cn?subject=咖啡因追踪器WebDAV同步问题"
                                             className="underline hover:text-yellow-900"
                                         >技术支持</a>
                                     </p>

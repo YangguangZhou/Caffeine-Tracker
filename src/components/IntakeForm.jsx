@@ -132,13 +132,13 @@ const IntakeForm = ({
       alert("请选择饮品并输入容量/用量，或清除选择并输入自定义摄入量和名称。");
       return;
     }
-    
+
     // 最终检查 caffeineAmount 是否有效
     if (caffeineAmount <= 0 && !initialValues) { // 允许编辑为0mg
-       if (!confirm("咖啡因摄入量为0mg或无效，是否继续？这可能用于记录无咖啡因饮品或清除错误条目。")) {
-            // 用户选择不继续，可以在这里给 customAmount 或 drinkVolume 设置焦点
-            return;
-       }
+      if (!confirm("咖啡因摄入量为0mg或无效，是否继续？这可能用于记录无咖啡因饮品或清除错误条目。")) {
+        // 用户选择不继续，可以在这里给 customAmount 或 drinkVolume 设置焦点
+        return;
+      }
     }
 
 
@@ -188,7 +188,7 @@ const IntakeForm = ({
           {initialValues ? <Edit2 size={20} className="mr-2" /> : <PlusCircle size={20} className="mr-2" />}
           {initialValues ? '编辑记录' : '添加记录'}
         </h2>
-        
+
         {/* 快速重复上次记录按钮 */}
         {!initialValues && lastRecord && (
           <button
@@ -219,7 +219,7 @@ const IntakeForm = ({
 
       {/* 简化提示信息 */}
       {!initialValues && (
-        <div 
+        <div
           className="mb-2 p-2 text-xs rounded-md flex items-start"
           style={{ backgroundColor: colors.infoBg, color: colors.infoText, borderColor: colors.infoText, borderWidth: '1px', borderStyle: 'solid' }}
         >
@@ -317,7 +317,7 @@ const IntakeForm = ({
               const newValue = Math.max(0, current - step);
               setDrinkVolume(newValue.toString());
               // 仅在选择了饮品时清除自定义量
-              if(selectedDrinkId) {
+              if (selectedDrinkId) {
                 setCustomAmount('');
               }
             }}
@@ -359,7 +359,7 @@ const IntakeForm = ({
               const newValue = current + step;
               setDrinkVolume(newValue.toString());
               // 仅在选择了饮品时清除自定义量
-              if(selectedDrinkId) {
+              if (selectedDrinkId) {
                 setCustomAmount('');
               }
             }}
@@ -373,17 +373,17 @@ const IntakeForm = ({
             <Plus size={14} />
           </button>
         </div>
-        
+
         {/* 添加常见容量预设 */}
         <div className="flex flex-wrap gap-1 mt-1.5">
-          {selectedDrink?.calculationMode === 'perGram' ? 
+          {selectedDrink?.calculationMode === 'perGram' ?
             [10, 15, 18, 20, 22, 25].map(amount => (
               <button
                 key={amount}
                 type="button"
                 onClick={() => {
                   setDrinkVolume(amount.toString());
-                  if(selectedDrinkId) {
+                  if (selectedDrinkId) {
                     setCustomAmount('');
                   }
                 }}
@@ -396,14 +396,14 @@ const IntakeForm = ({
               >
                 {amount}g
               </button>
-            )) : 
+            )) :
             [150, 200, 250, 300, 350, 450, 500, 650].map(amount => (
               <button
                 key={amount}
                 type="button"
                 onClick={() => {
                   setDrinkVolume(amount.toString());
-                  if(selectedDrinkId) {
+                  if (selectedDrinkId) {
                     setCustomAmount('');
                   }
                 }}
@@ -419,11 +419,11 @@ const IntakeForm = ({
             ))
           }
         </div>
-        
+
         {calculatedAmount !== null && !customAmount && selectedDrinkId && (
           <div
             className="mt-1 p-1.5 rounded-md text-sm font-medium flex items-center transition-colors"
-            style={{ 
+            style={{
               backgroundColor: colors.accent + '20',
               color: colors.textPrimary
             }}
@@ -506,7 +506,7 @@ const IntakeForm = ({
             <Plus size={14} />
           </button>
         </div>
-        
+
         {/* 快速选择常用剂量 */}
         <div className="flex flex-wrap gap-1 mt-1.5">
           {[25, 50, 75, 100, 150, 200].map(amount => (
@@ -525,7 +525,7 @@ const IntakeForm = ({
             </button>
           ))}
         </div>
-        
+
         <p
           className="text-xs mt-1 transition-colors"
           style={{ color: colors.textMuted }}

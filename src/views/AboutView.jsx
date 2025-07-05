@@ -108,7 +108,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
 - 时间: ${new Date().toLocaleString()}
 
 感谢您的反馈！`);
-    
+
     window.open(`mailto:i@jerryz.com.cn?subject=${subject}&body=${body}`);
   };
 
@@ -135,7 +135,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
 - 平台: ${isNativePlatform ? 'Android客户端' : '网页版'}
 
 感谢您的建议！`);
-    
+
     window.open(`mailto:i@jerryz.com.cn?subject=${subject}&body=${body}`);
   };
 
@@ -457,7 +457,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
             </button>
           </div>
 
-          <div className="mt-6 p-4 rounded-lg border transition-colors" 
+          <div className="mt-6 p-4 rounded-lg border transition-colors"
             style={{ borderColor: colors.borderSubtle, backgroundColor: colors.bgBase }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center">
@@ -483,7 +483,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
             </div>
           </div>
 
-          <div className="text-xs p-3 rounded-lg transition-colors" 
+          <div className="text-xs p-3 rounded-lg transition-colors"
             style={{ backgroundColor: colors.bgHighlight, color: colors.textMuted }}>
             <strong>提示：</strong> 点击上方按钮会自动填入邮件模板，包含您的设备和版本信息，有助于我们快速定位问题。
           </div>
@@ -626,7 +626,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
             </h3>
             <div className="space-y-2">
               <p>
-                <strong>代谢模型：</strong>使用一级消除动力学 <code>M(t) = M₀ × (0.5)^(t/t½)</code> 
+                <strong>代谢模型：</strong>使用一级消除动力学 <code>M(t) = M₀ × (0.5)^(t/t½)</code>
                 估算体内咖啡因残留，这是简化的通用模型。
               </p>
               <p>

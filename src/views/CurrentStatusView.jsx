@@ -36,12 +36,12 @@ const CurrentStatusView = ({
     const todayStartTime = getStartOfDay(today); // Returns a number
     const todayEndTime = getEndOfDay(today);     // Returns a number
 
-    if (typeof todayStartTime !== 'number' || isNaN(todayStartTime) || 
-        typeof todayEndTime !== 'number' || isNaN(todayEndTime)) {
+    if (typeof todayStartTime !== 'number' || isNaN(todayStartTime) ||
+      typeof todayEndTime !== 'number' || isNaN(todayEndTime)) {
       console.warn("Failed to get valid start/end of day for todayTotal calculation.");
       return 0;
     }
-    // todayStartTime and todayEndTime are already timestamps
+    
     return Math.round(
       records
         .filter(record => record && record.timestamp >= todayStartTime && record.timestamp <= todayEndTime)
@@ -67,10 +67,10 @@ const CurrentStatusView = ({
   const { hoursUntilSafeSleep, optimalSleepTime } = useMemo(() => {
     const now = Date.now();
     const { caffeineHalfLifeHours, safeSleepThresholdConcentration, weight, volumeOfDistribution } = userSettings;
-    
+
     // currentCaffeineAmount is a prop
     const safeTargetAmount = estimateAmountFromConcentrationProp(safeSleepThresholdConcentration, weight, volumeOfDistribution);
-    
+
     let hoursNeeded = null;
     let sleepTimeStr = 'N/A';
 
@@ -91,7 +91,7 @@ const CurrentStatusView = ({
     if (effectiveMaxDaily <= 0) return 0;
     return Math.min(Math.max(0, (currentCaffeineAmount / effectiveMaxDaily) * 100), 100);
   }, [currentCaffeineAmount, effectiveMaxDaily]);
-  
+
   // 计算用户状态
   const userStatus = useMemo(() => {
     const currentRounded = Math.round(currentCaffeineAmount);
@@ -131,7 +131,7 @@ const CurrentStatusView = ({
     const weekStart = getStartOfWeek(now);
     const weekEnd = getEndOfWeek(now);
 
-    const weekRecords = records.filter(record => 
+    const weekRecords = records.filter(record =>
       record.timestamp >= weekStart && record.timestamp <= weekEnd
     );
 
@@ -144,7 +144,7 @@ const CurrentStatusView = ({
     const lastWeekEnd = new Date(weekEnd);
     lastWeekEnd.setDate(lastWeekEnd.getDate() - 7);
 
-    const lastWeekRecords = records.filter(record => 
+    const lastWeekRecords = records.filter(record =>
       record.timestamp >= lastWeekStart && record.timestamp <= lastWeekEnd
     );
     const lastWeekTotal = lastWeekRecords.reduce((sum, record) => sum + record.amount, 0);
@@ -305,8 +305,8 @@ const CurrentStatusView = ({
     for (const hour of forecastHours) {
       if (hour > 2 && foundSleepy) break; // 只要2小时后是困意渐浓，后面就不显示
 
-      const futureConc = hour === 0 
-        ? currentCaffeineConcentration 
+      const futureConc = hour === 0
+        ? currentCaffeineConcentration
         : currentCaffeineConcentration * Math.pow(0.5, hour / halfLife);
 
       let feeling = '';
@@ -355,8 +355,8 @@ const CurrentStatusView = ({
     const dayStartTime = getStartOfDay(today); // Returns a number
     const dayEndTime = getEndOfDay(today);   // Returns a number
 
-    if (typeof dayStartTime !== 'number' || isNaN(dayStartTime) || 
-        typeof dayEndTime !== 'number' || isNaN(dayEndTime)) {
+    if (typeof dayStartTime !== 'number' || isNaN(dayStartTime) ||
+      typeof dayEndTime !== 'number' || isNaN(dayEndTime)) {
       console.warn("Failed to get valid start/end of day for todayData calculation.");
       return {
         recordCount: 0,
@@ -366,13 +366,13 @@ const CurrentStatusView = ({
       };
     }
     // dayStartTime and dayEndTime are already timestamps
-    const todayRecords = records.filter(record => 
+    const todayRecords = records.filter(record =>
       record.timestamp >= dayStartTime && record.timestamp <= dayEndTime
     );
 
-    const firstIntake = todayRecords.length > 0 ? 
+    const firstIntake = todayRecords.length > 0 ?
       formatTime(Math.max(...todayRecords.map(r => r.timestamp))) : null;
-    const lastIntake = todayRecords.length > 0 ? 
+    const lastIntake = todayRecords.length > 0 ?
       formatTime(Math.min(...todayRecords.map(r => r.timestamp))) : null;
 
     return {
@@ -443,7 +443,6 @@ const CurrentStatusView = ({
     };
   };
 
-  // 优化状态描述
   const getEnhancedStatusText = () => {
     const conc = currentCaffeineConcentration;
     if (conc <= 1) return { status: '放松状态', desc: '精神平和，适合休息或轻松活动' };
@@ -480,7 +479,7 @@ const CurrentStatusView = ({
             <path
               d="M20,130 A100,100 0 0,1 220,130"
               fill="none"
-              stroke="#e5e7eb"
+              stroke={colors.grid}
               strokeWidth="20"
               strokeLinecap="round"
             />
@@ -517,7 +516,6 @@ const CurrentStatusView = ({
           </svg>
         </div>
 
-        {/* 优化的状态文本 */}
         <div className="text-center mb-4 mt-2">
           <h3 className="text-lg font-semibold" style={{ color: intelligentAnalysis.alertnessColor }}>
             {enhancedStatus.status}
@@ -672,7 +670,6 @@ const CurrentStatusView = ({
 
         {records.length > 0 ? (
           <>
-            {/* 优化后的智能分析内容 */}
             <div className="flex flex-col gap-4 mb-4">
               {/* 睡眠质量预测（仅晚上显示） */}
               {sleepQualityPrediction && (
@@ -879,7 +876,7 @@ const CurrentStatusView = ({
                       style={{ color: colors.textPrimary }}
                       title={record.name}
                     >
-                      <div 
+                      <div
                         className="w-2 h-2 rounded-full mr-2 flex-shrink-0 mt-1"
                         style={{ backgroundColor: colors.accent }}
                       ></div>
@@ -893,37 +890,40 @@ const CurrentStatusView = ({
                       <span className="font-bold">{record.amount} mg</span>
                     </div>
                   </div>
-                  
-                  {/* 附加信息 */}
-                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs items-center" style={{ color: colors.textMuted }}>
-                    {(record.customName && record.drinkId) && (
-                      <span className="flex items-center">
-                        <Coffee size={10} className="mr-1" />
-                        来自: {drinks.find(d => d.id === record.drinkId)?.name ?? '未知饮品'}
+
+                  {/* 重新设计的附加信息区域 - 所有信息在同一个flex容器内 */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs pr-1" style={{ color: colors.textMuted }}>
+                    <span className="flex items-center whitespace-nowrap flex-shrink-0">
+                      <Calendar size={11} className="mr-1 flex-shrink-0" /> {formatDate(record.timestamp)}
+                    </span>
+                    <span className="flex items-center whitespace-nowrap flex-shrink-0">
+                      <Clock size={11} className="mr-1 flex-shrink-0" /> {formatTime(record.timestamp)}
+                    </span>
+                    {record.volume && (
+                      <span className="flex items-center whitespace-nowrap flex-shrink-0">
+                        <Droplet size={11} className="mr-1 flex-shrink-0" /> {record.volume} ml
                       </span>
                     )}
                     {(!record.customName && record.drinkId && record.volume === null) && (
-                      <span className="flex items-center">
-                        <Edit size={10} className="mr-1" />
+                      <span className="flex items-center whitespace-nowrap flex-shrink-0">
+                        <Edit size={10} className="mr-1 flex-shrink-0" />
                         手动调整
                       </span>
                     )}
-                    <span className="flex items-center">
-                      <Calendar size={11} className="mr-1.5" /> {formatDate(record.timestamp)}
-                    </span>
-                    <span className="flex items-center">
-                      <Clock size={11} className="mr-1.5" /> {formatTime(record.timestamp)}
-                    </span>
-                    {record.volume && (
-                      <span className="flex items-center">
-                        <Droplet size={11} className="mr-1.5" /> {record.volume} ml
+                    {/* 来源信息直接放在同一行，并使用truncate */}
+                    {(record.customName && record.drinkId) && (
+                      <span className="flex items-center whitespace-nowrap min-w-0 flex-1">
+                        <Coffee size={10} className="mr-1 flex-shrink-0" />
+                        <span className="truncate block" title={drinks.find(d => d.id === record.drinkId)?.name ?? '未知饮品'}>
+                          来自: {drinks.find(d => d.id === record.drinkId)?.name ?? '未知饮品'}
+                        </span>
                       </span>
                     )}
                   </div>
                 </div>
-                
-                {/* 操作按钮 - 紧凑排列 */}
-                <div className="flex space-x-1 opacity-70 group-hover:opacity-100 transition-opacity duration-200">
+
+                {/* 操作按钮组 - 保持固定宽度 */}
+                <div className="flex space-x-1 opacity-70 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0">
                   <button
                     onClick={() => {
                       // 快速重复此记录
@@ -936,7 +936,7 @@ const CurrentStatusView = ({
                       onAddRecord(newRecord);
                     }}
                     className="p-1.5 rounded-md transition-all duration-200 hover:shadow-sm transform hover:scale-105 active:scale-95"
-                    style={{ 
+                    style={{
                       color: colors.accent,
                       backgroundColor: colors.bgBase,
                       border: `1px solid ${colors.borderSubtle}`
@@ -949,7 +949,7 @@ const CurrentStatusView = ({
                   <button
                     onClick={() => handleEditRecord(record)}
                     className="p-1.5 rounded-md transition-all duration-200 hover:shadow-sm transform hover:scale-105 active:scale-95"
-                    style={{ 
+                    style={{
                       color: colors.textSecondary,
                       backgroundColor: colors.bgBase,
                       border: `1px solid ${colors.borderSubtle}`
@@ -964,7 +964,7 @@ const CurrentStatusView = ({
                     style={{
                       color: colors.danger,
                       backgroundColor: colors.bgBase,
-                      border: `1px solid ${colors.dangerBorder || '#fecaca'}`
+                      border: `1px solid ${colors.dangerBorder || colors.borderSubtle}`
                     }}
                     aria-label={`删除 ${record.name} 记录`}
                   >

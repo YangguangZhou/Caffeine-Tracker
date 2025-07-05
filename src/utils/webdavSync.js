@@ -438,7 +438,7 @@ export default class WebDAVClient {
     // 合并本地和远程数据
     mergeData(localData, remoteData, initialPresetDrinks = [], originalPresetDrinkIds = new Set()) {
         console.log("正在合并本地和远程数据...");
-        
+
         const localTs = localData?.syncTimestamp || localData?.userSettings?.localLastModifiedTimestamp || 0;
         const remoteTs = remoteData?.syncTimestamp || 0;
 
@@ -559,12 +559,12 @@ export default class WebDAVClient {
                 }
             }
         });
-        
+
         // 保留本地WebDAV密码
         if (localData?.userSettings?.webdavPassword) {
             mergedSettings.webdavPassword = localData.userSettings.webdavPassword;
         }
-        
+
         // 处理localLastModifiedTimestamp
         if (localData?.userSettings?.localLastModifiedTimestamp && localData.userSettings.localLastModifiedTimestamp > (primarySettings.localLastModifiedTimestamp || 0)) {
             mergedSettings.localLastModifiedTimestamp = localData.userSettings.localLastModifiedTimestamp;

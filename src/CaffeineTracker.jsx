@@ -33,7 +33,7 @@ const ADSENSE_CLIENT = "ca-pub-2597042766299857";
  */
 const CaffeineTracker = () => {
   return (
-    <Router>
+    <Router basename="/">
       <CaffeineTrackerApp />
     </Router>
   );
@@ -355,8 +355,8 @@ const CaffeineTrackerApp = () => {
     const todayStartTime = getStartOfDay(today); // Returns a number
     const todayEndTime = getEndOfDay(today);     // Returns a number
 
-    if (typeof todayStartTime !== 'number' || isNaN(todayStartTime) || 
-        typeof todayEndTime !== 'number' || isNaN(todayEndTime)) {
+    if (typeof todayStartTime !== 'number' || isNaN(todayStartTime) ||
+      typeof todayEndTime !== 'number' || isNaN(todayEndTime)) {
       console.warn("Failed to get valid start/end of day for getTodayTotal calculation.");
       return 0;
     }
@@ -368,13 +368,13 @@ const CaffeineTrackerApp = () => {
   const effectiveMaxDaily = useMemo(() => {
     const { weight, recommendedDosePerKg, maxDailyCaffeine } = userSettings;
     const generalMax = maxDailyCaffeine > 0 ? maxDailyCaffeine : 400;
-    
+
     // 计算个性化推荐摄入量
     if (weight > 0 && recommendedDosePerKg > 0) {
       const personalizedRecommendation = Math.round(weight * recommendedDosePerKg);
       return Math.min(generalMax, personalizedRecommendation);
     }
-    
+
     return generalMax;
   }, [userSettings.weight, userSettings.recommendedDosePerKg, userSettings.maxDailyCaffeine]);
 
@@ -715,10 +715,10 @@ const CaffeineTrackerApp = () => {
         {showSyncBadge && (
           <div
             className={`absolute top-14 right-4 mt-1 py-1 px-2 rounded-full text-xs z-10 ${syncStatus.lastSyncResult?.success
-                ? 'bg-green-100 text-green-700 border border-green-200' :
-                syncStatus.lastSyncResult?.message?.includes("配置") || syncStatus.lastSyncResult?.message?.includes("禁用")
-                  ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
-                  'bg-red-100 text-red-700 border border-red-200'
+              ? 'bg-green-100 text-green-700 border border-green-200' :
+              syncStatus.lastSyncResult?.message?.includes("配置") || syncStatus.lastSyncResult?.message?.includes("禁用")
+                ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
+                'bg-red-100 text-red-700 border border-red-200'
               } flex items-center shadow-sm`}
             style={{ marginTop: '5%' }}
           >
@@ -814,7 +814,7 @@ const CaffeineTrackerApp = () => {
                 colors={colors}
               />
             } />
-            
+
             <Route path="/statistics" element={
               <StatisticsView
                 records={records}
@@ -828,7 +828,7 @@ const CaffeineTrackerApp = () => {
                 colors={colors}
               />
             } />
-            
+
             <Route path="/settings" element={
               <SettingsView
                 userSettings={userSettings}
@@ -845,7 +845,7 @@ const CaffeineTrackerApp = () => {
                 isNativePlatform={isNativePlatform}
               />
             } />
-            
+
             <Route path="/about" element={
               <AboutView
                 colors={colors}

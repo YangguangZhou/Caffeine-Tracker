@@ -61,7 +61,7 @@ const MetabolismChart = ({
         <ResponsiveContainer width="100%" height={250}>
           <LineChart
             data={metabolismChartData}
-            margin={{ top: 10, right: 30, left: 20, bottom: 30 }} // 增加了边距提高可读性
+            margin={{ top: 10, right: 30, left: 20, bottom: 30 }}
           >
             <CartesianGrid
               strokeDasharray="3 3"
