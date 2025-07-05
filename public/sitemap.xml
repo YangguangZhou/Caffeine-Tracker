@@ -2,25 +2,25 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://ct.jerryz.com.cn/</loc>
-    <lastmod>2025-06-29</lastmod>
-    <changefreq>weekly</changefreq>
+    <lastmod>2025-07-05</lastmod>
+    <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://ct.jerryz.com.cn/statistics</loc>
-    <lastmod>2025-06-29</lastmod>
+    <lastmod>2025-07-05</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://ct.jerryz.com.cn/settings</loc>
-    <lastmod>2025-06-29</lastmod>
+    <lastmod>2025-07-05</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://ct.jerryz.com.cn/about</loc>
-    <lastmod>2025-06-29</lastmod>
+    <lastmod>2025-07-05</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>

@@ -3,7 +3,7 @@ import {
   Activity, Clock, Edit, Trash2, Plus, Coffee,
   AlertCircle, Moon, Calendar, Droplet, TrendingUp, TrendingDown,
   Zap, Target, BarChart3, Minus, Timer, Heart, Brain, Waves, Sunrise,
-  AlertTriangle, Copy // <-- Added Copy icon
+  AlertTriangle, Copy, Scale
 } from 'lucide-react';
 import MetabolismChart from '../components/MetabolismChart';
 import IntakeForm from '../components/IntakeForm';
@@ -857,147 +857,160 @@ const CurrentStatusView = ({
               scrollbarColor: `${colors.borderStrong} transparent`
             }}
           >
-            {records.map(record => (
-              <li
-                key={record.id}
-                className="relative px-1 py-2 rounded-md group transition-colors duration-150 hover:bg-opacity-80"
-                style={{
-                  cursor: 'pointer',
-                  marginBottom: '6px',
-                  backgroundColor: 'transparent',
-                  minHeight: '60px'  // 增加最小高度以容纳更多内容
-                }}
-                onMouseEnter={e => e.currentTarget.style.backgroundColor = colors.accent + '12'}
-                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-              >
-                {/* 右上角：mg数据 + 操作按钮组 */}
-                <div className="absolute top-1 right-1 flex items-center space-x-2 opacity-90 group-hover:opacity-100 transition-opacity duration-200 z-10">
-                  {/* mg 数据标签 */}
-                  <div 
-                    className="flex items-center px-2 py-0.5 rounded-full flex-shrink-0" 
-                    style={{
-                      backgroundColor: colors.accent + '18',
-                      color: colors.accent,
-                      fontSize: '13px'
-                    }}
-                  >
-                    <span className="font-bold">{record.amount} mg</span>
-                  </div>
-                  
-                  {/* 操作按钮组 */}
-                  <div className="flex space-x-1">
-                    <button
-                      onClick={() => {
-                        // 快速重复此记录
-                        const newRecord = {
-                          ...record,
-                          id: `record_${Date.now()}`,
-                          timestamp: Date.now(),
-                          updatedAt: Date.now()
-                        };
-                        onAddRecord(newRecord);
-                      }}
-                      className="p-1.5 rounded-md transition-all duration-200 hover:shadow-sm transform hover:scale-105 active:scale-95"
+            {records.map(record => {
+              // 获取饮品信息以确定计算模式
+              const drink = drinks.find(d => d.id === record.drinkId);
+              const isPerGram = drink?.calculationMode === 'perGram';
+              
+              return (
+                <li
+                  key={record.id}
+                  className="relative px-1 py-2 rounded-md group transition-colors duration-150 hover:bg-opacity-80"
+                  style={{
+                    cursor: 'pointer',
+                    marginBottom: '6px',
+                    backgroundColor: 'transparent',
+                    minHeight: '60px'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = colors.accent + '12'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <div className="absolute top-1 right-1 flex items-center space-x-2 opacity-90 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                    {/* mg 数据标签 */}
+                    <div 
+                      className="flex items-center px-2 py-0.5 rounded-full flex-shrink-0" 
                       style={{
+                        backgroundColor: colors.accent + '18',
                         color: colors.accent,
-                        backgroundColor: colors.bgBase,
-                        border: `1px solid ${colors.borderSubtle}`
+                        fontSize: '13px'
                       }}
-                      aria-label={`快速重复 ${record.name} 记录`}
-                      title="快速重复此记录"
                     >
-                      <Copy size={13} />
-                    </button>
-                    <button
-                      onClick={() => handleEditRecord(record)}
-                      className="p-1.5 rounded-md transition-all duration-200 hover:shadow-sm transform hover:scale-105 active:scale-95"
-                      style={{
-                        color: colors.textSecondary,
-                        backgroundColor: colors.bgBase,
-                        border: `1px solid ${colors.borderSubtle}`
-                      }}
-                      aria-label={`编辑 ${record.name} 记录`}
-                    >
-                      <Edit size={13} />
-                    </button>
-                    <button
-                      onClick={() => onDeleteRecord(record.id)}
-                      className="p-1.5 rounded-md transition-all duration-200 hover:shadow-sm transform hover:scale-105 active:scale-95"
-                      style={{
-                        color: colors.danger,
-                        backgroundColor: colors.bgBase,
-                        border: `1px solid ${colors.dangerBorder || colors.borderSubtle}`
-                      }}
-                      aria-label={`删除 ${record.name} 记录`}
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* 内容区域 - 使用全宽布局 */}
-                <div className="w-full">
-                  {/* 饮品名称 - 为右上角按钮预留空间 */}
-                  <div className="mb-1.5" style={{ marginRight: '170px' }}>
-                    <div
-                      className="font-semibold text-sm flex items-center transition-colors"
-                      style={{ color: colors.textPrimary }}
-                      title={record.name}
-                    >
-                      <div
-                        className="w-2 h-2 rounded-full mr-2 flex-shrink-0 mt-1"
-                        style={{ backgroundColor: colors.accent }}
-                      ></div>
-                      <span 
-                        className="truncate block"
-                        style={{ maxWidth: '160px' }}
+                      <span className="font-bold">{record.amount} mg</span>
+                    </div>
+                    
+                    {/* 操作按钮组 */}
+                    <div className="flex space-x-1">
+                      <button
+                        onClick={() => {
+                          // 快速重复此记录
+                          const newRecord = {
+                            ...record,
+                            id: `record_${Date.now()}`,
+                            timestamp: Date.now(),
+                            updatedAt: Date.now()
+                          };
+                          onAddRecord(newRecord);
+                        }}
+                        className="p-1.5 rounded-md transition-all duration-200 hover:shadow-sm transform hover:scale-105 active:scale-95"
+                        style={{
+                          color: colors.accent,
+                          backgroundColor: colors.bgBase,
+                          border: `1px solid ${colors.borderSubtle}`
+                        }}
+                        aria-label={`快速重复 ${record.name} 记录`}
+                        title="快速重复此记录"
                       >
-                        {record.name}
-                      </span>
+                        <Copy size={13} />
+                      </button>
+                      <button
+                        onClick={() => handleEditRecord(record)}
+                        className="p-1.5 rounded-md transition-all duration-200 hover:shadow-sm transform hover:scale-105 active:scale-95"
+                        style={{
+                          color: colors.textSecondary,
+                          backgroundColor: colors.bgBase,
+                          border: `1px solid ${colors.borderSubtle}`
+                        }}
+                        aria-label={`编辑 ${record.name} 记录`}
+                      >
+                        <Edit size={13} />
+                      </button>
+                      <button
+                        onClick={() => onDeleteRecord(record.id)}
+                        className="p-1.5 rounded-md transition-all duration-200 hover:shadow-sm transform hover:scale-105 active:scale-95"
+                        style={{
+                          color: colors.danger,
+                          backgroundColor: colors.bgBase,
+                          border: `1px solid ${colors.dangerBorder || colors.borderSubtle}`
+                        }}
+                        aria-label={`删除 ${record.name} 记录`}
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     </div>
                   </div>
 
-                  {/* 统计信息 - 允许延伸到按钮下方 */}
-                  <div 
-                    className="flex flex-wrap items-center text-xs gap-x-2.5 gap-y-1"
-                    style={{ 
-                      color: colors.textMuted,
-                      paddingRight: '0'  // 不预留右侧空间，允许延伸
-                    }}
-                  >
-                    <span className="flex items-center whitespace-nowrap flex-shrink-0">
-                      <Calendar size={11} className="mr-1" /> {formatDate(record.timestamp)}
-                    </span>
-                    <span className="flex items-center whitespace-nowrap flex-shrink-0">
-                      <Clock size={11} className="mr-1" /> {formatTime(record.timestamp)}
-                    </span>
-                    {record.volume && (
-                      <span className="flex items-center whitespace-nowrap flex-shrink-0">
-                        <Droplet size={11} className="mr-1" /> {record.volume} ml
-                      </span>
-                    )}
-                    {(!record.customName && record.drinkId && record.volume === null) && (
-                      <span className="flex items-center whitespace-nowrap flex-shrink-0">
-                        <Edit size={10} className="mr-1" />
-                        手动调整
-                      </span>
-                    )}
-                    {/* 来源信息 - 优化显示 */}
-                    {(record.customName && record.drinkId) && (
-                      <span 
-                        className="flex items-center flex-shrink-0"
-                        title={`来源: ${drinks.find(d => d.id === record.drinkId)?.name ?? '未知饮品'}`}
+                  {/* 内容区域 */}
+                  <div className="w-full">
+                    {/* 饮品名称 */}
+                    <div className="mb-1.5" style={{ marginRight: '170px' }}>
+                      <div
+                        className="font-semibold text-sm flex items-center transition-colors"
+                        style={{ color: colors.textPrimary }}
+                        title={record.name}
                       >
-                        <Coffee size={10} className="mr-1 flex-shrink-0" />
-                        <span className="whitespace-nowrap">
-                          来源: {drinks.find(d => d.id === record.drinkId)?.name ?? '未知饮品'}
+                        <div
+                          className="w-2 h-2 rounded-full mr-2 flex-shrink-0 mt-1"
+                          style={{ backgroundColor: colors.accent }}
+                        ></div>
+                        <span 
+                          className="truncate block"
+                          style={{ maxWidth: '160px' }}
+                        >
+                          {record.name}
                         </span>
+                      </div>
+                    </div>
+
+                    {/* 统计信息 - 允许延伸到按钮下方 */}
+                    <div 
+                      className="flex flex-wrap items-center text-xs gap-x-2.5 gap-y-1"
+                      style={{ 
+                        color: colors.textMuted,
+                        paddingRight: '0'
+                      }}
+                    >
+                      <span className="flex items-center whitespace-nowrap flex-shrink-0">
+                        <Calendar size={11} className="mr-1" /> {formatDate(record.timestamp)}
                       </span>
-                    )}
+                      <span className="flex items-center whitespace-nowrap flex-shrink-0">
+                        <Clock size={11} className="mr-1" /> {formatTime(record.timestamp)}
+                      </span>
+                      {record.volume && (
+                        <span className="flex items-center whitespace-nowrap flex-shrink-0">
+                          {isPerGram ? (
+                            <>
+                              <Scale size={11} className="mr-1" /> {record.volume} g
+                            </>
+                          ) : (
+                            <>
+                              <Droplet size={11} className="mr-1" /> {record.volume} ml
+                            </>
+                          )}
+                        </span>
+                      )}
+                      {(!record.customName && record.drinkId && record.volume === null) && (
+                        <span className="flex items-center whitespace-nowrap flex-shrink-0">
+                          <Edit size={10} className="mr-1" />
+                          手动调整
+                        </span>
+                      )}
+                      {/* 来源信息 */}
+                      {(record.customName && record.drinkId) && (
+                        <span 
+                          className="flex items-center flex-shrink-0"
+                          title={`来源: ${drinks.find(d => d.id === record.drinkId)?.name ?? '未知饮品'}`}
+                        >
+                          <Coffee size={10} className="mr-1 flex-shrink-0" />
+                          <span className="whitespace-nowrap">
+                            来源: {drinks.find(d => d.id === record.drinkId)?.name ?? '未知饮品'}
+                          </span>
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
