@@ -729,7 +729,7 @@ const CaffeineTrackerApp = () => {
         )}
       </header>
 
-      <main className="max-w-md mx-auto px-4 pb-6">
+      <main className="max-w-md lg:max-w-6xl xl:max-w-7xl mx-auto px-4 pb-6">
         {/* 导航 */}
         <nav
           className="rounded-xl mb-5 flex overflow-hidden shadow-md border transition-colors"

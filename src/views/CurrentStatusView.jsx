@@ -455,10 +455,10 @@ const CurrentStatusView = ({
   const enhancedStatus = getEnhancedStatusText();
 
   return (
-    <>
+    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
       <section
         aria-labelledby="current-status-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -757,7 +757,7 @@ const CurrentStatusView = ({
       {/* 代谢曲线图卡片 */}
       <section
         aria-labelledby="metabolism-chart-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -782,7 +782,7 @@ const CurrentStatusView = ({
 
       <section
         aria-labelledby="intake-form-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -813,7 +813,7 @@ const CurrentStatusView = ({
       {/* 摄入历史卡片 */}
       <section
         aria-labelledby="intake-history-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -1014,7 +1014,7 @@ const CurrentStatusView = ({
           </ul>
         )}
       </section>
-    </>
+    </div>
   );
 };
 
