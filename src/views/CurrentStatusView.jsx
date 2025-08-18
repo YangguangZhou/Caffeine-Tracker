@@ -455,10 +455,10 @@ const CurrentStatusView = ({
   const enhancedStatus = getEnhancedStatusText();
 
   return (
-    <>
+    <div className="columns-1 sm:columns-2 xl:columns-3 gap-4 w-full">
       <section
         aria-labelledby="current-status-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -654,7 +654,7 @@ const CurrentStatusView = ({
       {/* 智能分析与预测卡片 */}
       <section
         aria-labelledby="intelligent-analysis-heading"
-        className="mb-5 rounded-xl p-4 sm:p-6 shadow-lg border transition-colors"
+        className="max-w-md w-full mb-5 rounded-xl p-4 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -757,7 +757,7 @@ const CurrentStatusView = ({
       {/* 代谢曲线图卡片 */}
       <section
         aria-labelledby="metabolism-chart-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -782,7 +782,7 @@ const CurrentStatusView = ({
 
       <section
         aria-labelledby="intake-form-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -813,7 +813,7 @@ const CurrentStatusView = ({
       {/* 摄入历史卡片 */}
       <section
         aria-labelledby="intake-history-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -861,7 +861,7 @@ const CurrentStatusView = ({
               // 获取饮品信息以确定计算模式
               const drink = drinks.find(d => d.id === record.drinkId);
               const isPerGram = drink?.calculationMode === 'perGram';
-              
+
               return (
                 <li
                   key={record.id}
@@ -877,8 +877,8 @@ const CurrentStatusView = ({
                 >
                   <div className="absolute top-1 right-1 flex items-center space-x-2 opacity-90 group-hover:opacity-100 transition-opacity duration-200 z-10">
                     {/* mg 数据标签 */}
-                    <div 
-                      className="flex items-center px-2 py-0.5 rounded-full flex-shrink-0" 
+                    <div
+                      className="flex items-center px-2 py-0.5 rounded-full flex-shrink-0"
                       style={{
                         backgroundColor: colors.accent + '18',
                         color: colors.accent,
@@ -887,7 +887,7 @@ const CurrentStatusView = ({
                     >
                       <span className="font-bold">{record.amount} mg</span>
                     </div>
-                    
+
                     {/* 操作按钮组 */}
                     <div className="flex space-x-1">
                       <button
@@ -952,7 +952,7 @@ const CurrentStatusView = ({
                           className="w-2 h-2 rounded-full mr-2 flex-shrink-0 mt-1"
                           style={{ backgroundColor: colors.accent }}
                         ></div>
-                        <span 
+                        <span
                           className="truncate block"
                           style={{ maxWidth: '160px' }}
                         >
@@ -962,9 +962,9 @@ const CurrentStatusView = ({
                     </div>
 
                     {/* 统计信息 - 允许延伸到按钮下方 */}
-                    <div 
+                    <div
                       className="flex flex-wrap items-center text-xs gap-x-2.5 gap-y-1"
-                      style={{ 
+                      style={{
                         color: colors.textMuted,
                         paddingRight: '0'
                       }}
@@ -996,7 +996,7 @@ const CurrentStatusView = ({
                       )}
                       {/* 来源信息 */}
                       {(record.customName && record.drinkId) && (
-                        <span 
+                        <span
                           className="flex items-center flex-shrink-0"
                           title={`来源: ${drinks.find(d => d.id === record.drinkId)?.name ?? '未知饮品'}`}
                         >
@@ -1014,7 +1014,7 @@ const CurrentStatusView = ({
           </ul>
         )}
       </section>
-    </>
+    </div>
   );
 };
 

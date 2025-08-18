@@ -234,10 +234,11 @@ const CaffeineTrackerApp = () => {
 
         // 应用加载的数据
         if (settingsFromStore) {
+          const { themeMode, ...sanitizedSettings } = settingsFromStore;
           const finalPassword = settingsFromStore.webdavPassword || persistedPassword || null;
           const newSettings = {
             ...defaultSettings,
-            ...settingsFromStore,
+            ...sanitizedSettings,
             webdavPassword: finalPassword,
             localLastModifiedTimestamp: settingsFromStore.localLastModifiedTimestamp || Date.now()
           };
@@ -281,6 +282,7 @@ const CaffeineTrackerApp = () => {
       try {
         const settingsToPersist = { ...userSettings };
         delete settingsToPersist.webdavPassword;
+        delete settingsToPersist.themeMode;
         await Preferences.set({ key: 'caffeineSettings', value: JSON.stringify(settingsToPersist) });
         await Preferences.set({ key: 'caffeineRecords', value: JSON.stringify(records) });
         await Preferences.set({ key: 'caffeineDrinks', value: JSON.stringify(drinks) });
@@ -481,9 +483,6 @@ const CaffeineTrackerApp = () => {
               webdavPassword: settingsToUse.webdavPassword,
               develop: typeof syncedDevelop === 'boolean' ? syncedDevelop : settingsToUse.develop,
             };
-            if (isNativePlatform && updatedSettings.themeMode === 'auto') {
-              updatedSettings.themeMode = 'light';
-            }
             console.log("同步后更新设置完成");
           }
         }
@@ -729,10 +728,10 @@ const CaffeineTrackerApp = () => {
         )}
       </header>
 
-      <main className="max-w-md mx-auto px-4 pb-6">
+      <main className="w-full max-w-screen-xl mx-auto px-4 pb-6">
         {/* 导航 */}
         <nav
-          className="rounded-xl mb-5 flex overflow-hidden shadow-md border transition-colors"
+          className="max-w-md mx-auto rounded-xl mb-5 flex overflow-hidden shadow-md border transition-colors"
           style={{
             backgroundColor: colors.bgCard,
             borderColor: colors.borderSubtle
@@ -856,7 +855,7 @@ const CaffeineTrackerApp = () => {
           </Routes>
         </Suspense>
 
-        <footer className="mt-8 text-center text-xs transition-colors" style={{ color: colors.textMuted }}>
+        <footer className="max-w-md mx-auto mt-8 text-center text-xs transition-colors" style={{ color: colors.textMuted }}>
           {userSettings.develop === true && (
             <p className="mb-2 font-semibold text-orange-500 flex items-center justify-center">
               <Code size={14} className="mr-1" aria-hidden="true" /> 开发模式已启用

@@ -317,7 +317,6 @@ const SettingsView = ({
     const exportData = useCallback(async () => {
         try {
             const settingsToExport = { ...userSettings };
-            delete settingsToExport.webdavPassword;
 
             const exportDataObject = {
                 records,
@@ -433,11 +432,11 @@ const SettingsView = ({
     }, [setRecords, onUpdateSettings, setDrinks, userSettings]);
 
     return (
-        <>
+        <div className="columns-1 sm:columns-2 xl:columns-3 gap-4 w-full">
             {/* 个人参数设置 */}
             <section
                 aria-labelledby="personal-settings-heading"
-                className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+                className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
                 style={{
                     backgroundColor: colors.bgCard,
                     borderColor: colors.borderSubtle
@@ -556,7 +555,7 @@ const SettingsView = ({
             {/* 代谢与睡眠设置 */}
             <section
                 aria-labelledby="metabolism-settings-heading"
-                className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+                className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
                 style={{
                     backgroundColor: colors.bgCard,
                     borderColor: colors.borderSubtle
@@ -706,7 +705,7 @@ const SettingsView = ({
             {/* WebDAV 同步设置 */}
             <section
                 aria-labelledby="webdav-settings-heading"
-                className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+                className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
                 style={{
                     backgroundColor: colors.bgCard,
                     borderColor: colors.borderSubtle
@@ -992,7 +991,7 @@ const SettingsView = ({
             {/* 饮品管理 */}
             <section
                 aria-labelledby="drink-management-heading"
-                className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+                className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
                 style={{
                     backgroundColor: colors.bgCard,
                     borderColor: colors.borderSubtle
@@ -1345,7 +1344,7 @@ const SettingsView = ({
             {/* 数据管理 */}
             <section
                 aria-labelledby="data-management-heading"
-                className="rounded-xl p-6 shadow-lg border transition-colors"
+                className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
                 style={{
                     backgroundColor: colors.bgCard,
                     borderColor: colors.borderSubtle
@@ -1427,7 +1426,7 @@ const SettingsView = ({
                     </div>
                 </div>
             </section>
-        </>
+        </div>
     );
 };
 

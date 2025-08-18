@@ -672,11 +672,11 @@ const StatisticsView = ({
 
 
   return (
-    <>
+    <div className="columns-1 sm:columns-2 xl:columns-3 gap-4 w-full">
       {/* 时间范围选择器 */}
       <section
         aria-labelledby="stats-period-heading"
-        className="mb-5 rounded-xl p-4 shadow-lg border transition-colors"
+        className="max-w-md w-full mb-5 rounded-xl p-4 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -748,7 +748,7 @@ const StatisticsView = ({
       {/* 摄入概览卡片 */}
       <section
         aria-labelledby="intake-overview-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -877,7 +877,7 @@ const StatisticsView = ({
       {/* 摄入来源分析卡片 */}
       <section
         aria-labelledby="source-analysis-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -941,7 +941,7 @@ const StatisticsView = ({
       {/* 咖啡因生活方式画像 */}
       <section
         aria-labelledby="lifestyle-analysis-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -1042,7 +1042,7 @@ const StatisticsView = ({
       {/* 详细统计分析卡片 */}
       <section
         aria-labelledby="detailed-stats-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -1280,7 +1280,7 @@ const StatisticsView = ({
       {/* 健康分析报告卡片 */}
       <section
         aria-labelledby="health-analysis-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -1384,7 +1384,7 @@ const StatisticsView = ({
       {/* 咖啡因知识卡片 */}
       <section
         aria-labelledby="caffeine-knowledge-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -1440,7 +1440,7 @@ const StatisticsView = ({
           </li>
         </ul>
       </section>
-    </>
+    </div>
   );
 };
 

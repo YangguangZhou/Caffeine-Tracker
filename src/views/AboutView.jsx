@@ -140,11 +140,11 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
   };
 
   return (
-    <>
+    <div className="columns-1 sm:columns-2 xl:columns-3 gap-4 w-full">
       {/* 关于应用卡片 - 调整到前面 */}
       <section
         aria-labelledby="about-app-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -202,7 +202,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
 
       <section
         aria-labelledby="app-access-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -310,7 +310,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
       {/* 分享推荐卡片 */}
       <section
         aria-labelledby="share-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -392,7 +392,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
       {/* 问题反馈卡片 */}
       <section
         aria-labelledby="feedback-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -493,7 +493,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
       {/* 开发者信息卡片 - 移到后面 */}
       <section
         aria-labelledby="developer-info-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -572,7 +572,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
       {/* 计算与科学依据卡片 */}
       <section
         aria-labelledby="science-basis-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -681,7 +681,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
       {/* 免责声明卡片 */}
       <section
         aria-labelledby="disclaimer-heading"
-        className="mb-5 rounded-xl p-6 shadow-lg border transition-colors"
+        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -706,7 +706,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
           </p>
         </div>
       </section>
-    </>
+    </div>
   );
 };
 

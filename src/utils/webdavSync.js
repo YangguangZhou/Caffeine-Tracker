@@ -5,8 +5,7 @@ import { Capacitor } from '@capacitor/core';
 const knownSettingKeys = [
     'weight', 'maxDailyCaffeine', 'recommendedDosePerKg',
     'safeSleepThresholdConcentration', 'volumeOfDistribution',
-    'caffeineHalfLifeHours', 'themeMode', 'webdavEnabled',
-    'webdavServer', 'webdavUsername',
+    'caffeineHalfLifeHours',
     'webdavSyncFrequency', 'lastSyncTimestamp', 'develop', 'plannedSleepTime',
     'localLastModifiedTimestamp'
 ];
@@ -365,6 +364,13 @@ export default class WebDAVClient {
             if (dataToUpload.userSettings && dataToUpload.userSettings.hasOwnProperty('webdavPassword')) {
                 delete dataToUpload.userSettings.webdavPassword;
             }
+            // 同步到远端时，不上传以下本地设备相关/敏感配置，避免覆盖其他设备配置
+            if (dataToUpload.userSettings) {
+                delete dataToUpload.userSettings.themeMode;
+                delete dataToUpload.userSettings.webdavEnabled;
+                delete dataToUpload.userSettings.webdavServer;
+                delete dataToUpload.userSettings.webdavUsername;
+            }
         } catch (error) {
             console.error("准备上传数据时出错:", error.message);
             throw new Error(`数据序列化失败: ${error.message}`);
@@ -539,6 +545,10 @@ export default class WebDAVClient {
 
         knownSettingKeys.forEach(key => {
             if (key === 'webdavPassword') return;
+
+            if (key === 'themeMode' || key === 'webdavEnabled' || key === 'webdavServer' || key === 'webdavUsername') {
+                return;
+            }
 
             if (primarySettings.hasOwnProperty(key)) {
                 if (key === 'develop' && typeof primarySettings[key] !== 'boolean') {
