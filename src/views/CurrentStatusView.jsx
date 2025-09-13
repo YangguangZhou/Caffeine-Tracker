@@ -3,12 +3,12 @@ import {
   Activity, Clock, Edit, Trash2, Plus, Coffee,
   AlertCircle, Moon, Calendar, Droplet, TrendingUp, TrendingDown,
   Zap, Target, BarChart3, Minus, Timer, Heart, Brain, Waves, Sunrise,
-  AlertTriangle, Copy, Scale
+  AlertTriangle, Copy, Scale, Search, X
 } from 'lucide-react';
 import MetabolismChart from '../components/MetabolismChart';
 import IntakeForm from '../components/IntakeForm';
 import { formatTime, formatDate, getStartOfWeek, getEndOfWeek, getStartOfDay, getEndOfDay } from '../utils/timeUtils';
-import { getTotalCaffeineAtTime, estimateAmountFromConcentration, calculateHoursToReachTarget } from '../utils/caffeineCalculations'; // Added imports
+import { getTotalCaffeineAtTime, estimateAmountFromConcentration, calculateHoursToReachTarget } from '../utils/caffeineCalculations';
 
 /**
  * 当前状态视图组件
@@ -29,6 +29,7 @@ const CurrentStatusView = ({
 }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // 计算今日总摄入量
   const todayTotal = useMemo(() => {
@@ -382,6 +383,38 @@ const CurrentStatusView = ({
       percentOfLimit: Math.round((todayTotal / effectiveMaxDaily) * 100)
     };
   }, [records, todayTotal, effectiveMaxDaily]);
+
+  // 过滤后的记录
+  const filteredRecords = useMemo(() => {
+    let filtered = records;
+
+    // 根据搜索查询过滤
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter(record => {
+        const drink = drinks.find(d => d.id === record.drinkId);
+        const drinkName = (record.name || drink?.name || '').toLowerCase();
+        const category = drink?.category || '';
+        
+        return drinkName.includes(query) || category.toLowerCase().includes(query);
+      });
+    }
+
+    return filtered;
+  }, [records, searchQuery, drinks]);
+
+  // 计算过滤后的统计数据
+  const filteredStats = useMemo(() => {
+    const totalRecords = filteredRecords.length;
+    const totalAmount = filteredRecords.reduce((sum, record) => sum + record.amount, 0);
+    const avgAmount = totalRecords > 0 ? totalAmount / totalRecords : 0;
+    
+    return {
+      totalRecords,
+      totalAmount: Math.round(totalAmount),
+      avgAmount: Math.round(avgAmount)
+    };
+  }, [filteredRecords]);
 
   const handleAddRecordClick = () => {
     setEditingRecord(null);
@@ -850,14 +883,96 @@ const CurrentStatusView = ({
             </button>
           </div>
         ) : (
-          <ul
-            className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-rounded-full scrollbar-track-rounded-full transition-colors"
-            style={{
-              borderColor: colors.borderSubtle,
-              scrollbarColor: `${colors.borderStrong} transparent`
-            }}
-          >
-            {records.map(record => {
+          <>
+            {/* 搜索栏 */}
+            <div className="mb-4">
+              {/* 搜索输入框 */}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search size={16} style={{ color: colors.textMuted }} />
+                </div>
+                <input
+                  type="text"
+                  placeholder="搜索饮品名称或分类..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="block w-full pl-10 pr-10 py-2.5 text-sm rounded-lg border transition-colors focus:outline-none focus:ring-2"
+                  style={{
+                    backgroundColor: colors.bgBase,
+                    borderColor: colors.borderSubtle,
+                    color: colors.textPrimary,
+                    focusRingColor: colors.accent + '40'
+                  }}
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    <X size={16} style={{ color: colors.textMuted }} />
+                  </button>
+                )}
+              </div>
+
+              {/* 显示搜索统计 */}
+              {searchQuery && (
+                <div className="mt-2 text-xs" style={{ color: colors.textMuted }}>
+                  显示 {filteredStats.totalRecords} / {records.length} 条记录
+                </div>
+              )}
+
+              {/* 搜索结果统计 */}
+              {searchQuery && filteredStats.totalRecords > 0 && (
+                <div
+                  className="mt-2 text-xs p-2 rounded-lg border text-center"
+                  style={{
+                    backgroundColor: colors.infoBg,
+                    borderColor: colors.infoText + '20',
+                    color: colors.infoText
+                  }}
+                >
+                  找到 {filteredStats.totalRecords} 条记录，总计 {filteredStats.totalAmount} mg 咖啡因
+                  {filteredStats.totalRecords > 1 && ` (平均 ${filteredStats.avgAmount} mg)`}
+                </div>
+              )}
+            </div>
+
+            {/* 记录列表 */}
+            {filteredRecords.length === 0 ? (
+              <div className="text-center py-6">
+                <Search size={32} className="mx-auto mb-2 opacity-40" style={{ color: colors.textMuted }} />
+                <p className="text-sm mb-2" style={{ color: colors.textMuted }}>
+                  未找到匹配的记录
+                </p>
+                <p className="text-xs" style={{ color: colors.textMuted }}>
+                  尝试调整搜索条件或清除筛选器
+                </p>
+                {(searchQuery) && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                    }}
+                    className="mt-3 inline-flex items-center px-3 py-1.5 text-xs rounded-lg border transition-all duration-200"
+                    style={{
+                      backgroundColor: colors.bgBase,
+                      borderColor: colors.borderSubtle,
+                      color: colors.textSecondary
+                    }}
+                  >
+                    <X size={12} className="mr-1" />
+                    清除搜索
+                  </button>
+                )}
+              </div>
+            ) : (
+              <ul
+                className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-rounded-full scrollbar-track-rounded-full transition-colors"
+                style={{
+                  borderColor: colors.borderSubtle,
+                  scrollbarColor: `${colors.borderStrong} transparent`
+                }}
+              >
+                {filteredRecords.map(record => {
               // 获取饮品信息以确定计算模式
               const drink = drinks.find(d => d.id === record.drinkId);
               const isPerGram = drink?.calculationMode === 'perGram';
@@ -1011,7 +1126,9 @@ const CurrentStatusView = ({
                 </li>
               );
             })}
-          </ul>
+              </ul>
+            )}
+          </>
         )}
       </section>
     </div>
