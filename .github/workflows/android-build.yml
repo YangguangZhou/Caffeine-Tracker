@@ -165,3 +165,39 @@ jobs:
       run: |
         rm -f android/app/release.keystore
         rm -f android/keystore.properties
+
+    - name: Notify Telegram
+      if: always()
+      env:
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        VERSION_NAME: ${{ steps.version.outputs.version_name }}
+        VERSION_CODE: ${{ steps.version.outputs.version_code }}
+        COMMIT_SHORT: ${{ steps.commit.outputs.commit_short }}
+        APK_NAME: ${{ env.APK_NAME }}
+        DOWNLOAD_URL: ${{ secrets.WEBDAV_DOWNLOAD_URL }}/versions/${{ env.APK_NAME }}
+        JOB_STATUS: ${{ job.status }}
+      run: |
+        if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
+          echo "Telegram secrets not set; skipping notification."
+          exit 0
+        fi
+
+        STATUS_EMOJI="✅"; STATUS_LABEL="成功"
+        case "$JOB_STATUS" in
+          success)
+            STATUS_EMOJI="✅"; STATUS_LABEL="成功" ;;
+          failure)
+            STATUS_EMOJI="❌"; STATUS_LABEL="失败" ;;
+          cancelled)
+            STATUS_EMOJI="🚫"; STATUS_LABEL="已取消" ;;
+          *)
+            STATUS_EMOJI="⚠️"; STATUS_LABEL="${JOB_STATUS}" ;;
+        esac
+
+        TEXT="${STATUS_EMOJI} Android 构建${STATUS_LABEL}\n应用：Caffeine Tracker\n版本：${VERSION_NAME}（${VERSION_CODE}）\n提交：${COMMIT_SHORT}\nAPK：${APK_NAME}\n下载：${DOWNLOAD_URL}"
+
+        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+          --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+          --data-urlencode "text=${TEXT}" \
+          -d "disable_web_page_preview=true"
