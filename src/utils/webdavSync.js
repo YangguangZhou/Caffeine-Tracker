@@ -1,6 +1,7 @@
 // WebDAV 同步实用工具
 
 import { Capacitor } from '@capacitor/core';
+import { getPresetIconColor, DEFAULT_CATEGORY } from './constants';
 
 const knownSettingKeys = [
     'weight', 'maxDailyCaffeine', 'recommendedDosePerKg',
@@ -530,11 +531,25 @@ export default class WebDAVClient {
 
         const mergedDrinks = Array.from(drinkMap.values())
             .filter(d => d && d.id && typeof d.name === 'string')
-            .map(drink => ({
-                ...drink,
-                isPreset: originalPresetDrinkIds.has(drink.id) ? true : (drink.isPreset || false),
-                category: drink.category || (originalPresetDrinkIds.has(drink.id) ? initialPresetDrinks.find(p => p.id === drink.id)?.category : '其他'),
-            }));
+            .map(drink => {
+                const isOriginalPreset = originalPresetDrinkIds.has(drink.id);
+                const resolvedIsPreset = isOriginalPreset ? true : !!drink.isPreset;
+                const presetDefinition = isOriginalPreset
+                    ? initialPresetDrinks.find(p => p.id === drink.id)
+                    : null;
+
+                const resolvedCategory = drink.category || presetDefinition?.category || DEFAULT_CATEGORY;
+                const iconColor = resolvedIsPreset
+                    ? (drink.iconColor || presetDefinition?.iconColor || getPresetIconColor(drink.id, resolvedCategory))
+                    : (drink.iconColor ?? null);
+
+                return {
+                    ...drink,
+                    isPreset: resolvedIsPreset,
+                    category: drink.category || (isOriginalPreset ? presetDefinition?.category : '其他'),
+                    iconColor,
+                };
+            });
 
         console.log(`合并后的饮品数: ${mergedDrinks.length}`);
 

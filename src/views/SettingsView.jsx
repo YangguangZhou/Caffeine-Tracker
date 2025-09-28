@@ -9,7 +9,7 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Preferences } from '@capacitor/preferences';
 import { formatDatetimeLocal } from '../utils/timeUtils';
-import { initialPresetDrinks, DRINK_CATEGORIES, DEFAULT_CATEGORY, defaultSettings } from '../utils/constants';
+import { initialPresetDrinks, DRINK_CATEGORIES, DEFAULT_CATEGORY, defaultSettings, getPresetIconColor } from '../utils/constants';
 
 // 动态导入 WebDAVClient
 const WebDAVClientPromise = import('../utils/webdavSync');
@@ -140,16 +140,23 @@ const SettingsView = ({
             return;
         }
 
+        const isPresetDrink = editingDrink
+            ? (editingDrink.isPreset ?? originalPresetDrinkIds.has(editingDrink.id))
+            : false;
+        const drinkId = editingDrink?.id || `custom-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
         const newDrinkData = {
-            id: editingDrink?.id || `custom-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+            id: drinkId,
             name: name,
             calculationMode: newDrinkCalculationMode,
             caffeineContent: caffeineContentValue,
             caffeinePerGram: caffeinePerGramValue,
             defaultVolume: volume,
             category: category,
-            isPreset: editingDrink?.isPreset ?? false,
+            isPreset: isPresetDrink,
             updatedAt: Date.now(),
+            iconColor: isPresetDrink
+                ? (editingDrink?.iconColor || getPresetIconColor(drinkId, category))
+                : (editingDrink?.iconColor ?? null),
         };
 
         if (editingDrink) {
@@ -168,7 +175,8 @@ const SettingsView = ({
         editingDrink,
         drinks,
         setDrinks,
-        resetDrinkForm
+        resetDrinkForm,
+        originalPresetDrinkIds
     ]);
 
     // 删除饮品

@@ -96,8 +96,173 @@ export const NIGHT_COLORS = {
   dangerBorder: '#5f2b2b', // 深色模式下的危险边框
 };
 
+// 分类感知的预设图标配色生成工具
+const CATEGORY_COLOR_RANGES = {
+  '手工咖啡': { hueStart: 14, hueEnd: 46, saturationMin: 55, saturationMax: 78, lightnessMin: 42, lightnessMax: 62 },
+  '速溶咖啡': { hueStart: 8, hueEnd: 40, saturationMin: 60, saturationMax: 82, lightnessMin: 45, lightnessMax: 64 },
+  '连锁品牌': { hueStart: 24, hueEnd: 56, saturationMin: 52, saturationMax: 76, lightnessMin: 42, lightnessMax: 60 },
+  '瓶装茶饮': { hueStart: 88, hueEnd: 150, saturationMin: 45, saturationMax: 75, lightnessMin: 48, lightnessMax: 66 },
+  '碳酸饮料': { hueStart: 180, hueEnd: 240, saturationMin: 58, saturationMax: 82, lightnessMin: 48, lightnessMax: 68 },
+  '功能饮料': { hueStart: 36, hueEnd: 72, saturationMin: 62, saturationMax: 88, lightnessMin: 48, lightnessMax: 68 },
+  [DEFAULT_CATEGORY]: { hueStart: 300, hueEnd: 348, saturationMin: 58, saturationMax: 80, lightnessMin: 50, lightnessMax: 68 },
+  fallback: { hueStart: 0, hueEnd: 360, saturationMin: 55, saturationMax: 80, lightnessMin: 46, lightnessMax: 66 },
+};
+
+const normalizeHash = (value) => {
+  const positive = Math.abs(value);
+  return (positive % 2147483647) / 2147483647;
+};
+
+const hashString = (source, fallbackSeed = 0) => {
+  if (!source) {
+    return normalizeHash(fallbackSeed * 2654435761);
+  }
+
+  let hash = 0;
+  for (let i = 0; i < source.length; i += 1) {
+    hash = (hash << 5) - hash + source.charCodeAt(i);
+    hash |= 0;
+  }
+
+  return normalizeHash(hash);
+};
+
+const hslChannelToRgb = (p, q, t) => {
+  let value = t;
+  if (value < 0) value += 1;
+  if (value > 1) value -= 1;
+  if (value < 1 / 6) return p + (q - p) * 6 * value;
+  if (value < 1 / 2) return q;
+  if (value < 2 / 3) return p + (q - p) * (2 / 3 - value) * 6;
+  return p;
+};
+
+const hslToHex = (hue, saturation, lightness) => {
+  const h = hue / 360;
+  const s = saturation / 100;
+  const l = lightness / 100;
+
+  if (s === 0) {
+    const value = Math.round(l * 255)
+      .toString(16)
+      .padStart(2, '0');
+    return `#${value}${value}${value}`;
+  }
+
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+
+  const r = Math.round(hslChannelToRgb(p, q, h + 1 / 3) * 255)
+    .toString(16)
+    .padStart(2, '0');
+  const g = Math.round(hslChannelToRgb(p, q, h) * 255)
+    .toString(16)
+    .padStart(2, '0');
+  const b = Math.round(hslChannelToRgb(p, q, h - 1 / 3) * 255)
+    .toString(16)
+    .padStart(2, '0');
+
+  return `#${r}${g}${b}`;
+};
+
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+const getCategoryColorRange = (category) => {
+  if (!category) return CATEGORY_COLOR_RANGES[DEFAULT_CATEGORY] || CATEGORY_COLOR_RANGES.fallback;
+  return CATEGORY_COLOR_RANGES[category] || CATEGORY_COLOR_RANGES[DEFAULT_CATEGORY] || CATEGORY_COLOR_RANGES.fallback;
+};
+
+const generateBasePresetHsl = (id, category, fallbackIndex = 0) => {
+  const range = getCategoryColorRange(category);
+  const hueWidth = Math.max(range.hueEnd - range.hueStart, 1);
+  const saturationWidth = Math.max(range.saturationMax - range.saturationMin, 1);
+  const lightnessWidth = Math.max(range.lightnessMax - range.lightnessMin, 1);
+
+  const hueHash = hashString(`${category}:${id}:h`, fallbackIndex);
+  const satHash = hashString(`${category}:${id}:s`, fallbackIndex + 7);
+  const lightHash = hashString(`${category}:${id}:l`, fallbackIndex + 13);
+
+  const hue = range.hueStart + hueHash * hueWidth;
+  const saturation = range.saturationMin + satHash * saturationWidth;
+  const lightness = range.lightnessMin + lightHash * lightnessWidth;
+
+  return {
+    h: hue,
+    s: saturation,
+    l: lightness,
+    range,
+    seed: `${category}:${id}`,
+  };
+};
+
+const wrapHueWithinRange = (value, range) => {
+  const width = range.hueEnd - range.hueStart;
+  if (width <= 0) return range.hueStart;
+  let normalized = (value - range.hueStart) % width;
+  if (normalized < 0) normalized += width;
+  return range.hueStart + normalized;
+};
+
+const ensureContrast = (baseHsl, previousHsl) => {
+  if (!previousHsl) {
+    return baseHsl;
+  }
+
+  const { range, seed } = baseHsl;
+  const hueWidth = Math.max(range.hueEnd - range.hueStart, 1);
+  const lightWidth = Math.max(range.lightnessMax - range.lightnessMin, 1);
+
+  const minHueDelta = Math.min(Math.max(hueWidth * 0.35, 12), hueWidth);
+  const minLightDelta = Math.min(Math.max(lightWidth * 0.45, 9), lightWidth);
+
+  let h = baseHsl.h;
+  let s = baseHsl.s;
+  let l = baseHsl.l;
+
+  if (Math.abs(h - previousHsl.h) < minHueDelta && hueWidth > 0) {
+    const direction = hashString(`${seed}-hue-contrast`) >= 0.5 ? 1 : -1;
+    const hueShift = Math.max(minHueDelta, hueWidth / 2.5);
+    h = wrapHueWithinRange(previousHsl.h + direction * hueShift, range);
+  }
+
+  if (Math.abs(l - previousHsl.l) < minLightDelta && lightWidth > 0) {
+    const direction = hashString(`${seed}-light-contrast`) >= 0.5 ? 1 : -1;
+    const lightShift = Math.min(Math.max(minLightDelta, lightWidth / 2), lightWidth);
+    l = clamp(previousHsl.l + direction * lightShift, range.lightnessMin, range.lightnessMax);
+    if (Math.abs(l - previousHsl.l) < minLightDelta) {
+      l = direction > 0 ? range.lightnessMax : range.lightnessMin;
+    }
+  }
+
+  // 轻微调整饱和度以保持在可辨识范围
+  if (s < range.saturationMin) s = range.saturationMin;
+  if (s > range.saturationMax) s = range.saturationMax;
+
+  return { h, s, l, range, seed };
+};
+
+const createCategoryColorGenerator = () => {
+  const lastHslByCategory = new Map();
+  return (id, category, fallbackIndex = 0) => {
+    const targetCategory = category || DEFAULT_CATEGORY;
+    const baseHsl = generateBasePresetHsl(id, targetCategory, fallbackIndex);
+    const previousHsl = lastHslByCategory.get(targetCategory);
+    const adjusted = ensureContrast(baseHsl, previousHsl);
+    lastHslByCategory.set(targetCategory, adjusted);
+    return {
+      hex: hslToHex(adjusted.h, adjusted.s, adjusted.l),
+      hsl: adjusted,
+    };
+  };
+};
+
+export const getPresetIconColor = (id, category = DEFAULT_CATEGORY, fallbackIndex = 0) => {
+  const baseHsl = generateBasePresetHsl(id, category || DEFAULT_CATEGORY, fallbackIndex);
+  return hslToHex(baseHsl.h, baseHsl.s, baseHsl.l);
+};
+
 // 预设饮品定义
-export const initialPresetDrinks = [
+const presetDrinkDefinitions = [
   // --- 手工咖啡 (Craft Coffee) ---
   { id: 'preset-hand-drip', name: '手冲咖啡', category: '手工咖啡', calculationMode: 'perGram', caffeinePerGram: 12, defaultVolume: 15, caffeineContent: null, isPreset: true },
   { id: 'preset-espresso', name: '浓缩咖啡', category: '手工咖啡', calculationMode: 'per100ml', caffeineContent: 200, caffeinePerGram: null, defaultVolume: 30, isPreset: true },
@@ -160,5 +325,46 @@ export const initialPresetDrinks = [
   { id: 'preset-dark-chocolate', name: '黑巧克力(100g)', category: '其他', calculationMode: 'per100ml', caffeineContent: 43, caffeinePerGram: null, defaultVolume: 100, isPreset: true },
 ];
 
+const presetColorGenerator = createCategoryColorGenerator();
+
+export const initialPresetDrinks = presetDrinkDefinitions.map((drink, index) => {
+  const category = drink.category || DEFAULT_CATEGORY;
+  const colorResult = presetColorGenerator(drink.id, category, index);
+  return {
+    ...drink,
+    iconColor: colorResult.hex,
+  };
+});
+
 // 存储原始预设ID用于参考（例如，用于删除逻辑）
 export const originalPresetDrinkIds = new Set(initialPresetDrinks.map(d => d.id));
+
+export const applyPresetIconColors = (drinks) => {
+  const generator = createCategoryColorGenerator();
+  return drinks.map((drink, index) => {
+    if (!drink) return drink;
+
+    const category = drink.category || DEFAULT_CATEGORY;
+    const isOriginalPreset = drink.id ? originalPresetDrinkIds.has(drink.id) : false;
+    const isPreset = drink.isPreset ?? isOriginalPreset;
+
+    if (!isPreset) {
+      return {
+        ...drink,
+        category,
+        isPreset: false,
+        iconColor: drink.iconColor ?? null,
+      };
+    }
+
+    const seedId = drink.id || `${category}-${index}`;
+    const colorResult = generator(seedId, category, index);
+
+    return {
+      ...drink,
+      category,
+      isPreset: true,
+      iconColor: colorResult.hex,
+    };
+  });
+};

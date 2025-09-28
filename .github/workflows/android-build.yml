@@ -195,9 +195,18 @@ jobs:
             STATUS_EMOJI="⚠️"; STATUS_LABEL="${JOB_STATUS}" ;;
         esac
 
-        TEXT="${STATUS_EMOJI} Android 构建${STATUS_LABEL}\n应用：Caffeine Tracker\n版本：${VERSION_NAME}（${VERSION_CODE}）\n提交：${COMMIT_SHORT}\nAPK：${APK_NAME}\n下载：${DOWNLOAD_URL}"
+        # 正确换行：用 here-doc 生成多行文本
+        TEXT=$(cat <<EOF
+        *[Caffeine Tracker](https://ct.jerryz.com.cn/) 构建${STATUS_LABEL}* ${STATUS_EMOJI}
+        版本：${VERSION_NAME}（${VERSION_CODE}）
+        提交：[${COMMIT_SHORT}](https://github.com/YangguangZhou/Caffeine-Tracker/commit/${COMMIT_SHORT})
+        APK：${APK_NAME}
+        下载：${DOWNLOAD_URL}
+        EOF
+        )
 
         curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
           --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
           --data-urlencode "text=${TEXT}" \
+          --data-urlencode "parse_mode=markdown" \
           -d "disable_web_page_preview=true"

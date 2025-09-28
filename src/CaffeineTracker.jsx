@@ -11,7 +11,7 @@ import { SplashScreen } from '@capacitor/splash-screen';
 import { getTotalCaffeineAtTime, estimateConcentration, estimateAmountFromConcentration, calculateHoursToReachTarget, generateMetabolismChartData } from './utils/caffeineCalculations';
 import { getStartOfDay, getEndOfDay, isToday, formatTime, formatDate } from './utils/timeUtils';
 // 导入常量和预设
-import { defaultSettings, initialPresetDrinks, originalPresetDrinkIds, COFFEE_COLORS, NIGHT_COLORS, DRINK_CATEGORIES, DEFAULT_CATEGORY } from './utils/constants';
+import { defaultSettings, initialPresetDrinks, originalPresetDrinkIds, COFFEE_COLORS, NIGHT_COLORS, DRINK_CATEGORIES, DEFAULT_CATEGORY, applyPresetIconColors } from './utils/constants';
 // 导入WebDAV客户端
 import WebDAVClient from './utils/webdavSync';
 
@@ -27,6 +27,33 @@ const UMAMI_SRC = "https://umami.jerryz.com.cn/script.js";
 const UMAMI_WEBSITE_ID = "81f97aba-b11b-44f1-890a-9dc588a0d34d";
 const ADSENSE_SRC = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2597042766299857";
 const ADSENSE_CLIENT = "ca-pub-2597042766299857";
+
+const presetDrinkLookup = new Map(initialPresetDrinks.map(drink => [drink.id, drink]));
+
+const sanitizeDrinkList = (drinkList) => {
+  if (!Array.isArray(drinkList) || drinkList.length === 0) {
+    return [...initialPresetDrinks];
+  }
+
+  const normalized = drinkList
+    .filter(Boolean)
+    .map((drink) => {
+      const isOriginalPreset = drink.id ? originalPresetDrinkIds.has(drink.id) : false;
+      const basePreset = isOriginalPreset ? presetDrinkLookup.get(drink.id) : null;
+      const category = drink.category || basePreset?.category || DEFAULT_CATEGORY;
+      const calculationMode = drink.calculationMode === 'perGram' ? 'perGram' : 'per100ml';
+
+      return {
+        ...drink,
+        category,
+        calculationMode,
+        isPreset: drink.isPreset ?? isOriginalPreset,
+        iconColor: drink.iconColor ?? null,
+      };
+    });
+
+  return applyPresetIconColors(normalized);
+};
 
 /**
  * 应用主组件
@@ -254,7 +281,7 @@ const CaffeineTrackerApp = () => {
         }
 
         if (drinksFromStore) {
-          setDrinks(drinksFromStore);
+          setDrinks(sanitizeDrinkList(drinksFromStore));
         } else {
           setDrinks(initialPresetDrinks);
         }
@@ -435,14 +462,15 @@ const CaffeineTrackerApp = () => {
         let updatedSettings = { ...settingsToUse };
         if (result.data) {
           const processSyncedDrinks = (drinksToProcess) => {
-            if (!Array.isArray(drinksToProcess)) return [...initialPresetDrinks];
+            if (!Array.isArray(drinksToProcess)) return sanitizeDrinkList(initialPresetDrinks);
             const validDrinks = drinksToProcess.filter(d => d && typeof d.id !== 'undefined' && typeof d.name === 'string');
             const savedDrinkIds = new Set(validDrinks.map(d => d.id));
             const newPresetsToAdd = initialPresetDrinks.filter(p => !savedDrinkIds.has(p.id));
 
             const validatedSavedDrinks = validDrinks.map(d => {
               const isOriginalPreset = originalPresetDrinkIds.has(d.id);
-              const originalPresetData = isOriginalPreset ? initialPresetDrinks.find(p => p.id === d.id) : {};
+              const originalPresetData = isOriginalPreset ? initialPresetDrinks.find(p => p.id === d.id) : null;
+              const resolvedIsPreset = d.isPreset ?? isOriginalPreset;
 
               const mode = d.calculationMode || originalPresetData?.calculationMode || 'per100ml';
               let cc = null;
@@ -456,15 +484,18 @@ const CaffeineTrackerApp = () => {
 
               return {
                 ...d,
-                category: d.category || (isOriginalPreset ? originalPresetData.category : DEFAULT_CATEGORY),
-                isPreset: d.isPreset ?? isOriginalPreset,
+                category: d.category || (isOriginalPreset ? originalPresetData?.category : DEFAULT_CATEGORY),
+                isPreset: resolvedIsPreset,
                 defaultVolume: d.defaultVolume !== undefined ? d.defaultVolume : (originalPresetData?.defaultVolume ?? null),
                 calculationMode: mode,
                 caffeineContent: cc,
-                caffeinePerGram: cpg
+                caffeinePerGram: cpg,
+                iconColor: d.iconColor ?? originalPresetData?.iconColor ?? null,
               };
             });
-            return [...validatedSavedDrinks, ...newPresetsToAdd].sort((a, b) => a.name.localeCompare(b.name));
+            const merged = [...validatedSavedDrinks, ...newPresetsToAdd];
+            const sorted = merged.sort((a, b) => a.name.localeCompare(b.name));
+            return applyPresetIconColors(sorted);
           };
 
           if (result.data.records && Array.isArray(result.data.records)) {
@@ -577,8 +608,18 @@ const CaffeineTrackerApp = () => {
   const handleAddRecord = useCallback(async (record) => {
     const newTimestamp = Date.now();
     setRecords(prevRecords => {
-      const newRecord = { ...record, id: record.id || `record_${newTimestamp}`, updatedAt: newTimestamp };
-      const newRecords = [...prevRecords, newRecord].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      const normalizedTimestamp = typeof record.timestamp === 'number'
+        ? record.timestamp
+        : new Date(record.timestamp || Date.now()).getTime();
+      const recordId = record.id || `record_${newTimestamp}`;
+      const newRecord = {
+        ...record,
+        id: recordId,
+        timestamp: normalizedTimestamp,
+        updatedAt: newTimestamp
+      };
+      const newRecords = [...prevRecords, newRecord]
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       return newRecords;
     });
     setUserSettings(prev => ({ ...prev, localLastModifiedTimestamp: newTimestamp }));
@@ -587,9 +628,27 @@ const CaffeineTrackerApp = () => {
   const handleEditRecord = useCallback(async (updatedRecord) => {
     const newTimestamp = Date.now();
     setRecords(prevRecords => {
-      const newRecords = prevRecords.map(r => r.id === updatedRecord.id ? { ...updatedRecord, updatedAt: newTimestamp } : r)
+      const fallbackId = updatedRecord?.id || `record_${newTimestamp}`;
+      let found = false;
+
+      const updatedList = prevRecords.map(record => {
+        if (record.id === fallbackId) {
+          found = true;
+          return { ...updatedRecord, id: fallbackId, updatedAt: newTimestamp };
+        }
+        return record;
+      });
+
+      if (!found) {
+        updatedList.push({ ...updatedRecord, id: fallbackId, updatedAt: newTimestamp });
+      }
+
+      return updatedList
+        .map(entry => ({
+          ...entry,
+          timestamp: typeof entry.timestamp === 'number' ? entry.timestamp : new Date(entry.timestamp || Date.now()).getTime(),
+        }))
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-      return newRecords;
     });
     setUserSettings(prev => ({ ...prev, localLastModifiedTimestamp: newTimestamp }));
   }, []);
@@ -630,7 +689,12 @@ const CaffeineTrackerApp = () => {
   }, []);
 
   const handleSetDrinks = useCallback((newDrinksOrUpdater) => {
-    setDrinks(newDrinksOrUpdater);
+    setDrinks(prev => {
+      const nextDrinks = typeof newDrinksOrUpdater === 'function'
+        ? newDrinksOrUpdater(prev)
+        : newDrinksOrUpdater;
+      return sanitizeDrinkList(nextDrinks);
+    });
     setUserSettings(prev => ({ ...prev, localLastModifiedTimestamp: Date.now() }));
   }, []);
 
