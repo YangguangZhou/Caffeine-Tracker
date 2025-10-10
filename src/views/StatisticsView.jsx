@@ -7,8 +7,7 @@ import {
 import StatsChart from '../components/StatsChart';
 import PieChart from '../components/PieChart';
 import HeatmapChart from '../components/HeatmapChart';
-import ShareButton from '../components/ShareButton';
-import { Share } from '@capacitor/share';
+import DownloadButton from '../components/DownloadButton';
 import {
   getStartOfWeek, getEndOfWeek,
   getStartOfMonth, getEndOfMonth,
@@ -792,13 +791,11 @@ const StatisticsView = ({
           >
             <BarChart2 size={20} className="mr-2" /> 摄入总览
           </h3>
-          <ShareButton
+          <DownloadButton
             elementId="intake-overview-card"
             filename="caffeine-intake-overview.png"
-            shareTitle="咖啡因摄入总览"
-            shareText={`我的咖啡因摄入总览 - ${formatStatsPeriod()}`}
+            cardTitle="摄入总览"
             colors={colors}
-            Share={Share}
           />
         </div>
         <div className="grid grid-cols-2 gap-3 mb-5">
@@ -934,13 +931,11 @@ const StatisticsView = ({
               <PieChartIcon size={20} className="mr-2" /> 摄入来源分析
             </h3>
             <div className="ml-2">
-              <ShareButton
+              <DownloadButton
                 elementId="source-analysis-card"
                 filename="caffeine-source-analysis.png"
-                shareTitle="咖啡因摄入来源分析"
-                shareText="我的咖啡因摄入来源分析"
+                cardTitle="摄入来源分析"
                 colors={colors}
-                Share={Share}
               />
             </div>
           </div>
@@ -1094,6 +1089,7 @@ const StatisticsView = ({
 
       {/* 详细统计分析卡片 */}
       <section
+        id="detailed-stats-card"
         aria-labelledby="detailed-stats-heading"
         className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
@@ -1101,13 +1097,23 @@ const StatisticsView = ({
           borderColor: colors.borderSubtle
         }}
       >
-        <h3
-          id="detailed-stats-heading"
-          className="text-xl font-semibold mb-4 flex items-center transition-colors"
-          style={{ color: colors.espresso }}
-        >
-          <BarChart2 size={20} className="mr-2" /> 详细统计分析
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3
+            id="detailed-stats-heading"
+            className="text-xl font-semibold flex items-center transition-colors"
+            style={{ color: colors.espresso }}
+          >
+            <BarChart2 size={20} className="mr-2" /> 详细统计分析
+          </h3>
+          {detailedStats && lifestyleAnalysis && lifestyleAnalysis.totalDays >= MIN_RECORD_DAYS && (
+            <DownloadButton
+              elementId="detailed-stats-card"
+              filename="caffeine-detailed-stats.png"
+              cardTitle="详细统计分析"
+              colors={colors}
+            />
+          )}
+        </div>
         {(() => {
           const daysRecorded = lifestyleAnalysis ? lifestyleAnalysis.totalDays : 0;
           if (detailedStats && daysRecorded >= MIN_RECORD_DAYS) {
@@ -1348,13 +1354,11 @@ const StatisticsView = ({
           >
             <Grid3x3 size={20} className="mr-2" /> 摄入时段热力图
           </h3>
-          <ShareButton
+          <DownloadButton
             elementId="heatmap-card"
             filename="caffeine-heatmap.png"
-            shareTitle="咖啡因摄入时段热力图"
-            shareText="我的咖啡因摄入时段分布"
+            cardTitle="摄入时段热力图"
             colors={colors}
-            Share={Share}
           />
         </div>
         <div
