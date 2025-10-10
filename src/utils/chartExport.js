@@ -249,14 +249,15 @@ export const exportToImage = async (element, options = {}) => {
     throw new Error('Element not found');
   }
 
-  // 创建临时容器
+  // 创建临时容器 - 使用 opacity 而不是 visibility
   const tempContainer = document.createElement('div');
   tempContainer.style.cssText = `
     position: fixed;
-    top: -10000px;
-    left: -10000px;
-    z-index: -1;
-    visibility: hidden;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
   `;
   document.body.appendChild(tempContainer);
 
@@ -265,15 +266,17 @@ export const exportToImage = async (element, options = {}) => {
     const socialCard = createSocialCard(element, options.cardOptions || {});
     tempContainer.appendChild(socialCard);
 
-    // 等待DOM渲染
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // 等待DOM渲染和样式应用
+    await new Promise(resolve => setTimeout(resolve, 200));
 
     const defaultOptions = {
-      backgroundColor: null,
+      backgroundColor: '#ffffff',
       scale: 2,
       logging: false,
       useCORS: true,
       allowTaint: true,
+      windowWidth: socialCard.offsetWidth || 800,
+      windowHeight: socialCard.offsetHeight || 600,
       ...options
     };
 
