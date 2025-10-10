@@ -41,27 +41,31 @@ const HeatmapChart = ({ data, colors }) => {
     return Math.max(...data.map(d => d.value), 1);
   }, [data]);
 
-  // 根据值获取颜色（适配深色模式）
+  // 根据值获取颜色（适配深色模式，更宽的颜色范围）
   const getColor = (value, isDark) => {
     if (value === 0) return isDark ? 'rgba(55, 65, 81, 0.3)' : colors.bgBase;
     
     const intensity = value / maxValue;
     
     if (isDark) {
-      // 深色模式下使用更柔和的颜色
-      if (intensity < 0.2) return 'rgba(217, 119, 6, 0.2)';
-      if (intensity < 0.4) return 'rgba(217, 119, 6, 0.4)';
-      if (intensity < 0.6) return 'rgba(217, 119, 6, 0.6)';
-      if (intensity < 0.8) return 'rgba(245, 158, 11, 0.7)';
-      return 'rgba(245, 158, 11, 0.9)';
+      // 深色模式下使用更宽的颜色范围
+      if (intensity < 0.1) return 'rgba(120, 53, 15, 0.2)';
+      if (intensity < 0.25) return 'rgba(146, 64, 14, 0.35)';
+      if (intensity < 0.4) return 'rgba(161, 98, 7, 0.5)';
+      if (intensity < 0.55) return 'rgba(217, 119, 6, 0.6)';
+      if (intensity < 0.7) return 'rgba(217, 119, 6, 0.75)';
+      if (intensity < 0.85) return 'rgba(245, 158, 11, 0.85)';
+      return 'rgba(251, 191, 36, 1)';
     }
     
-    // 浅色模式
-    if (intensity < 0.2) return '#FEF3C7';
-    if (intensity < 0.4) return '#FDE68A';
-    if (intensity < 0.6) return '#FCD34D';
-    if (intensity < 0.8) return '#FBBF24';
-    return '#F59E0B';
+    // 浅色模式 - 更宽的颜色范围
+    if (intensity < 0.1) return '#FEF9C3';  // 极极浅黄
+    if (intensity < 0.25) return '#FEF3C7'; // 极浅黄
+    if (intensity < 0.4) return '#FDE68A';  // 浅黄
+    if (intensity < 0.55) return '#FCD34D'; // 中浅
+    if (intensity < 0.7) return '#FBBF24';  // 中
+    if (intensity < 0.85) return '#F59E0B'; // 中深
+    return '#D97706';                       // 深橙
   };
 
   // 检查是否有数据
@@ -156,10 +160,10 @@ const HeatmapChart = ({ data, colors }) => {
       <div className="mt-3 sm:mt-4 flex items-center justify-center gap-2">
         <span className="text-xs" style={{ color: colors.textMuted }}>少</span>
         <div className="flex gap-0.5 sm:gap-1">
-          {[0, 0.2, 0.4, 0.6, 0.8, 1].map((intensity, idx) => (
+          {[0, 0.1, 0.25, 0.4, 0.55, 0.7, 0.85, 1].map((intensity, idx) => (
             <div
               key={idx}
-              className="w-4 sm:w-6 h-3 sm:h-4 rounded"
+              className="w-3 sm:w-5 h-3 sm:h-4 rounded"
               style={{ backgroundColor: getColor(intensity * maxValue, isDarkMode) }}
             />
           ))}

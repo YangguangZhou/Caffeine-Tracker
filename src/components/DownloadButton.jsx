@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Check } from 'lucide-react';
+import { Download, Check, Loader2 } from 'lucide-react';
 import { exportAndDownload } from '../utils/chartExport';
 
 /**
@@ -52,7 +52,9 @@ const DownloadButton = ({
       title="下载图表"
       disabled={exporting}
     >
-      {exportSuccess ? (
+      {exporting ? (
+        <Loader2 size={18} className="animate-spin" />
+      ) : exportSuccess ? (
         <Check size={18} style={{ color: colors.safe }} />
       ) : (
         <Download size={18} />
