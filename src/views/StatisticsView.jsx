@@ -2,10 +2,13 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   BarChart2, ChevronLeft, ChevronRight,
   Heart, Award, Clock, Info, AlertCircle, Target, PieChart as PieChartIcon,
-  Users, Coffee, Sparkles, TrendingUp, TrendingDown, Calendar, Percent, Moon, Droplet, Zap, Brain, Activity as ActivityIcon // Added ActivityIcon for motivational message
+  Users, Coffee, Sparkles, TrendingUp, TrendingDown, Calendar, Percent, Moon, Droplet, Zap, Brain, Activity as ActivityIcon, Grid3x3 // Added ActivityIcon for motivational message, Grid3x3 for heatmap
 } from 'lucide-react';
 import StatsChart from '../components/StatsChart';
 import PieChart from '../components/PieChart';
+import HeatmapChart from '../components/HeatmapChart';
+import ShareButton from '../components/ShareButton';
+import { Share } from '@capacitor/share';
 import {
   getStartOfWeek, getEndOfWeek,
   getStartOfMonth, getEndOfMonth,
@@ -618,6 +621,32 @@ const StatisticsView = ({
     [records, drinks, pieChartSortBy]
   );
 
+  // 计算热力图数据（按星期几和小时）
+  const heatmapData = useMemo(() => {
+    const heatmap = [];
+    
+    // 初始化热力图数据结构
+    for (let weekday = 0; weekday < 7; weekday++) {
+      for (let hour = 0; hour < 24; hour++) {
+        heatmap.push({ weekday, hour, value: 0 });
+      }
+    }
+
+    // 填充数据
+    records.forEach(record => {
+      const date = new Date(record.timestamp);
+      const weekday = date.getDay();
+      const hour = date.getHours();
+      
+      const index = weekday * 24 + hour;
+      if (heatmap[index]) {
+        heatmap[index].value += record.amount;
+      }
+    });
+
+    return heatmap;
+  }, [records]);
+
   // 格式化Y轴刻度
   const formatYAxisTick = (value) => Math.round(value);
 
@@ -747,6 +776,7 @@ const StatisticsView = ({
 
       {/* 摄入概览卡片 */}
       <section
+        id="intake-overview-card"
         aria-labelledby="intake-overview-heading"
         className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
@@ -754,13 +784,23 @@ const StatisticsView = ({
           borderColor: colors.borderSubtle
         }}
       >
-        <h3
-          id="intake-overview-heading"
-          className="text-xl font-semibold mb-4 flex items-center transition-colors"
-          style={{ color: colors.espresso }}
-        >
-          <BarChart2 size={20} className="mr-2" /> 摄入总览
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3
+            id="intake-overview-heading"
+            className="text-xl font-semibold flex items-center transition-colors"
+            style={{ color: colors.espresso }}
+          >
+            <BarChart2 size={20} className="mr-2" /> 摄入总览
+          </h3>
+          <ShareButton
+            elementId="intake-overview-card"
+            filename="caffeine-intake-overview.png"
+            shareTitle="咖啡因摄入总览"
+            shareText={`我的咖啡因摄入总览 - ${formatStatsPeriod()}`}
+            colors={colors}
+            Share={Share}
+          />
+        </div>
         <div className="grid grid-cols-2 gap-3 mb-5">
           {/* 总摄入量 */}
           <div
@@ -876,6 +916,7 @@ const StatisticsView = ({
 
       {/* 摄入来源分析卡片 */}
       <section
+        id="source-analysis-card"
         aria-labelledby="source-analysis-heading"
         className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
@@ -884,13 +925,25 @@ const StatisticsView = ({
         }}
       >
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-          <h3
-            id="source-analysis-heading"
-            className="text-xl font-semibold flex items-center transition-colors mb-2 sm:mb-0"
-            style={{ color: colors.espresso }}
-          >
-            <PieChartIcon size={20} className="mr-2" /> 摄入来源分析
-          </h3>
+          <div className="flex items-center mb-2 sm:mb-0">
+            <h3
+              id="source-analysis-heading"
+              className="text-xl font-semibold flex items-center transition-colors"
+              style={{ color: colors.espresso }}
+            >
+              <PieChartIcon size={20} className="mr-2" /> 摄入来源分析
+            </h3>
+            <div className="ml-2">
+              <ShareButton
+                elementId="source-analysis-card"
+                filename="caffeine-source-analysis.png"
+                shareTitle="咖啡因摄入来源分析"
+                shareText="我的咖啡因摄入来源分析"
+                colors={colors}
+                Share={Share}
+              />
+            </div>
+          </div>
 
           {/* 排序选择器 */}
           <div className="flex gap-2">
@@ -1275,6 +1328,44 @@ const StatisticsView = ({
             );
           }
         })()}
+      </section>
+
+      {/* 摄入时段热力图卡片 */}
+      <section
+        id="heatmap-card"
+        aria-labelledby="heatmap-heading"
+        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        style={{
+          backgroundColor: colors.bgCard,
+          borderColor: colors.borderSubtle
+        }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3
+            id="heatmap-heading"
+            className="text-xl font-semibold flex items-center transition-colors"
+            style={{ color: colors.espresso }}
+          >
+            <Grid3x3 size={20} className="mr-2" /> 摄入时段热力图
+          </h3>
+          <ShareButton
+            elementId="heatmap-card"
+            filename="caffeine-heatmap.png"
+            shareTitle="咖啡因摄入时段热力图"
+            shareText="我的咖啡因摄入时段分布"
+            colors={colors}
+            Share={Share}
+          />
+        </div>
+        <div
+          className="p-4 rounded-lg transition-colors"
+          style={{ backgroundColor: colors.bgBase }}
+        >
+          <HeatmapChart data={heatmapData} colors={colors} />
+        </div>
+        <p className="text-xs mt-3 text-center" style={{ color: colors.textMuted }}>
+          热力图显示您在一周内不同时段的咖啡因摄入模式
+        </p>
       </section>
 
       {/* 健康分析报告卡片 */}
