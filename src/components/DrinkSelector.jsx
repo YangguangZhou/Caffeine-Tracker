@@ -87,9 +87,7 @@ const DrinkSelector = ({
   const getDrinkIcon = (drink) => {
     const nameLower = drink.name.toLowerCase();
     const category = drink.category || DEFAULT_CATEGORY;
-    const color = drink.isPreset
-      ? (drink.iconColor || getPresetIconColor(drink.id, category))
-      : colors.customDrinkText;
+    const color = drink.iconColor || getPresetIconColor(drink.id, category);
     const iconProps = {
       size: 18,
       className: 'mb-1 transition-colors',

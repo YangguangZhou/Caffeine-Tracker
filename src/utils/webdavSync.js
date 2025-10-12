@@ -539,9 +539,9 @@ export default class WebDAVClient {
                     : null;
 
                 const resolvedCategory = drink.category || presetDefinition?.category || DEFAULT_CATEGORY;
-                const iconColor = resolvedIsPreset
-                    ? (drink.iconColor || presetDefinition?.iconColor || getPresetIconColor(drink.id, resolvedCategory))
-                    : (drink.iconColor ?? null);
+                const iconColor = drink.iconColor
+                    || presetDefinition?.iconColor
+                    || getPresetIconColor(drink.id, resolvedCategory);
 
                 return {
                     ...drink,

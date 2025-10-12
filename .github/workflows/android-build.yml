@@ -197,7 +197,7 @@ jobs:
 
         # 正确换行：用 here-doc 生成多行文本
         TEXT=$(cat <<EOF
-        *[Caffeine Tracker](https://ct.jerryz.com.cn/) 构建${STATUS_LABEL}* ${STATUS_EMOJI}
+        [*Caffeine Tracker*](https://ct.jerryz.com.cn/) *构建${STATUS_LABEL}* ${STATUS_EMOJI}
         版本：${VERSION_NAME}（${VERSION_CODE}）
         提交：[${COMMIT_SHORT}](https://github.com/YangguangZhou/Caffeine-Tracker/commit/${COMMIT_SHORT})
         APK：${APK_NAME}

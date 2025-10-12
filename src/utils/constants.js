@@ -348,23 +348,16 @@ export const applyPresetIconColors = (drinks) => {
     const isOriginalPreset = drink.id ? originalPresetDrinkIds.has(drink.id) : false;
     const isPreset = drink.isPreset ?? isOriginalPreset;
 
-    if (!isPreset) {
-      return {
-        ...drink,
-        category,
-        isPreset: false,
-        iconColor: drink.iconColor ?? null,
-      };
-    }
-
     const seedId = drink.id || `${category}-${index}`;
     const colorResult = generator(seedId, category, index);
 
     return {
       ...drink,
       category,
-      isPreset: true,
+      isPreset,
       iconColor: colorResult.hex,
     };
   });
 };
+
+export const ensureDrinkColors = (drinks) => applyPresetIconColors(drinks || []);

@@ -1288,7 +1288,9 @@ const SettingsView = ({
                                             <p
                                                 className="font-medium truncate transition-colors"
                                                 style={{
-                                                    color: !drink.isPreset ? colors.customDrinkText : colors.espresso
+                                                    color: !drink.isPreset
+                                                        ? (drink.iconColor || colors.customDrinkText)
+                                                        : (drink.iconColor || colors.espresso)
                                                 }}
                                                 title={drink.name}
                                             >
@@ -1297,7 +1299,9 @@ const SettingsView = ({
                                             <p
                                                 className="text-xs mt-0.5 transition-colors"
                                                 style={{
-                                                    color: !drink.isPreset ? colors.customDrinkText : colors.textMuted
+                                                    color: !drink.isPreset
+                                                        ? (drink.iconColor || colors.customDrinkText)
+                                                        : (drink.iconColor || colors.textMuted)
                                                 }}
                                             >
                                                 <span className="inline-flex items-center mr-2">

@@ -11,7 +11,7 @@ import { SplashScreen } from '@capacitor/splash-screen';
 import { getTotalCaffeineAtTime, estimateConcentration, estimateAmountFromConcentration, calculateHoursToReachTarget, generateMetabolismChartData } from './utils/caffeineCalculations';
 import { getStartOfDay, getEndOfDay, isToday, formatTime, formatDate } from './utils/timeUtils';
 // 导入常量和预设
-import { defaultSettings, initialPresetDrinks, originalPresetDrinkIds, COFFEE_COLORS, NIGHT_COLORS, DRINK_CATEGORIES, DEFAULT_CATEGORY, applyPresetIconColors } from './utils/constants';
+import { defaultSettings, initialPresetDrinks, originalPresetDrinkIds, COFFEE_COLORS, NIGHT_COLORS, DRINK_CATEGORIES, DEFAULT_CATEGORY, ensureDrinkColors } from './utils/constants';
 // 导入WebDAV客户端
 import WebDAVClient from './utils/webdavSync';
 
@@ -48,11 +48,10 @@ const sanitizeDrinkList = (drinkList) => {
         category,
         calculationMode,
         isPreset: drink.isPreset ?? isOriginalPreset,
-        iconColor: drink.iconColor ?? null,
       };
     });
 
-  return applyPresetIconColors(normalized);
+  return ensureDrinkColors(normalized);
 };
 
 /**
@@ -495,7 +494,7 @@ const CaffeineTrackerApp = () => {
             });
             const merged = [...validatedSavedDrinks, ...newPresetsToAdd];
             const sorted = merged.sort((a, b) => a.name.localeCompare(b.name));
-            return applyPresetIconColors(sorted);
+            return ensureDrinkColors(sorted);
           };
 
           if (result.data.records && Array.isArray(result.data.records)) {

@@ -175,8 +175,8 @@ const IntakeForm = ({
     : `例如: ${selectedDrink?.defaultVolume ?? '250'}`;
   const volumeInputMin = "1";
   const volumeHelpText = selectedDrink?.calculationMode === 'perGram'
-    ? "输入咖啡豆用量(克)以计算咖啡因。如需直接输入含量，请清除饮品选择。"
-    : "输入容量以计算咖啡因。如需直接输入含量，请清除饮品选择。";
+    ? "输入咖啡豆用量(克)以计算咖啡因。"
+    : "输入容量以计算咖啡因。";
 
   return (
     <div className="transition-all">
