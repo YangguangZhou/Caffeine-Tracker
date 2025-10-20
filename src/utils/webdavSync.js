@@ -704,6 +704,38 @@ export default class WebDAVClient {
                 }
             }
 
+            // 判断数据是否有意义（非空）
+            const isLocalDataMeaningful = (currentLocalData.records?.length > 0) || 
+                                         (currentLocalData.drinks?.length > 0) || 
+                                         (Object.keys(currentLocalData.userSettings || {}).filter(k => 
+                                             k !== 'webdavPassword' && 
+                                             k !== 'themeMode' && 
+                                             k !== 'webdavEnabled' && 
+                                             k !== 'webdavServer' && 
+                                             k !== 'webdavUsername'
+                                         ).length > 0);
+
+            const isRemoteDataMeaningful = remoteData && (
+                (remoteData.records?.length > 0) || 
+                (remoteData.drinks?.length > 0) || 
+                (Object.keys(remoteData.userSettings || {}).filter(k => 
+                    k !== 'webdavPassword' && 
+                    k !== 'themeMode' && 
+                    k !== 'webdavEnabled' && 
+                    k !== 'webdavServer' && 
+                    k !== 'webdavUsername'
+                ).length > 0)
+            );
+
+            console.log("数据有效性检查:", {
+                isLocalDataMeaningful,
+                isRemoteDataMeaningful,
+                localRecords: currentLocalData.records?.length || 0,
+                remoteRecords: remoteData?.records?.length || 0,
+                localDrinks: currentLocalData.drinks?.length || 0,
+                remoteDrinks: remoteData?.drinks?.length || 0
+            });
+
             // 比较并决定操作
             const remoteTs = remoteData?.syncTimestamp || null;
             const comparison = this.compareTimestamps(localTs, remoteTs);
@@ -713,20 +745,34 @@ export default class WebDAVClient {
             let message = "";
             let action = "none";
 
-            // 根据比较结果执行操作
+            // 根据比较结果和数据有效性执行操作
             switch (comparison) {
                 case 'local_newer':
                 case 'only_local':
-                    action = "upload";
-                    console.log("执行操作: 上传本地数据 (本地较新或仅本地存在)");
-                    const uploadTs = localTs || Date.now();
-                    finalData = {
-                        ...currentLocalData,
-                        syncTimestamp: uploadTs,
-                        userSettings: { ...(currentLocalData.userSettings || {}) }
-                    };
-                    await this.uploadData(finalData);
-                    message = "同步成功：本地数据已上传";
+                    // 如果本地数据为空但远程有数据，不要上传空数据
+                    if (!isLocalDataMeaningful && isRemoteDataMeaningful) {
+                        action = "download";
+                        console.log("执行操作: 使用远程数据 (本地为空，远程有内容)");
+                        finalData = this.mergeData(currentLocalData, remoteData, initialPresetDrinks, originalPresetDrinkIds);
+                        message = "同步成功：已从服务器下载数据";
+                    } else if (isLocalDataMeaningful) {
+                        action = "upload";
+                        console.log("执行操作: 上传本地数据 (本地较新或仅本地存在)");
+                        const uploadTs = localTs || Date.now();
+                        finalData = {
+                            ...currentLocalData,
+                            syncTimestamp: uploadTs,
+                            userSettings: { ...(currentLocalData.userSettings || {}) }
+                        };
+                        await this.uploadData(finalData);
+                        message = "同步成功：本地数据已上传";
+                    } else {
+                        // 本地和远程都为空
+                        action = "no_action";
+                        console.log("执行操作: 本地和远程都为空，无需操作");
+                        finalData = currentLocalData;
+                        message = "同步完成：无数据需要同步";
+                    }
                     if (localData?.userSettings?.webdavPassword && finalData.userSettings) {
                         finalData.userSettings.webdavPassword = localData.userSettings.webdavPassword;
                     }
@@ -737,24 +783,68 @@ export default class WebDAVClient {
                     action = "merge";
                     console.log("执行操作: 合并本地和远程数据（远程较新或仅远程存在）");
                     finalData = this.mergeData(currentLocalData, remoteData, initialPresetDrinks, originalPresetDrinkIds);
-                    await this.uploadData(finalData);
-                    message = "同步成功：已合并本地和远程数据";
+                    // 只有在合并后的数据有意义时才上传
+                    const isMergedDataMeaningful = (finalData.records?.length > 0) || (finalData.drinks?.length > 0);
+                    if (isMergedDataMeaningful) {
+                        await this.uploadData(finalData);
+                        message = "同步成功：已合并本地和远程数据";
+                    } else {
+                        message = "同步成功：已下载远程数据";
+                    }
                     break;
 
                 case 'equal':
                     action = "merge";
                     console.log("执行操作: 时间戳相等，执行合并以确保数据一致性");
                     finalData = this.mergeData(currentLocalData, remoteData, initialPresetDrinks, originalPresetDrinkIds);
-                    await this.uploadData(finalData);
-                    message = "同步成功：数据已合并/验证";
+                    // 检查是否需要上传
+                    const needsUpload = isLocalDataMeaningful || isRemoteDataMeaningful;
+                    if (needsUpload) {
+                        await this.uploadData(finalData);
+                        message = "同步成功：数据已合并/验证";
+                    } else {
+                        message = "同步完成：无数据需要同步";
+                    }
                     break;
 
                 case 'no_timestamps':
-                    action = "merge";
-                    console.log("执行操作: 本地和远程均无时间戳，执行合并");
-                    finalData = this.mergeData(currentLocalData, remoteData, initialPresetDrinks, originalPresetDrinkIds);
-                    await this.uploadData(finalData);
-                    message = "同步成功：无时间戳数据已合并";
+                    // 无时间戳时，优先保留有数据的一方
+                    if (isRemoteDataMeaningful && !isLocalDataMeaningful) {
+                        action = "download";
+                        console.log("执行操作: 使用远程数据 (无时间戳，远程有数据，本地为空)");
+                        finalData = { ...remoteData };
+                        if (localData?.userSettings?.webdavPassword) {
+                            finalData.userSettings = {
+                                ...finalData.userSettings,
+                                webdavPassword: localData.userSettings.webdavPassword
+                            };
+                        }
+                        message = "同步成功：已从服务器下载数据";
+                    } else if (isLocalDataMeaningful && !isRemoteDataMeaningful) {
+                        action = "upload";
+                        console.log("执行操作: 上传本地数据 (无时间戳，本地有数据，远程为空)");
+                        finalData = {
+                            ...currentLocalData,
+                            syncTimestamp: Date.now(),
+                            userSettings: { ...(currentLocalData.userSettings || {}) }
+                        };
+                        await this.uploadData(finalData);
+                        message = "同步成功：本地数据已上传";
+                    } else if (isLocalDataMeaningful && isRemoteDataMeaningful) {
+                        action = "merge";
+                        console.log("执行操作: 合并数据 (无时间戳，本地和远程都有数据)");
+                        finalData = this.mergeData(currentLocalData, remoteData, initialPresetDrinks, originalPresetDrinkIds);
+                        await this.uploadData(finalData);
+                        message = "同步成功：无时间戳数据已合并";
+                    } else {
+                        action = "no_action";
+                        console.log("执行操作: 本地和远程都为空，无需操作");
+                        finalData = currentLocalData;
+                        message = "同步完成：无数据需要同步";
+                    }
+                    if (localData?.userSettings?.webdavPassword && finalData.userSettings && !finalData.userSettings.webdavPassword) {
+                        finalData.userSettings.webdavPassword = localData.userSettings.webdavPassword;
+                    }
                     break;
 
                 default:

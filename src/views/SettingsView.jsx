@@ -3,13 +3,16 @@ import {
     User, Weight, Target, Sliders, Clock, Moon,
     Droplet, Coffee, Plus, X, Save, Edit, Trash2,
     Download, Upload, RotateCcw, HelpCircle, Tag,
-    CloudDownload, Server, Lock, Activity, TestTubeDiagonal, Database
+    CloudDownload, Server, Lock, Activity, TestTubeDiagonal, Database, Smartphone, Link as LinkIcon
 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Preferences } from '@capacitor/preferences';
+import { useSearchParams } from 'react-router-dom';
 import { formatDatetimeLocal } from '../utils/timeUtils';
 import { initialPresetDrinks, DRINK_CATEGORIES, DEFAULT_CATEGORY, defaultSettings, getPresetIconColor } from '../utils/constants';
+import SyncConfigShare from '../components/SyncConfigShare';
+import ManualImportModal from '../components/ManualImportModal'; // 导入新组件
 
 // 动态导入 WebDAVClient
 const WebDAVClientPromise = import('../utils/webdavSync');
@@ -32,8 +35,11 @@ const SettingsView = ({
     setRecords,
     colors,
     appConfig,
-    isNativePlatform
+    isNativePlatform,
+    onImportConfig
 }) => {
+    const [searchParams, setSearchParams] = useSearchParams();
+    
     // 饮品编辑状态
     const [showDrinkEditor, setShowDrinkEditor] = useState(false);
     const [editingDrink, setEditingDrink] = useState(null);
@@ -47,6 +53,22 @@ const SettingsView = ({
     // WebDAV测试状态
     const [testingWebDAV, setTestingWebDAV] = useState(false);
     const [webDAVTestResult, setWebDAVTestResult] = useState(null);
+    
+    // 配置分享状态
+    const [showConfigShare, setShowConfigShare] = useState(false);
+    const [showManualImport, setShowManualImport] = useState(false); // 新状态
+    const [importConfigParam, setImportConfigParam] = useState(''); // 用于存储URL参数中的config
+
+    // 检测URL参数中的config，如果存在则自动打开手动导入弹窗
+    useEffect(() => {
+        const configParam = searchParams.get('config');
+        if (configParam) {
+            setImportConfigParam(configParam);
+            setShowManualImport(true);
+            // 清除URL参数，避免刷新后重复触发
+            setSearchParams({});
+        }
+    }, [searchParams, setSearchParams]);
 
     // 加载持久化的 WebDAV 密码
     useEffect(() => {
@@ -438,6 +460,14 @@ const SettingsView = ({
         reader.readAsText(file);
         event.target.value = null;
     }, [setRecords, onUpdateSettings, setDrinks, userSettings]);
+
+    // 处理手动导入
+    const handleManualImport = useCallback(async (url) => {
+        if (!url) return;
+
+        // 直接导航到导入页面
+        window.location.href = url;
+    }, []);
 
     return (
         <div className="columns-1 sm:columns-2 xl:columns-3 gap-4 w-full">
@@ -875,42 +905,81 @@ const SettingsView = ({
                     </div>
 
                     {/* 操作按钮 */}
-                    <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-3">
+                    <div className="space-y-2">
+                        <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-3">
+                            <button
+                                onClick={testWebDAVConnection}
+                                className="py-2 px-4 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors duration-200 text-sm shadow flex items-center justify-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={!isWebDAVConfigured || testingWebDAV}
+                            >
+                                <TestTubeDiagonal size={16} className="mr-1.5" aria-hidden="true" />
+                                {testingWebDAV ? '测试中...' : '测试连接'}
+                            </button>
+                            <button
+                                onClick={onManualSync}
+                                className="py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors duration-200 text-sm shadow flex items-center justify-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={!isWebDAVConfigured || syncStatus.inProgress}
+                            >
+                                <CloudDownload size={16} className="mr-1.5" aria-hidden="true" />
+                                {syncStatus.inProgress ? '同步中...' : '立即同步'}
+                            </button>
+                        </div>
+                        
+                        {/* 配置有效时显示：生成配置分享 */}
+                        {isWebDAVConfigured && (
+                            <button
+                                onClick={() => setShowConfigShare(true)}
+                                className="w-full py-2 px-4 text-white rounded-md transition-colors duration-200 text-sm shadow flex items-center justify-center font-medium"
+                                style={{
+                                    backgroundColor: colors.accent
+                                }}
+                            >
+                                <Smartphone size={16} className="mr-1.5" aria-hidden="true" />
+                                分享同步配置
+                            </button>
+                        )}
+                        
+                        {/* 配置无效时显示提示 */}
+                        {!isWebDAVConfigured && userSettings.webdavEnabled && (
+                            <div 
+                                className="p-3 rounded-lg text-sm border"
+                                style={{
+                                    backgroundColor: colors.warningBg,
+                                    borderColor: colors.warning,
+                                    color: colors.warningText
+                                }}
+                            >
+                                <p className="font-medium flex items-center">
+                                    <HelpCircle size={16} className="mr-2" />
+                                    配置不完整
+                                </p>
+                                <p className="mt-1 text-xs">
+                                    请确保已填写服务器地址、用户名和密码，才能生成配置分享或进行同步。
+                                </p>
+                            </div>
+                        )}
+                        
+                        {/* 手动输入配置链接按钮 */}
                         <button
-                            onClick={testWebDAVConnection}
-                            className="py-2 px-4 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors duration-200 text-sm shadow flex items-center justify-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={!isWebDAVConfigured || testingWebDAV}
+                            onClick={() => setShowManualImport(true)}
+                            className="w-full py-2 px-4 border rounded-md hover:bg-gray-100 dark:hover:bg-stone-700 active:bg-gray-200 dark:active:bg-stone-600 transition-colors duration-200 text-sm flex items-center justify-center font-medium"
+                            style={{
+                                borderColor: colors.borderStrong,
+                                color: colors.textSecondary
+                            }}
                         >
-                            <TestTubeDiagonal size={16} className="mr-1.5" aria-hidden="true" />
-                            {testingWebDAV ? '测试中...' : '测试连接'}
-                        </button>
-                        <button
-                            onClick={onManualSync}
-                            className="py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors duration-200 text-sm shadow flex items-center justify-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={!isWebDAVConfigured || syncStatus.inProgress}
-                        >
-                            <CloudDownload size={16} className="mr-1.5" aria-hidden="true" />
-                            {syncStatus.inProgress ? '同步中...' : '立即同步'}
+                            <LinkIcon size={16} className="mr-1.5" aria-hidden="true" />
+                            手动导入配置
                         </button>
                     </div>
 
-                    {/* 调试信息 */}
-                    {userSettings.develop && (
-                        <div className="mt-3 p-2 bg-gray-100 rounded text-xs">
-                            <p>调试信息:</p>
-                            <p>WebDAV启用: {userSettings.webdavEnabled ? '是' : '否'}</p>
-                            <p>服务器: {userSettings.webdavServer || '未设置'}</p>
-                            <p>用户名: {userSettings.webdavUsername || '未设置'}</p>
-                            <p>密码: {userSettings.webdavPassword ? '已设置' : '未设置'}</p>
-                            <p>配置完整: {isWebDAVConfigured ? '是' : '否'}</p>
-                        </div>
-                    )}
+
 
                     {/* 测试结果 */}
                     {webDAVTestResult && (
                         <div className={`p-3 rounded-lg text-sm border ${webDAVTestResult.success
-                            ? 'bg-green-50 text-green-800 border-green-200'
-                            : 'bg-red-50 text-red-800 border-red-200'
+                            ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 border-green-200 dark:border-green-800'
+                            : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border-red-200 dark:border-red-800'
                             }`}>
                             <div className="flex items-start">
                                 <div className={`flex-shrink-0 w-4 h-4 rounded-full mt-0.5 mr-2 ${webDAVTestResult.success ? 'bg-green-500' : 'bg-red-500'
@@ -924,7 +993,7 @@ const SettingsView = ({
                                     </p>
                                     {!webDAVTestResult.success && (
                                         <div className="mt-2 text-xs">
-                                            <p className="font-medium text-red-700 mb-2">故障排除建议:</p>
+                                            <p className="font-medium text-red-700 dark:text-red-300 mb-2">故障排除建议:</p>
                                             <ul className="list-disc list-inside mt-1 space-y-1">
                                                 <li>确认服务器地址格式正确 (http:// 或 https://)</li>
                                                 <li>检查用户名和密码是否正确</li>
@@ -933,25 +1002,25 @@ const SettingsView = ({
                                                 <li>尝试使用其他WebDAV客户端测试服务器连接</li>
                                             </ul>
                                             <br></br>
-                                            <p className="font-medium text-red-700 mb-2">推荐解决方案:</p>
-                                            <div className="bg-blue-50 border border-blue-200 rounded p-2 mb-2">
-                                                <p className="font-medium text-blue-800">📱 使用Android APP (推荐)</p>
-                                                <p className="text-blue-700 mt-1">Android APP不受CORS限制，同步成功率更高。</p>
+                                            <p className="font-medium text-red-700 dark:text-red-300 mb-2">推荐解决方案:</p>
+                                            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2 mb-2">
+                                                <p className="font-medium text-blue-800 dark:text-blue-200">📱 使用Android APP (推荐)</p>
+                                                <p className="text-blue-700 dark:text-blue-300 mt-1">Android APP不受CORS限制，同步成功率更高。</p>
                                                 <a
                                                     href={appConfig.download_url}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="inline-block mt-1 text-blue-600 underline hover:text-blue-800"
+                                                    className="inline-block mt-1 text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300"
                                                 >
                                                     下载Android APP →
                                                 </a>
                                             </div>
-                                            <div className="bg-gray-50 border border-gray-200 rounded p-2 mb-2">
-                                                <p className="font-medium text-gray-800">📧 联系支持</p>
-                                                <p className="text-gray-700 mt-1">如果问题持续存在，请发送邮件至:</p>
+                                            <div className="bg-gray-50 dark:bg-stone-900/50 border border-gray-200 dark:border-stone-700 rounded p-2 mb-2">
+                                                <p className="font-medium text-gray-800 dark:text-gray-200">📧 联系支持</p>
+                                                <p className="text-gray-700 dark:text-gray-300 mt-1">如果问题持续存在，请发送邮件至:</p>
                                                 <a
                                                     href="mailto:i@jerryz.com.cn?subject=咖啡因追踪器WebDAV同步问题&body=请描述您遇到的问题，并附上您的WebDAV服务商信息（如坚果云、NextCloud等）。"
-                                                    className="inline-block mt-1 text-gray-600 underline hover:text-gray-800"
+                                                    className="inline-block mt-1 text-gray-600 dark:text-gray-400 underline hover:text-gray-800 dark:hover:text-gray-300"
                                                 >
                                                     i@jerryz.com.cn
                                                 </a>
@@ -976,17 +1045,17 @@ const SettingsView = ({
                                 )}
                             </p>
                             {syncStatus.lastSyncResult && !syncStatus.lastSyncResult.success && (
-                                <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
-                                    <p className="text-yellow-800 font-medium">💡 同步失败解决建议:</p>
-                                    <p className="text-yellow-700 mt-1">
+                                <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-xs">
+                                    <p className="text-yellow-800 dark:text-yellow-200 font-medium">💡 同步失败解决建议:</p>
+                                    <p className="text-yellow-700 dark:text-yellow-300 mt-1">
                                         建议使用 <a
                                             href={appConfig.download_url}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="underline hover:text-yellow-900"
+                                            className="underline hover:text-yellow-900 dark:hover:text-yellow-100"
                                         >Android APP</a> 或联系 <a
                                             href="mailto:i@jerryz.com.cn?subject=咖啡因追踪器WebDAV同步问题"
-                                            className="underline hover:text-yellow-900"
+                                            className="underline hover:text-yellow-900 dark:hover:text-yellow-100"
                                         >技术支持</a>
                                     </p>
                                 </div>
@@ -1438,6 +1507,29 @@ const SettingsView = ({
                     </div>
                 </div>
             </section>
+            
+            {/* 配置分享对话框 */}
+            {showConfigShare && (
+                <SyncConfigShare
+                    webdavConfig={{
+                        server: userSettings.webdavServer,
+                        username: userSettings.webdavUsername,
+                        password: userSettings.webdavPassword
+                    }}
+                    onClose={() => setShowConfigShare(false)}
+                    colors={colors}
+                />
+            )}
+
+            {/* 手动导入模态框 */}
+            {showManualImport && (
+                <ManualImportModal 
+                    onClose={() => setShowManualImport(false)} 
+                    colors={colors}
+                    onImportConfig={onImportConfig}
+                    initialConfigParam={importConfigParam}
+                />
+            )}
         </div>
     );
 };

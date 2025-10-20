@@ -20,6 +20,7 @@ const CurrentStatusView = lazy(() => import('./views/CurrentStatusView'));
 const StatisticsView = lazy(() => import('./views/StatisticsView'));
 const SettingsView = lazy(() => import('./views/SettingsView'));
 const AboutView = lazy(() => import('./views/AboutView'));
+const SyncImportView = lazy(() => import('./views/SyncImportView'));
 
 const UMAMI_SCRIPT_ID = 'umami-analytics-script';
 const ADSENSE_SCRIPT_ID = 'google-adsense-script';
@@ -412,7 +413,7 @@ const CaffeineTrackerApp = () => {
 
     if (!initialDataLoaded) {
       console.log("初始数据未加载完成，跳过WebDAV同步");
-      return;
+      return { success: false, message: "初始数据未加载完成" };
     }
 
     if (!settingsToUse.webdavEnabled) {
@@ -422,7 +423,7 @@ const CaffeineTrackerApp = () => {
         inProgress: false,
         lastSyncResult: { success: false, message: "WebDAV同步已禁用" }
       }));
-      return;
+      return { success: false, message: "WebDAV同步已禁用" };
     }
 
     if (!settingsToUse.webdavServer || !settingsToUse.webdavUsername || !settingsToUse.webdavPassword) {
@@ -434,7 +435,7 @@ const CaffeineTrackerApp = () => {
       }));
       setShowSyncBadge(true);
       setTimeout(() => setShowSyncBadge(false), 3000);
-      return;
+      throw new Error("WebDAV配置不完整");
     }
 
     setSyncStatus(prev => ({ ...prev, inProgress: true }));
@@ -523,8 +524,9 @@ const CaffeineTrackerApp = () => {
           lastSyncTime: new Date(result.timestamp),
           lastSyncResult: { success: true, message: result.message }
         });
+        return { success: true, message: result.message };
       } else {
-        throw new Error(result.message);
+        throw new Error(result.message || "同步失败");
       }
     } catch (error) {
       console.error("WebDAV同步过程中发生错误:", {
@@ -539,6 +541,7 @@ const CaffeineTrackerApp = () => {
           message: error.message || "同步时发生未知错误"
         }
       });
+      throw error; // 重新抛出错误以便调用者捕获
     } finally {
       setTimeout(() => { setShowSyncBadge(false); }, 5000);
       console.log("=== performWebDAVSync 完成 ===");
@@ -712,6 +715,44 @@ const CaffeineTrackerApp = () => {
     performWebDAVSync(userSettings, records, drinks);
   }, [userSettings, records, drinks, performWebDAVSync]);
 
+  // 处理导入WebDAV配置
+  const handleImportConfig = useCallback(async (config) => {
+    console.log("=== 导入WebDAV配置 ===");
+    
+    try {
+      // 更新WebDAV配置
+      const newSettings = {
+        ...userSettings,
+        webdavEnabled: true,
+        webdavServer: config.server,
+        webdavUsername: config.username,
+        webdavPassword: config.password,
+        webdavSyncFrequency: userSettings.webdavSyncFrequency || 'manual'
+      };
+      
+      // 保存密码到Preferences
+      await Preferences.set({ key: 'webdavPassword', value: config.password });
+      
+      // 更新设置
+      setUserSettings(newSettings);
+      
+      // 立即执行同步,从服务器下载数据并覆盖本地
+      console.log("开始从服务器同步数据...");
+      const syncResult = await performWebDAVSync(newSettings, records, drinks);
+      
+      if (!syncResult || !syncResult.success) {
+        // 如果同步失败，抛出错误
+        throw new Error(syncResult?.message || "同步失败，请检查网络连接和WebDAV配置");
+      }
+      
+      console.log("配置导入和同步完成");
+    } catch (error) {
+      console.error("导入配置或同步失败:", error);
+      // 重新抛出错误，让UI层显示具体错误信息
+      throw new Error(error.message || "导入配置失败，请稍后重试");
+    }
+  }, [userSettings, records, drinks, performWebDAVSync]);
+
   // 监听WebDAV配置状态
   useEffect(() => {
     const configured = userSettings.webdavEnabled &&
@@ -749,10 +790,19 @@ const CaffeineTrackerApp = () => {
             <button
               onClick={handleManualSync}
               disabled={!webdavConfigured || syncStatus.inProgress}
-              className={`p-2 rounded-full transition-all duration-300 ${syncStatus.inProgress ? 'animate-spin text-blue-500' : ''
-                } ${!webdavConfigured ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200'
+              className={`p-2 rounded-full transition-all duration-300 ${
+                syncStatus.inProgress 
+                  ? 'animate-spin' 
+                  : ''
+                } ${
+                !webdavConfigured 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'hover:bg-opacity-10'
                 }`}
-              style={{ color: colors.textSecondary }}
+              style={{ 
+                color: syncStatus.inProgress ? colors.accent : colors.textSecondary,
+                backgroundColor: !webdavConfigured || syncStatus.inProgress ? 'transparent' : undefined
+              }}
               aria-label="手动同步 WebDAV 数据"
               title={!webdavConfigured ? 'WebDAV配置不完整' : '手动同步'}
             >
@@ -888,6 +938,7 @@ const CaffeineTrackerApp = () => {
                 userSettings={userSettings}
                 drinks={drinks}
                 colors={colors}
+                theme={effectiveTheme}
               />
             } />
 
@@ -905,6 +956,7 @@ const CaffeineTrackerApp = () => {
                 colors={colors}
                 appConfig={appConfig}
                 isNativePlatform={isNativePlatform}
+                onImportConfig={handleImportConfig}
               />
             } />
 
@@ -912,6 +964,14 @@ const CaffeineTrackerApp = () => {
               <AboutView
                 colors={colors}
                 appConfig={appConfig}
+                isNativePlatform={isNativePlatform}
+              />
+            } />
+
+            <Route path="/sync-import" element={
+              <SyncImportView
+                colors={colors}
+                onImportConfig={handleImportConfig}
                 isNativePlatform={isNativePlatform}
               />
             } />
