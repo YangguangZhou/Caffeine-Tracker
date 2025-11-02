@@ -243,7 +243,12 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
             }}
             onClick={(e) => e.stopPropagation()} // 阻止冒泡
           >
-            <div className="font-semibold text-sm">{currentSelectedSectorData.name}</div>
+            <div 
+              className="font-semibold text-sm"
+              style={{ color: defaultColors.textPrimary }}
+            >
+              {currentSelectedSectorData.name}
+            </div>
             <div className="text-xs mt-1" style={{ color: defaultColors.textSecondary }}>
               {sortBy === 'count'
                 ? `${currentSelectedSectorData.count}次 • ${Math.round(currentSelectedSectorData.percentage)}% • ${currentSelectedSectorData.amount}mg`
@@ -268,13 +273,23 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
           {sectors.map((sector) => (
             <div
               key={sector.id}
-              className="flex items-center text-xs py-1 px-1.5 rounded cursor-pointer hover:bg-gray-50 transition-colors" // 统一使用紧凑padding
+              className="flex items-center text-xs py-1 px-1.5 rounded cursor-pointer transition-colors" // 统一使用紧凑padding
               onClick={(e) => {
                 e.stopPropagation(); // 阻止冒泡
                 handleSectorClick(sector);
               }}
               style={{
                 backgroundColor: selectedSectorId === sector.id ? sector.color + '20' : 'transparent'
+              }}
+              onMouseEnter={(e) => {
+                if (selectedSectorId !== sector.id) {
+                  e.currentTarget.style.backgroundColor = defaultColors.borderSubtle;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (selectedSectorId !== sector.id) {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
               }}
             >
               <div

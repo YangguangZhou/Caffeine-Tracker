@@ -83,8 +83,10 @@ const SyncConfigShare = ({ webdavConfig, onClose, colors }) => {
         <div className="relative p-6">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 transition-colors rounded-full p-1 hover:bg-gray-100 dark:hover:bg-stone-700"
+            className="absolute top-4 right-4 transition-colors rounded-full p-1"
             style={{ color: colors.textMuted }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.borderSubtle}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             aria-label="关闭"
           >
             <X size={24} />

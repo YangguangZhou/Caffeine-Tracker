@@ -91,11 +91,11 @@ const StatsChart = ({
       if (entry.value > effectiveMaxDaily) return colors.danger;
       if (entry.value > effectiveMaxDaily * 0.75) return colors.warning;
       if (entry.value > 0) return colors.safe;
-      return '#e5e7eb'; // 零值使用浅灰色
+      return colors.borderSubtle; // 零值使用边框颜色适配深色模式
     } else {
       // 年视图：使用一致的颜色
-      if (entry.value > 0) return colors.espresso; // 有数据的月份使用深色
-      return '#e5e7eb'; // 零值使用浅灰色
+      if (entry.value > 0) return colors.accent; // 有数据的月份使用主题色
+      return colors.borderSubtle; // 零值使用边框颜色适配深色模式
     }
   };
 

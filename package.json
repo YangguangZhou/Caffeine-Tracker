@@ -21,6 +21,7 @@
     "@capacitor/status-bar": "^7.0.1",
     "@tailwindcss/vite": "^4.1.7",
     "html2canvas": "^1.4.1",
+    "katex": "^0.16.25",
     "lucide-react": "^0.511.0",
     "qrcode": "^1.5.4",
     "react": "^19.1.0",

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import StatsChart from '../components/StatsChart';
 import PieChart from '../components/PieChart';
+import MathFormula from '../components/MathFormula';
 import {
   getStartOfWeek, getEndOfWeek,
   getStartOfMonth, getEndOfMonth,
@@ -243,14 +244,30 @@ const StatisticsView = ({
       if (statsView === 'week') {
         const weekStart = new Date(getStartOfWeek(statsDate));
         const weekEnd = new Date(getEndOfWeek(statsDate));
-        const startStr = weekStart.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' });
-        const endStr = weekEnd.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' });
-        const yearStr = weekStart.getFullYear() !== weekEnd.getFullYear() ? `${weekStart.getFullYear()}/${weekEnd.getFullYear()}` : weekStart.getFullYear();
-        return `${startStr} - ${endStr}, ${yearStr}`;
+        
+        const startMonth = weekStart.getMonth() + 1;
+        const startDay = weekStart.getDate();
+        const endMonth = weekEnd.getMonth() + 1;
+        const endDay = weekEnd.getDate();
+        const year = weekStart.getFullYear();
+        const endYear = weekEnd.getFullYear();
+        
+        if (year !== endYear) {
+          // 跨年
+          return `${year}年${startMonth}月${startDay}日 - ${endYear}年${endMonth}月${endDay}日`;
+        } else if (startMonth !== endMonth) {
+          // 跨月但同年
+          return `${year}年${startMonth}月${startDay}日 - ${endMonth}月${endDay}日`;
+        } else {
+          // 同月
+          return `${year}年${startMonth}月${startDay}日 - ${endDay}日`;
+        }
       } else if (statsView === 'month') {
-        return statsDate.toLocaleDateString(undefined, { year: 'numeric', month: 'long' });
+        // 格式化为：2025年11月
+        return `${statsDate.getFullYear()}年${statsDate.getMonth() + 1}月`;
       } else if (statsView === 'year') {
-        return statsDate.getFullYear().toString();
+        // 格式化为：2025年
+        return `${statsDate.getFullYear()}年`;
       }
     } catch (e) { console.error("格式化统计时间段出错:", e); return "日期错误"; }
     return '';
@@ -397,6 +414,9 @@ const StatisticsView = ({
     const totalAmount = records.reduce((sum, r) => sum + r.amount, 0);
     const avgPerIntake = totalAmount / records.length; // 平均每次摄入量
 
+    // 计算平均每日摄入量
+    const avgDailyAmount = totalDays > 0 ? totalAmount / totalDays : 0;
+
     // 计算平均每天摄入时间（以小时为单位）
     const intakeHours = records.map(r => new Date(r.timestamp).getHours() + new Date(r.timestamp).getMinutes() / 60);
     const avgIntakeTime = intakeHours.length > 0 ? intakeHours.reduce((sum, hour) => sum + hour, 0) / intakeHours.length : 0;
@@ -441,6 +461,7 @@ const StatisticsView = ({
       maxWeekdayIndex,
       weekdayNames,
       avgPerIntake: Math.round(avgPerIntake),
+      avgDailyAmount: Math.round(avgDailyAmount), // 新增
       avgIntakeTime: Math.round(avgIntakeTime * 10) / 10,
       avgCaffeineAtSleep: Math.round(avgCaffeineAtSleep)
     };
@@ -673,79 +694,7 @@ const StatisticsView = ({
 
   return (
     <div className="columns-1 sm:columns-2 xl:columns-3 gap-4 w-full">
-      {/* 时间范围选择器 */}
-      <section
-        aria-labelledby="stats-period-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-4 shadow-lg border transition-colors break-inside-avoid mx-auto"
-        style={{
-          backgroundColor: colors.bgCard,
-          borderColor: colors.borderSubtle
-        }}
-      >
-        <div className="flex justify-between items-center mb-2">
-          <button
-            onClick={() => navigateStats(-1)}
-            className="p-2 rounded-md transition-colors duration-150 hover:bg-gray-100"
-            style={{ color: colors.textSecondary }}
-            aria-label="上一个时间段"
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <h2
-            id="stats-period-heading"
-            className="text-lg font-semibold text-center transition-colors"
-            style={{ color: colors.espresso }}
-          >
-            {formatStatsPeriod()}
-          </h2>
-          <button
-            onClick={() => navigateStats(1)}
-            className="p-2 rounded-md transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
-            style={{ color: colors.textSecondary }}
-            disabled={isNextPeriodDisabled}
-            aria-label="下一个时间段"
-          >
-            <ChevronRight size={18} />
-          </button>
-        </div>
-        <nav className="flex justify-center gap-2 mt-3" aria-label="统计视图切换">
-          <button
-            onClick={() => { setStatsView('week'); setStatsDate(new Date()); }}
-            className={`px-4 py-1.5 rounded-md text-sm transition-colors duration-200 font-medium ${statsView === 'week' ? 'text-white shadow-sm' : 'hover:bg-amber-100'}`}
-            style={statsView === 'week'
-              ? { backgroundColor: colors.accent }
-              : { backgroundColor: colors.bgBase, color: colors.accent }
-            }
-            aria-current={statsView === 'week' ? 'true' : 'false'}
-          >
-            周
-          </button>
-          <button
-            onClick={() => { setStatsView('month'); setStatsDate(new Date()); }}
-            className={`px-4 py-1.5 rounded-md text-sm transition-colors duration-200 font-medium ${statsView === 'month' ? 'text-white shadow-sm' : 'hover:bg-amber-100'}`}
-            style={statsView === 'month'
-              ? { backgroundColor: colors.accent }
-              : { backgroundColor: colors.bgBase, color: colors.accent }
-            }
-            aria-current={statsView === 'month' ? 'true' : 'false'}
-          >
-            月
-          </button>
-          <button
-            onClick={() => { setStatsView('year'); setStatsDate(new Date()); }}
-            className={`px-4 py-1.5 rounded-md text-sm transition-colors duration-200 font-medium ${statsView === 'year' ? 'text-white shadow-sm' : 'hover:bg-amber-100'}`}
-            style={statsView === 'year'
-              ? { backgroundColor: colors.accent }
-              : { backgroundColor: colors.bgBase, color: colors.accent }
-            }
-            aria-current={statsView === 'year' ? 'true' : 'false'}
-          >
-            年
-          </button>
-        </nav>
-      </section>
-
-      {/* 摄入概览卡片 */}
+      {/* 摄入概览卡片 - 包含时间范围选择 */}
       <section
         aria-labelledby="intake-overview-heading"
         className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
@@ -761,6 +710,108 @@ const StatisticsView = ({
         >
           <BarChart2 size={20} className="mr-2" /> 摄入总览
         </h3>
+
+        {/* 时间范围选择器 */}
+        <div className="mb-4">
+          <div className="flex justify-between items-center mb-3">
+            <button
+              onClick={() => navigateStats(-1)}
+              className="p-2 rounded-md transition-colors duration-150"
+              style={{ color: colors.textSecondary }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.borderSubtle}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              aria-label="上一个时间段"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <h2
+              className="text-base font-semibold text-center transition-colors"
+              style={{ color: colors.textPrimary }}
+            >
+              {formatStatsPeriod()}
+            </h2>
+            <button
+              onClick={() => navigateStats(1)}
+              className="p-2 rounded-md transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ color: colors.textSecondary }}
+              disabled={isNextPeriodDisabled}
+              onMouseEnter={(e) => {
+                if (!isNextPeriodDisabled) {
+                  e.currentTarget.style.backgroundColor = colors.borderSubtle;
+                }
+              }}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              aria-label="下一个时间段"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+          <nav className="flex justify-center gap-2" aria-label="统计视图切换">
+            <button
+              onClick={() => { setStatsView('week'); setStatsDate(new Date()); }}
+              className={`px-4 py-1.5 rounded-md text-sm transition-colors duration-200 font-medium ${statsView === 'week' ? 'text-white shadow-sm' : ''}`}
+              style={statsView === 'week'
+                ? { backgroundColor: colors.accent }
+                : { backgroundColor: colors.bgBase, color: colors.accent }
+              }
+              onMouseEnter={(e) => {
+                if (statsView !== 'week') {
+                  e.currentTarget.style.backgroundColor = colors.borderSubtle;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (statsView !== 'week') {
+                  e.currentTarget.style.backgroundColor = colors.bgBase;
+                }
+              }}
+              aria-current={statsView === 'week' ? 'true' : 'false'}
+            >
+              周
+            </button>
+            <button
+              onClick={() => { setStatsView('month'); setStatsDate(new Date()); }}
+              className={`px-4 py-1.5 rounded-md text-sm transition-colors duration-200 font-medium ${statsView === 'month' ? 'text-white shadow-sm' : ''}`}
+              style={statsView === 'month'
+                ? { backgroundColor: colors.accent }
+                : { backgroundColor: colors.bgBase, color: colors.accent }
+              }
+              onMouseEnter={(e) => {
+                if (statsView !== 'month') {
+                  e.currentTarget.style.backgroundColor = colors.borderSubtle;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (statsView !== 'month') {
+                  e.currentTarget.style.backgroundColor = colors.bgBase;
+                }
+              }}
+              aria-current={statsView === 'month' ? 'true' : 'false'}
+            >
+              月
+            </button>
+            <button
+              onClick={() => { setStatsView('year'); setStatsDate(new Date()); }}
+              className={`px-4 py-1.5 rounded-md text-sm transition-colors duration-200 font-medium ${statsView === 'year' ? 'text-white shadow-sm' : ''}`}
+              style={statsView === 'year'
+                ? { backgroundColor: colors.accent }
+                : { backgroundColor: colors.bgBase, color: colors.accent }
+              }
+              onMouseEnter={(e) => {
+                if (statsView !== 'year') {
+                  e.currentTarget.style.backgroundColor = colors.borderSubtle;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (statsView !== 'year') {
+                  e.currentTarget.style.backgroundColor = colors.bgBase;
+                }
+              }}
+              aria-current={statsView === 'year' ? 'true' : 'false'}
+            >
+              年
+            </button>
+          </nav>
+        </div>
         <div className="grid grid-cols-2 gap-3 mb-5">
           {/* 总摄入量 */}
           <div
@@ -784,6 +835,26 @@ const StatisticsView = ({
                   : getYearTotal(statsDate)
               } mg
             </p>
+            <p
+              className="text-xs mt-0.5 transition-colors"
+              style={{ color: colors.textMuted }}
+            >
+              {(() => {
+                let start, end;
+                if (statsView === 'week') {
+                  start = getStartOfWeek(statsDate);
+                  end = getEndOfWeek(statsDate);
+                } else if (statsView === 'month') {
+                  start = getStartOfMonth(statsDate);
+                  end = getEndOfMonth(statsDate);
+                } else {
+                  start = getStartOfYear(statsDate);
+                  end = getEndOfYear(statsDate);
+                }
+                const count = records.filter(record => record && record.timestamp >= start && record.timestamp <= end).length;
+                return `共${count}次`;
+              })()}
+            </p>
           </div>
           {/* 日均摄入量 */}
           <div
@@ -803,10 +874,32 @@ const StatisticsView = ({
               {(() => {
                 let total = 0;
                 let days = 0;
-                if (statsView === 'week') { total = getWeekTotal(statsDate); days = 7; }
-                else if (statsView === 'month') { total = getMonthTotal(statsDate); days = new Date(statsDate.getFullYear(), statsDate.getMonth() + 1, 0).getDate(); }
-                else { total = getYearTotal(statsDate); const year = statsDate.getFullYear(); days = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 366 : 365; }
-                return days > 0 && total > 0 ? Math.round(total / (periodStats?.activeDays || days)) : 0;
+                const now = Date.now();
+                
+                if (statsView === 'week') {
+                  total = getWeekTotal(statsDate);
+                  const weekStart = getStartOfWeek(statsDate);
+                  const weekEnd = getEndOfWeek(statsDate);
+                  // 计算周期内已过去的实际天数（包括今天，不包括未来）
+                  const periodEnd = Math.min(weekEnd, now);
+                  days = Math.max(1, Math.ceil((periodEnd - weekStart) / (24 * 60 * 60 * 1000)));
+                } else if (statsView === 'month') {
+                  total = getMonthTotal(statsDate);
+                  const monthStart = getStartOfMonth(statsDate);
+                  const monthEnd = getEndOfMonth(statsDate);
+                  // 计算月份内已过去的实际天数
+                  const periodEnd = Math.min(monthEnd, now);
+                  days = Math.max(1, Math.ceil((periodEnd - monthStart) / (24 * 60 * 60 * 1000)));
+                } else {
+                  total = getYearTotal(statsDate);
+                  const yearStart = getStartOfYear(statsDate);
+                  const yearEnd = getEndOfYear(statsDate);
+                  // 计算年份内已过去的实际天数
+                  const periodEnd = Math.min(yearEnd, now);
+                  days = Math.max(1, Math.ceil((periodEnd - yearStart) / (24 * 60 * 60 * 1000)));
+                }
+                
+                return days > 0 && total > 0 ? Math.round(total / days) : 0;
               })()} mg
             </p>
           </div>
@@ -1062,19 +1155,19 @@ const StatisticsView = ({
               <>
                 <div className="grid grid-cols-4 gap-2 text-sm mb-6">
                   <StatItem icon={<Calendar size={16} />} label="记录天数" value={detailedStats.totalDays} unit="天" />
+                  <StatItem icon={<Coffee size={16} />} label="记录次数" value={records.length} unit="次" />
                   <StatItem icon={<AlertCircle size={16} />} label="超标天数" value={detailedStats.exceedDays} unit="天" colorClass={detailedStats.exceedDays > 0 ? 'text-orange-500' : ''} />
                   <StatItem icon={<Percent size={16} />} label="超标率" value={detailedStats.exceedRate} unit="%" colorClass={detailedStats.exceedRate > 20 ? 'text-red-500' : detailedStats.exceedRate > 10 ? 'text-orange-500' : ''} />
-                  <StatItem icon={<Target size={16} />} label="最大单次" value={detailedStats.maxSingleIntake} unit="mg" />
 
+                  <StatItem icon={<Droplet size={16} />} label="平均单次" value={detailedStats.avgPerIntake} unit="mg" />
+                  <StatItem icon={<ActivityIcon size={16} />} label="平均每日" value={detailedStats.avgDailyAmount} unit="mg" />
+                  <StatItem icon={<Target size={16} />} label="最大单次" value={detailedStats.maxSingleIntake} unit="mg" />
+                  <StatItem icon={<Moon size={16} />} label="睡前残留" value={detailedStats.avgCaffeineAtSleep} unit="mg" colorClass={detailedStats.avgCaffeineAtSleep > 30 ? 'text-orange-500' : ''} />
+                  
                   <StatItem icon={<TrendingUp size={16} />} label="最长连续" value={detailedStats.maxStreak} unit="天" />
                   <StatItem icon={<Zap size={16} />} label="当前连续" value={detailedStats.currentStreak} unit="天" />
-                  <StatItem icon={<Droplet size={16} />} label="平均单次" value={detailedStats.avgPerIntake} unit="mg" />
                   <StatItem icon={<Clock size={16} />} label="平均间隔" value={detailedStats.avgInterval} unit="h" />
-
                   <StatItem icon={<Brain size={16} />} label="平均时间" value={`${Math.floor(detailedStats.avgIntakeTime)}:${String(Math.round((detailedStats.avgIntakeTime % 1) * 60)).padStart(2, '0')}`} unit="" />
-                  <StatItem icon={<TrendingDown size={16} />} label="高峰时段" value={`${detailedStats.peakHour}:00`} unit="" />
-                  <StatItem icon={<Moon size={16} />} label="睡前残留" value={detailedStats.avgCaffeineAtSleep} unit="mg" colorClass={detailedStats.avgCaffeineAtSleep > 30 ? 'text-orange-500' : ''} />
-                  <StatItem icon={<Coffee size={16} />} label="高峰摄入" value={detailedStats.peakAmount} unit="mg" />
                 </div>
 
                 {/* 周度分析 */}
@@ -1131,7 +1224,7 @@ const StatisticsView = ({
                           {isSelected && (
                             <div
                               className="text-xs mt-1 font-medium"
-                              style={{ color: colors.espresso }}
+                              style={{ color: colors.textPrimary }}
                               onClick={(e) => e.stopPropagation()} // 点击数值不清除
                             >
                               {Math.round(amount)}mg
@@ -1235,7 +1328,7 @@ const StatisticsView = ({
                           {isSelected && (
                             <div
                               className="text-xs mt-1 font-medium"
-                              style={{ color: colors.espresso }}
+                              style={{ color: colors.textPrimary }}
                               onClick={(e) => e.stopPropagation()}
                             >
                               {Math.round(amount)}mg
@@ -1398,45 +1491,31 @@ const StatisticsView = ({
           <Info size={20} className="mr-2" /> 咖啡因知识库
         </h3>
         <ul
-          className="space-y-2 text-sm list-disc list-inside transition-colors"
+          className="space-y-4 text-sm transition-colors"
           style={{ color: colors.textSecondary }}
         >
-          <li>
-            <strong>推荐摄入量:</strong> FDA/Mayo Clinic 建议健康成人每日不超过
-            <strong style={{ color: colors.espresso }}> 400mg</strong>。
-            个性化推荐可按 <strong style={{ color: colors.espresso }}>3-6 mg/kg</strong>
-            体重计算 (本应用默认使用
-            <strong style={{ color: colors.espresso }}> {userSettings.recommendedDosePerKg} mg/kg</strong>，
-            可在设置中调整)。
+          <li className="leading-relaxed">
+            <strong style={{ color: colors.espresso }}>推荐摄入量:</strong> FDA/Mayo Clinic 建议健康成人每日不超过 <MathFormula formula="400" /> mg。
+            个性化推荐可按 <MathFormula formula="3-6" /> mg/kg 体重计算 (本应用默认使用 <MathFormula formula={userSettings.recommendedDosePerKg.toString()} /> mg/kg，可在设置中调整)。
           </li>
-          <li>
-            <strong>半衰期 (t½):</strong> 健康成人血浆半衰期平均约为
-            <strong style={{ color: colors.espresso }}> 5 小时</strong> (范围 1.5-9.5 小时)。
+          <li className="leading-relaxed">
+            <strong style={{ color: colors.espresso }}>半衰期:</strong> 健康成人血浆半衰期 <MathFormula formula="t_{1/2}" /> 平均约为 <MathFormula formula="5" /> 小时 (范围 <MathFormula formula="1.5-9.5" /> 小时)。
             这是体内咖啡因量减少一半所需时间。您可以在设置中调整此值以匹配个人情况。
           </li>
-          <li>
-            <strong>代谢模型:</strong> 本应用使用一级消除动力学模型 (
-            <strong style={{ color: colors.espresso }}>C(t) = C₀ * (0.5)^(t / t_half)</strong>,
-            其中 k = ln(2)/t½) 来估算体内咖啡因残留量。
+          <li className="leading-relaxed">
+            <strong style={{ color: colors.espresso }}>代谢模型:</strong> 本应用使用一级消除动力学模型来估算体内咖啡因残留量，公式为 <MathFormula formula="C(t) = C_0 \times 0.5^{t/t_{1/2}}" />，
+            其中消除速率常数 <MathFormula formula="k = \frac{\ln(2)}{t_{1/2}}" />。
           </li>
-          <li>
-            <strong>睡眠阈值:</strong> 多数研究建议睡前
-            <strong style={{ color: colors.espresso }}> 6 小时</strong> 避免摄入。
-            本应用通过计算当前咖啡因含量降至设定的安全浓度阈值 (
-            <strong style={{ color: colors.espresso }}>{userSettings.safeSleepThresholdConcentration.toFixed(1)} mg/L</strong>)
-            所需时间来提供建议睡眠时间。此阈值可在设置中调整。
+          <li className="leading-relaxed">
+            <strong style={{ color: colors.espresso }}>睡眠阈值:</strong> 多数研究建议睡前 <MathFormula formula="6" /> 小时避免摄入。
+            本应用通过计算当前咖啡因含量降至设定的安全浓度阈值 (<MathFormula formula={`${userSettings.safeSleepThresholdConcentration.toFixed(1)}`} /> mg/L) 所需时间来提供建议睡眠时间。此阈值可在设置中调整。
           </li>
-          <li>
-            <strong>浓度估算:</strong> 体内浓度 (mg/L) 可通过
-            <strong style={{ color: colors.espresso }}> 剂量(mg) / (分布容积(L/kg) * 体重(kg))</strong> 估算。
-            典型分布容积 (Vd) 约为
-            <strong style={{ color: colors.espresso }}> 0.6 L/kg</strong> (可在设置调整)。
+          <li className="leading-relaxed">
+            <strong style={{ color: colors.espresso }}>浓度估算:</strong> 体内浓度 (mg/L) 可通过公式 <MathFormula formula="C = \frac{\text{剂量(mg)}}{V_d \times \text{体重(kg)}}" /> 估算，
+            其中典型分布容积 <MathFormula formula="V_d \approx 0.6" /> L/kg (可在设置调整)。
           </li>
-          <li>
-            <strong>清除时间:</strong> 大约需要
-            <strong style={{ color: colors.espresso }}> 5 个半衰期</strong>
-            (约 {(5 * userSettings.caffeineHalfLifeHours).toFixed(1)} 小时)
-            才能将体内咖啡因基本清除 (降至初始量的约 3%)。
+          <li className="leading-relaxed">
+            <strong style={{ color: colors.espresso }}>清除时间:</strong> 大约需要 <MathFormula formula="5" /> 个半衰期 (约 <MathFormula formula={(5 * userSettings.caffeineHalfLifeHours).toFixed(1)} /> 小时) 才能将体内咖啡因基本清除 (降至初始量的约 <MathFormula formula="3" />%)。
           </li>
         </ul>
       </section>

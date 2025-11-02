@@ -762,13 +762,17 @@ const SettingsView = ({
                         <input
                             id="webdavEnabled"
                             type="checkbox"
-                            className="mr-2 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            className="mr-2 h-4 w-4 rounded border focus:ring-2 cursor-pointer transition-colors"
+                            style={{
+                                borderColor: colors.borderStrong,
+                                accentColor: colors.accent
+                            }}
                             checked={userSettings.webdavEnabled}
                             onChange={(e) => handleSettingChange('webdavEnabled', e.target.checked)}
                         />
                         <label
                             htmlFor="webdavEnabled"
-                            className="font-medium transition-colors"
+                            className="font-medium cursor-pointer transition-colors"
                             style={{ color: colors.textSecondary }}
                         >
                             启用WebDAV同步
@@ -962,10 +966,17 @@ const SettingsView = ({
                         {/* 手动输入配置链接按钮 */}
                         <button
                             onClick={() => setShowManualImport(true)}
-                            className="w-full py-2 px-4 border rounded-md hover:bg-gray-100 dark:hover:bg-stone-700 active:bg-gray-200 dark:active:bg-stone-600 transition-colors duration-200 text-sm flex items-center justify-center font-medium"
+                            className="w-full py-2 px-4 border rounded-md transition-colors duration-200 text-sm flex items-center justify-center font-medium"
                             style={{
                                 borderColor: colors.borderStrong,
-                                color: colors.textSecondary
+                                color: colors.textSecondary,
+                                backgroundColor: 'transparent'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = colors.bgBase;
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent';
                             }}
                         >
                             <LinkIcon size={16} className="mr-1.5" aria-hidden="true" />
@@ -977,13 +988,21 @@ const SettingsView = ({
 
                     {/* 测试结果 */}
                     {webDAVTestResult && (
-                        <div className={`p-3 rounded-lg text-sm border ${webDAVTestResult.success
-                            ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-200 border-green-200 dark:border-green-800'
-                            : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 border-red-200 dark:border-red-800'
-                            }`}>
+                        <div 
+                            className="p-3 rounded-lg text-sm border"
+                            style={{
+                                backgroundColor: webDAVTestResult.success ? colors.safeBg : colors.dangerBg,
+                                borderColor: webDAVTestResult.success ? colors.safe : colors.danger,
+                                color: webDAVTestResult.success ? colors.safeText : colors.dangerText
+                            }}
+                        >
                             <div className="flex items-start">
-                                <div className={`flex-shrink-0 w-4 h-4 rounded-full mt-0.5 mr-2 ${webDAVTestResult.success ? 'bg-green-500' : 'bg-red-500'
-                                    }`} />
+                                <div 
+                                    className="flex-shrink-0 w-4 h-4 rounded-full mt-0.5 mr-2"
+                                    style={{ 
+                                        backgroundColor: webDAVTestResult.success ? colors.safe : colors.danger 
+                                    }}
+                                />
                                 <div className="flex-1">
                                     <p className="font-medium">
                                         {webDAVTestResult.success ? '连接成功' : '连接失败'}
@@ -993,7 +1012,7 @@ const SettingsView = ({
                                     </p>
                                     {!webDAVTestResult.success && (
                                         <div className="mt-2 text-xs">
-                                            <p className="font-medium text-red-700 dark:text-red-300 mb-2">故障排除建议:</p>
+                                            <p className="font-medium mb-2" style={{ color: colors.dangerText }}>故障排除建议:</p>
                                             <ul className="list-disc list-inside mt-1 space-y-1">
                                                 <li>确认服务器地址格式正确 (http:// 或 https://)</li>
                                                 <li>检查用户名和密码是否正确</li>
@@ -1002,25 +1021,43 @@ const SettingsView = ({
                                                 <li>尝试使用其他WebDAV客户端测试服务器连接</li>
                                             </ul>
                                             <br></br>
-                                            <p className="font-medium text-red-700 dark:text-red-300 mb-2">推荐解决方案:</p>
-                                            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-2 mb-2">
-                                                <p className="font-medium text-blue-800 dark:text-blue-200">📱 使用Android APP (推荐)</p>
-                                                <p className="text-blue-700 dark:text-blue-300 mt-1">Android APP不受CORS限制，同步成功率更高。</p>
+                                            <p className="font-medium mb-2" style={{ color: colors.dangerText }}>推荐解决方案:</p>
+                                            <div 
+                                                className="border rounded p-2 mb-2"
+                                                style={{
+                                                    backgroundColor: colors.infoBg,
+                                                    borderColor: colors.info
+                                                }}
+                                            >
+                                                <p className="font-medium" style={{ color: colors.infoText }}>📱 使用Android APP (推荐)</p>
+                                                <p className="mt-1" style={{ color: colors.infoText }}>Android APP不受CORS限制，同步成功率更高。</p>
                                                 <a
                                                     href={appConfig.download_url}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="inline-block mt-1 text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300"
+                                                    className="inline-block mt-1 underline"
+                                                    style={{ color: colors.infoText }}
+                                                    onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                                                    onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                                                 >
                                                     下载Android APP →
                                                 </a>
                                             </div>
-                                            <div className="bg-gray-50 dark:bg-stone-900/50 border border-gray-200 dark:border-stone-700 rounded p-2 mb-2">
-                                                <p className="font-medium text-gray-800 dark:text-gray-200">📧 联系支持</p>
-                                                <p className="text-gray-700 dark:text-gray-300 mt-1">如果问题持续存在，请发送邮件至:</p>
+                                            <div 
+                                                className="border rounded p-2 mb-2"
+                                                style={{
+                                                    backgroundColor: colors.bgBase,
+                                                    borderColor: colors.borderStrong
+                                                }}
+                                            >
+                                                <p className="font-medium" style={{ color: colors.textPrimary }}>📧 联系支持</p>
+                                                <p className="mt-1" style={{ color: colors.textSecondary }}>如果问题持续存在，请发送邮件至:</p>
                                                 <a
                                                     href="mailto:i@jerryz.com.cn?subject=咖啡因追踪器WebDAV同步问题&body=请描述您遇到的问题，并附上您的WebDAV服务商信息（如坚果云、NextCloud等）。"
-                                                    className="inline-block mt-1 text-gray-600 dark:text-gray-400 underline hover:text-gray-800 dark:hover:text-gray-300"
+                                                    className="inline-block mt-1 underline"
+                                                    style={{ color: colors.textSecondary }}
+                                                    onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                                                    onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                                                 >
                                                     i@jerryz.com.cn
                                                 </a>
@@ -1038,24 +1075,40 @@ const SettingsView = ({
                             <p>
                                 上次同步: {formatDatetimeLocal(syncStatus.lastSyncTime).replace('T', ' ')}
                                 {syncStatus.lastSyncResult && (
-                                    <span className={`ml-2 font-medium ${syncStatus.lastSyncResult.success ? 'text-green-600' : 'text-red-600'
-                                        }`}>
+                                    <span 
+                                        className="ml-2 font-medium"
+                                        style={{ 
+                                            color: syncStatus.lastSyncResult.success ? colors.safe : colors.danger 
+                                        }}
+                                    >
                                         ({syncStatus.lastSyncResult.success ? '成功' : '失败'}: {syncStatus.lastSyncResult.message})
                                     </span>
                                 )}
                             </p>
                             {syncStatus.lastSyncResult && !syncStatus.lastSyncResult.success && (
-                                <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-xs">
-                                    <p className="text-yellow-800 dark:text-yellow-200 font-medium">💡 同步失败解决建议:</p>
-                                    <p className="text-yellow-700 dark:text-yellow-300 mt-1">
+                                <div 
+                                    className="mt-2 p-2 border rounded text-xs"
+                                    style={{
+                                        backgroundColor: colors.warningBg,
+                                        borderColor: colors.warning
+                                    }}
+                                >
+                                    <p className="font-medium" style={{ color: colors.warningText }}>💡 同步失败解决建议:</p>
+                                    <p className="mt-1" style={{ color: colors.warningText }}>
                                         建议使用 <a
                                             href={appConfig.download_url}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="underline hover:text-yellow-900 dark:hover:text-yellow-100"
+                                            className="underline"
+                                            style={{ color: colors.warningText }}
+                                            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                                            onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                                         >Android APP</a> 或联系 <a
                                             href="mailto:i@jerryz.com.cn?subject=咖啡因追踪器WebDAV同步问题"
-                                            className="underline hover:text-yellow-900 dark:hover:text-yellow-100"
+                                            className="underline"
+                                            style={{ color: colors.warningText }}
+                                            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                                            onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                                         >技术支持</a>
                                     </p>
                                 </div>
@@ -1391,8 +1444,13 @@ const SettingsView = ({
                                         <div className="flex items-center flex-shrink-0 space-x-1 ml-2">
                                             <button
                                                 onClick={() => editDrink(drink)}
-                                                className="p-1.5 rounded-full hover:bg-gray-200 transition-colors duration-150"
-                                                style={{ color: colors.textSecondary }}
+                                                className="p-1.5 rounded-full transition-colors duration-150"
+                                                style={{ 
+                                                    color: colors.textSecondary,
+                                                    ':hover': { backgroundColor: colors.bgBase }
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.borderSubtle}
+                                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                                 aria-label={`编辑 ${drink.name}`}
                                             >
                                                 <Edit size={14} />
@@ -1400,14 +1458,22 @@ const SettingsView = ({
                                             {!isOriginalPreset ? (
                                                 <button
                                                     onClick={() => deleteDrink(drink.id)}
-                                                    className="p-1.5 text-red-600 rounded-full hover:bg-red-100 transition-colors duration-150"
+                                                    className="p-1.5 rounded-full transition-colors duration-150"
+                                                    style={{ color: colors.danger }}
+                                                    onMouseEnter={(e) => {
+                                                        e.currentTarget.style.backgroundColor = colors.dangerBg;
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                                    }}
                                                     aria-label={`删除 ${drink.name}`}
                                                 >
                                                     <Trash2 size={14} />
                                                 </button>
                                             ) : (
                                                 <span
-                                                    className="p-1.5 text-gray-400 cursor-not-allowed"
+                                                    className="p-1.5 cursor-not-allowed"
+                                                    style={{ color: colors.textMuted, opacity: 0.4 }}
                                                     title="原始预设饮品不可删除"
                                                     aria-label={`无法删除 ${drink.name} (预设)`}
                                                 >

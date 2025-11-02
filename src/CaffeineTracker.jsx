@@ -825,19 +825,51 @@ const CaffeineTrackerApp = () => {
 
         {/* 同步状态显示 */}
         {showSyncBadge && (
-          <div
-            className={`absolute top-14 right-4 mt-1 py-1 px-2 rounded-full text-xs z-10 ${syncStatus.lastSyncResult?.success
-              ? 'bg-green-100 text-green-700 border border-green-200' :
-              syncStatus.lastSyncResult?.message?.includes("配置") || syncStatus.lastSyncResult?.message?.includes("禁用")
-                ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' :
-                'bg-red-100 text-red-700 border border-red-200'
-              } flex items-center shadow-sm`}
-            style={{ marginTop: '5%' }}
+          <button
+            onClick={() => {
+              if (syncStatus.lastSyncResult && !syncStatus.lastSyncResult.success && !syncStatus.inProgress) {
+                alert(`同步失败\n\n原因: ${syncStatus.lastSyncResult.message}\n\n建议:\n1. 检查网络连接\n2. 验证WebDAV配置\n3. 使用Android APP获得更好的兼容性\n4. 联系技术支持: i@jerryz.com.cn`);
+              }
+            }}
+            className={`absolute top-14 right-4 mt-1 py-1 px-3 rounded-full text-xs font-medium z-10 flex items-center shadow-sm transition-all duration-200 border ${
+              syncStatus.inProgress 
+                ? 'cursor-default' 
+                : !syncStatus.lastSyncResult?.success 
+                  ? 'cursor-pointer hover:shadow-md' 
+                  : 'cursor-default'
+            }`}
+            style={{
+              marginTop: '5%',
+              backgroundColor: syncStatus.inProgress 
+                ? colors.infoBg 
+                : syncStatus.lastSyncResult?.success 
+                  ? colors.safeBg 
+                  : colors.dangerBg,
+              borderColor: syncStatus.inProgress 
+                ? colors.info 
+                : syncStatus.lastSyncResult?.success 
+                  ? colors.safe 
+                  : colors.danger,
+              color: syncStatus.inProgress 
+                ? colors.infoText 
+                : syncStatus.lastSyncResult?.success 
+                  ? colors.safeText 
+                  : colors.dangerText
+            }}
+            disabled={syncStatus.inProgress || syncStatus.lastSyncResult?.success}
+            aria-label={syncStatus.inProgress ? '同步中' : syncStatus.lastSyncResult?.success ? '同步成功' : '同步失败，点击查看详情'}
           >
-            {syncStatus.inProgress ? '同步中...' :
-              syncStatus.lastSyncResult?.success ? '同步成功' :
-                syncStatus.lastSyncResult?.message || '同步失败'}
-          </div>
+            {syncStatus.inProgress ? (
+              <>
+                <span className="animate-spin inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full mr-1.5"></span>
+                同步中
+              </>
+            ) : syncStatus.lastSyncResult?.success ? (
+              '✓ 成功'
+            ) : (
+              '✗ 失败'
+            )}
+          </button>
         )}
       </header>
 
