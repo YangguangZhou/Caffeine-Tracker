@@ -738,7 +738,19 @@ export default class WebDAVClient {
 
             // 比较并决定操作
             const remoteTs = remoteData?.syncTimestamp || null;
-            const comparison = this.compareTimestamps(localTs, remoteTs);
+            let comparison = this.compareTimestamps(localTs, remoteTs);
+
+            // 修复：新设备数据丢失问题
+            // 如果本地没有记录，但远程有记录，说明可能是新设备或数据被清除
+            // 此时应优先信任远程数据，避免本地空数据覆盖远程数据
+            const localHasRecords = currentLocalData.records && currentLocalData.records.length > 0;
+            const remoteHasRecords = remoteData && remoteData.records && remoteData.records.length > 0;
+            
+            if (!localHasRecords && remoteHasRecords) {
+                 console.log("检测到潜在的新设备状态 (本地无记录，远程有记录): 强制视为远程数据较新，以防止数据丢失");
+                 comparison = 'remote_newer';
+            }
+
             console.log(`时间戳比较结果: ${comparison} (本地: ${localTs}, 远程: ${remoteTs})`);
 
             let finalData = null;

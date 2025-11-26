@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ShieldCheck, Server, User, KeyRound, Download, Camera, X, Loader2 } from 'lucide-react';
+import { ShieldCheck, Server, User, KeyRound, Download, Camera, X, Loader2, Copy, Check } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
-import { decodeConfigFromUrl, isValidConfig, getServerDisplayName } from '../utils/syncConfigShare';
+import { decodeConfigFromUrl, isValidConfig, getServerDisplayName, extractConfigParam } from '../utils/syncConfigShare';
 
 const CustomModal = ({ children, colors }) => (
-  <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+  <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex justify-center items-center z-50 p-4">
     <div 
       className="rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-100 p-6 border"
       style={{
@@ -29,6 +29,8 @@ const SyncImportView = ({ onImportConfig, isNativePlatform, colors }) => {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [manualUrl, setManualUrl] = useState('');
   const [importStatus, setImportStatus] = useState(''); // '', 'syncing', 'success', 'failed'
+  const [scannedLink, setScannedLink] = useState('');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const configParam = searchParams.get('config');
@@ -43,23 +45,22 @@ const SyncImportView = ({ onImportConfig, isNativePlatform, colors }) => {
   const handleManualUrlParse = () => {
     if (!manualUrl) return;
     try {
-      const url = new URL(manualUrl);
-      // The config is in the hash part of the URL
-      const hashParams = new URLSearchParams(url.hash.substring(url.hash.indexOf('?') + 1));
-      const configParam = hashParams.get('config');
-      
-      if (configParam) {
-        const decoded = decodeConfigFromUrl(configParam);
+      const trimmed = manualUrl.trim();
+      const configParam = extractConfigParam(trimmed);
+      const candidate = configParam || (!/^https?:/i.test(trimmed) ? trimmed : null);
+
+      if (candidate) {
+        const decoded = decodeConfigFromUrl(candidate);
         if (decoded && isValidConfig(decoded)) {
           setConfigData(decoded);
           setShowConfirmation(true);
           setError('');
-        } else {
-          setError('链接中的配置数据无效。');
+          return;
         }
-      } else {
-        setError('链接中未找到配置参数。');
+        setError('链接中的配置数据无效。');
+        return;
       }
+      setError('链接中未找到配置参数。');
     } catch (err) {
       setError('无法解析输入的内容，请确保是有效的URL。');
     }
@@ -70,19 +71,34 @@ const SyncImportView = ({ onImportConfig, isNativePlatform, colors }) => {
       setError('扫码功能仅在原生App中可用。');
       return;
     }
+    let BarcodeScanner;
     try {
-      const { BarcodeScanner } = await import('@capacitor-community/barcode-scanner');
+      ({ BarcodeScanner } = await import('@capacitor-community/barcode-scanner'));
       await BarcodeScanner.checkPermission({ force: true });
-      document.body.style.background = "transparent";
-      const result = await BarcodeScanner.startScan();
-      document.body.style.background = "";
-      if (result.hasContent) {
-        setManualUrl(result.content);
-        // Use a slight delay to allow the UI to update with the pasted URL
-        setTimeout(handleManualUrlParse, 100);
+
+      await BarcodeScanner.prepare?.();
+      await BarcodeScanner.hideBackground?.();
+      document.body.classList.add('barcode-scanner-active');
+
+      let result;
+      try {
+        result = await BarcodeScanner.startScan();
+      } finally {
+        await BarcodeScanner.showBackground?.();
+        await BarcodeScanner.stopScan?.();
+        document.body.classList.remove('barcode-scanner-active');
+      }
+
+      if (result?.hasContent && result.content) {
+        setScannedLink(result.content);
+        setShowConfirmation(true);
+        // 不再自动解析和导入
       }
     } catch (err) {
-      document.body.style.background = "";
+      await BarcodeScanner?.showBackground?.();
+      await BarcodeScanner?.stopScan?.();
+      document.body.classList.remove('barcode-scanner-active');
+      console.error('扫码失败:', err);
       setError('扫码失败，请重试。');
     }
   };
@@ -104,8 +120,96 @@ const SyncImportView = ({ onImportConfig, isNativePlatform, colors }) => {
     }
   };
 
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(scannedLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('复制失败:', err);
+      setError('复制失败，请手动复制。');
+    }
+  };
+
   const renderConfirmationModal = () => {
     if (!showConfirmation) return null;
+
+    if (scannedLink) {
+      return (
+        <CustomModal colors={colors}>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold" style={{ color: colors.espresso }}>扫描结果</h3>
+            <button 
+              onClick={() => { setShowConfirmation(false); setScannedLink(''); }} 
+              className="transition-colors rounded-full p-1"
+              style={{ color: colors.textMuted }}
+            >
+              <X size={24} />
+            </button>
+          </div>
+          <div className="mb-4">
+            <p className="text-sm mb-2" style={{ color: colors.textSecondary }}>
+              扫描到的链接：
+            </p>
+            <div 
+              className="p-3 rounded-lg border break-all text-sm mb-3 max-h-32 overflow-y-auto"
+              style={{
+                backgroundColor: colors.bgBase,
+                borderColor: colors.borderStrong,
+                color: colors.textPrimary
+              }}
+            >
+              {scannedLink}
+            </div>
+            <button
+              onClick={handleCopyLink}
+              className="w-full py-2 px-4 rounded-lg flex items-center justify-center text-sm font-medium transition-colors"
+              style={{
+                backgroundColor: copied ? colors.safeBg : colors.accent,
+                color: copied ? colors.safeText : '#fff',
+                border: copied ? `1px solid ${colors.safe}` : 'none'
+              }}
+            >
+              {copied ? (
+                <>
+                  <Check size={16} className="mr-2" />
+                  已复制
+                </>
+              ) : (
+                <>
+                  <Copy size={16} className="mr-2" />
+                  复制链接
+                </>
+              )}
+            </button>
+          </div>
+          <div 
+            className="p-3 border-l-4 rounded-md mb-4"
+            style={{
+              backgroundColor: colors.infoBg,
+              borderColor: colors.info
+            }}
+          >
+            <p className="text-sm" style={{ color: colors.infoText }}>
+              <b>提示:</b> 导入移动端App的数据需要复制该链接，然后在设置中的“手动导入配置”处粘贴并导入。
+            </p>
+          </div>
+          <div className="flex justify-end">
+            <button 
+              onClick={() => { setShowConfirmation(false); setScannedLink(''); }} 
+              className="px-4 py-2 text-sm font-medium rounded-lg transition-colors border"
+              style={{
+                color: colors.textSecondary,
+                backgroundColor: colors.bgBase,
+                borderColor: colors.borderStrong
+              }}
+            >
+              关闭
+            </button>
+          </div>
+        </CustomModal>
+      );
+    }
 
     if (importStatus) {
       return (

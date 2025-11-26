@@ -1,6 +1,6 @@
 // 导入 React 相关模块
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
-import { Coffee, Sun, Moon, RefreshCw, Code, Laptop, Loader2, TrendingUp, BarChart2, Settings as SettingsIcon, Info } from 'lucide-react';
+import { Coffee, Sun, Moon, RefreshCw, Code, Laptop, Loader2, TrendingUp, BarChart2, Settings as SettingsIcon, Info, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar';
 import { Preferences } from '@capacitor/preferences';
@@ -14,6 +14,8 @@ import { getStartOfDay, getEndOfDay, isToday, formatTime, formatDate } from './u
 import { defaultSettings, initialPresetDrinks, originalPresetDrinkIds, COFFEE_COLORS, NIGHT_COLORS, DRINK_CATEGORIES, DEFAULT_CATEGORY, ensureDrinkColors } from './utils/constants';
 // 导入WebDAV客户端
 import WebDAVClient from './utils/webdavSync';
+// 导入错误弹窗组件
+import SyncErrorModal from './components/SyncErrorModal';
 
 // 懒加载视图组件
 const CurrentStatusView = lazy(() => import('./views/CurrentStatusView'));
@@ -92,6 +94,7 @@ const CaffeineTrackerApp = () => {
   const [isNativePlatform, setIsNativePlatform] = useState(null);
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const [webdavConfigured, setWebdavConfigured] = useState(false);
+  const [syncError, setSyncError] = useState(null); // 同步错误弹窗
 
   // 根据当前路径确定视图模式
   const viewMode = useMemo(() => {
@@ -541,6 +544,10 @@ const CaffeineTrackerApp = () => {
           message: error.message || "同步时发生未知错误"
         }
       });
+      
+      // 显示错误弹窗（仅在自动同步或顶部手动同步时）
+      setSyncError(error.message || "同步时发生未知错误");
+      
       throw error; // 重新抛出错误以便调用者捕获
     } finally {
       setTimeout(() => { setShowSyncBadge(false); }, 5000);
@@ -712,7 +719,10 @@ const CaffeineTrackerApp = () => {
 
   const handleManualSync = useCallback(() => {
     console.log("=== 手动同步被触发 ===");
-    performWebDAVSync(userSettings, records, drinks);
+    performWebDAVSync(userSettings, records, drinks).catch(err => {
+      // 错误已在 performWebDAVSync 中处理，这里不需要额外处理
+      console.log("同步失败，错误弹窗已显示");
+    });
   }, [userSettings, records, drinks, performWebDAVSync]);
 
   // 处理导入WebDAV配置
@@ -843,17 +853,17 @@ const CaffeineTrackerApp = () => {
               backgroundColor: syncStatus.inProgress 
                 ? colors.infoBg 
                 : syncStatus.lastSyncResult?.success 
-                  ? colors.safeBg 
+                  ? 'transparent'  // 成功时透明背景
                   : colors.dangerBg,
               borderColor: syncStatus.inProgress 
                 ? colors.info 
                 : syncStatus.lastSyncResult?.success 
-                  ? colors.safe 
+                  ? colors.safe  // 成功时绿色边框
                   : colors.danger,
               color: syncStatus.inProgress 
                 ? colors.infoText 
                 : syncStatus.lastSyncResult?.success 
-                  ? colors.safeText 
+                  ? colors.safe  // 成功时绿色文字
                   : colors.dangerText
             }}
             disabled={syncStatus.inProgress || syncStatus.lastSyncResult?.success}
@@ -865,9 +875,15 @@ const CaffeineTrackerApp = () => {
                 同步中
               </>
             ) : syncStatus.lastSyncResult?.success ? (
-              '✓ 成功'
+              <>
+                <CheckCircle2 size={16} className="mr-1.5" />
+                成功
+              </>
             ) : (
-              '✗ 失败'
+              <>
+                <AlertTriangle size={16} className="mr-1.5" />
+                失败
+              </>
             )}
           </button>
         )}
@@ -1023,6 +1039,17 @@ const CaffeineTrackerApp = () => {
           </p>
         </footer>
       </main>
+
+      {/* 同步错误弹窗 */}
+      {syncError && (
+        <SyncErrorModal
+          error={syncError}
+          onClose={() => setSyncError(null)}
+          onRetry={handleManualSync}
+          colors={colors}
+          appConfig={appConfig}
+        />
+      )}
     </div>
   );
 };

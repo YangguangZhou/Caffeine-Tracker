@@ -13,13 +13,10 @@ import {
   getStartOfYear, getEndOfYear,
   getStartOfDay, getEndOfDay,
 } from '../utils/timeUtils';
-import { computeCaffeineDistribution } from '../utils/distributionUtils';  // 新增
+import { computeCaffeineDistribution } from '../utils/distributionUtils';
 
 const MIN_RECORD_DAYS = 3;
 
-/**
- * 新增：仪表盘组件，用于可视化健康指标
- */
 const Gauge = ({ value, maxValue, label, unit, size = 80, strokeWidth = 8, colors }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -410,7 +407,6 @@ const StatisticsView = ({
     const maxWeekdayIndex = weekdayTotals.indexOf(Math.max(...weekdayTotals));
     const weekdayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
-    // 计算新增的分析指标
     const totalAmount = records.reduce((sum, r) => sum + r.amount, 0);
     const avgPerIntake = totalAmount / records.length; // 平均每次摄入量
 
@@ -461,7 +457,7 @@ const StatisticsView = ({
       maxWeekdayIndex,
       weekdayNames,
       avgPerIntake: Math.round(avgPerIntake),
-      avgDailyAmount: Math.round(avgDailyAmount), // 新增
+      avgDailyAmount: Math.round(avgDailyAmount),
       avgIntakeTime: Math.round(avgIntakeTime * 10) / 10,
       avgCaffeineAtSleep: Math.round(avgCaffeineAtSleep)
     };
@@ -625,7 +621,7 @@ const StatisticsView = ({
       avgDay: Math.round(avgDay),
       activeDays,
       totalDays,
-      pastDays, // 新增：已过去的天数
+      pastDays,
       consistencyRate: Math.round(consistencyRate),
       stdDev: Math.round(stdDev),
       maxDayData,

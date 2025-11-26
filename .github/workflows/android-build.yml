@@ -78,6 +78,37 @@ jobs:
         cd android
         ./gradlew assembleRelease
 
+    - name: Check existing release version
+      id: check_version
+      run: |
+        # Download existing release APK to check version
+        curl -L -f -o release-apk-temp.apk "${{ secrets.WEBDAV_DOWNLOAD_URL }}/Caffeine-Tracker-release.apk" || {
+          echo "No existing release APK found, will create new release"
+          echo "should_update_release=true" >> $GITHUB_OUTPUT
+          exit 0
+        }
+        
+        # Install aapt to read APK info
+        sudo apt-get install -y aapt
+        
+        # Extract version info from existing release APK
+        EXISTING_VERSION=$(aapt dump badging release-apk-temp.apk | grep "versionName" | sed "s/.*versionName='\([^']*\)'.*/\1/")
+        EXISTING_CODE=$(aapt dump badging release-apk-temp.apk | grep "versionCode" | sed "s/.*versionCode='\([^']*\)'.*/\1/")
+        
+        echo "Existing version: $EXISTING_VERSION ($EXISTING_CODE)"
+        echo "Current version: ${{ steps.version.outputs.version_name }} (${{ steps.version.outputs.version_code }})"
+        
+        # Compare versions
+        if [ "$EXISTING_VERSION" != "${{ steps.version.outputs.version_name }}" ] || [ "$EXISTING_CODE" != "${{ steps.version.outputs.version_code }}" ]; then
+          echo "Version changed, will update release"
+          echo "should_update_release=true" >> $GITHUB_OUTPUT
+        else
+          echo "Version unchanged, will only upload to versions folder"
+          echo "should_update_release=false" >> $GITHUB_OUTPUT
+        fi
+        
+        rm -f release-apk-temp.apk
+
     - name: Rename APK
       run: |
         VERSION_NAME="${{ steps.version.outputs.version_name }}"
@@ -153,11 +184,27 @@ jobs:
           -w "HTTP Status: %{http_code}\n"
 
     - name: Upload release APK to WebDAV (root dir)
+      if: steps.check_version.outputs.should_update_release == 'true'
       run: |
         cp "${{ env.APK_NAME }}" "Caffeine-Tracker-release.apk"
         curl -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
           -T "Caffeine-Tracker-release.apk" \
           "${{ secrets.WEBDAV_URL }}/Caffeine-Tracker-release.apk" \
+          -w "HTTP Status: %{http_code}\n"
+
+    - name: Update version.json
+      if: steps.check_version.outputs.should_update_release == 'true'
+      run: |
+        cat > version.json << EOF
+        {
+            "latest_version": "${{ steps.version.outputs.version_name }}",
+            "download_url": "${{ secrets.WEBDAV_DOWNLOAD_URL }}/Caffeine-Tracker-release.apk"
+        }
+        EOF
+        
+        curl -u "${{ secrets.WEBDAV_USERNAME }}:${{ secrets.WEBDAV_PASSWORD }}" \
+          -T "version.json" \
+          "${{ secrets.WEBDAV_URL }}/version.json" \
           -w "HTTP Status: %{http_code}\n"
 
     - name: Clean up sensitive files
@@ -177,6 +224,7 @@ jobs:
         APK_NAME: ${{ env.APK_NAME }}
         DOWNLOAD_URL: ${{ secrets.WEBDAV_DOWNLOAD_URL }}/versions/${{ env.APK_NAME }}
         JOB_STATUS: ${{ job.status }}
+        IS_NEW_RELEASE: ${{ steps.check_version.outputs.should_update_release }}
       run: |
         if [ -z "$TELEGRAM_BOT_TOKEN" ] || [ -z "$TELEGRAM_CHAT_ID" ]; then
           echo "Telegram secrets not set; skipping notification."
@@ -194,11 +242,15 @@ jobs:
           *)
             STATUS_EMOJI="⚠️"; STATUS_LABEL="${JOB_STATUS}" ;;
         esac
-
-        # 正确换行：用 here-doc 生成多行文本
+        
+        RELEASE_INFO=""
+        if [ "$IS_NEW_RELEASE" = "true" ]; then
+          RELEASE_INFO="🎉 *新版本发布*"$'\n'
+        fi
+        
         TEXT=$(cat <<EOF
-        [*Caffeine Tracker*](https://ct.jerryz.com.cn/) *构建${STATUS_LABEL}* ${STATUS_EMOJI}
-        版本：${VERSION_NAME}（${VERSION_CODE}）
+        [Caffeine Tracker](https://ct.jerryz.com.cn/) *构建${STATUS_LABEL}* ${STATUS_EMOJI}
+        ${RELEASE_INFO}版本：${VERSION_NAME}（${VERSION_CODE}）
         提交：[${COMMIT_SHORT}](https://github.com/YangguangZhou/Caffeine-Tracker/commit/${COMMIT_SHORT})
         APK：${APK_NAME}
         下载：${DOWNLOAD_URL}

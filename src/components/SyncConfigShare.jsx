@@ -72,7 +72,14 @@ const SyncConfigShare = ({ webdavConfig, onClose, colors }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+    <div
+      className="fixed inset-0 flex justify-center items-center z-50 p-4"
+      style={{
+        backgroundColor: 'rgba(0, 0, 0, 0.45)',
+        backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)'
+      }}
+    >
       <div 
         className="rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-100 border"
         style={{

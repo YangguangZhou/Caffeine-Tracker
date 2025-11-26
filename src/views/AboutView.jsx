@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
+import MathFormula from '../components/MathFormula';
 
 
 /**
@@ -626,7 +627,7 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
             </h3>
             <div className="space-y-2">
               <p>
-                <strong>代谢模型：</strong>使用一级消除动力学 <code>M(t) = M₀ × (0.5)^(t/t½)</code>
+                <strong>代谢模型：</strong>使用一级消除动力学 <MathFormula formula="C(t) = C_0 \times 0.5^{t/t_{1/2}}" />
                 估算体内咖啡因残留，这是简化的通用模型。
               </p>
               <p>

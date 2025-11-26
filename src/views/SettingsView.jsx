@@ -3,7 +3,7 @@ import {
     User, Weight, Target, Sliders, Clock, Moon,
     Droplet, Coffee, Plus, X, Save, Edit, Trash2,
     Download, Upload, RotateCcw, HelpCircle, Tag,
-    CloudDownload, Server, Lock, Activity, TestTubeDiagonal, Database, Smartphone, Link as LinkIcon
+    CloudDownload, Server, Lock, Activity, TestTubeDiagonal, Database, Smartphone, Link as LinkIcon, Camera, CheckCircle2, AlertTriangle, Lightbulb, Mail
 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
@@ -13,6 +13,7 @@ import { formatDatetimeLocal } from '../utils/timeUtils';
 import { initialPresetDrinks, DRINK_CATEGORIES, DEFAULT_CATEGORY, defaultSettings, getPresetIconColor } from '../utils/constants';
 import SyncConfigShare from '../components/SyncConfigShare';
 import ManualImportModal from '../components/ManualImportModal'; // 导入新组件
+import { extractConfigParam } from '../utils/syncConfigShare';
 
 // 动态导入 WebDAVClient
 const WebDAVClientPromise = import('../utils/webdavSync');
@@ -58,6 +59,7 @@ const SettingsView = ({
     const [showConfigShare, setShowConfigShare] = useState(false);
     const [showManualImport, setShowManualImport] = useState(false); // 新状态
     const [importConfigParam, setImportConfigParam] = useState(''); // 用于存储URL参数中的config
+    const [scannedContent, setScannedContent] = useState(''); // 用于存储扫描到的内容
 
     // 检测URL参数中的config，如果存在则自动打开手动导入弹窗
     useEffect(() => {
@@ -468,6 +470,61 @@ const SettingsView = ({
         // 直接导航到导入页面
         window.location.href = url;
     }, []);
+
+    // 处理扫描二维码
+    const handleScanQRCode = useCallback(async () => {
+        if (!isNativePlatform || !Capacitor.isPluginAvailable('BarcodeScanner')) {
+            alert('扫码功能仅在原生App中可用。');
+            return;
+        }
+
+        let BarcodeScanner;
+        try {
+            ({ BarcodeScanner } = await import('@capacitor-community/barcode-scanner'));
+
+            const permission = await BarcodeScanner.checkPermission({ force: true });
+            if (!permission.granted) {
+                alert('需要相机权限才能扫描二维码');
+                return;
+            }
+
+            // 显示扫码 overlay
+            const overlay = document.getElementById('scanner-overlay');
+            if (overlay) {
+                overlay.classList.add('active');
+            }
+
+            await BarcodeScanner.prepare?.();
+            await BarcodeScanner.hideBackground?.();
+
+            let result;
+            try {
+                result = await BarcodeScanner.startScan();
+            } finally {
+                await BarcodeScanner.showBackground?.();
+                await BarcodeScanner.stopScan?.();
+                // 隐藏扫码 overlay
+                if (overlay) {
+                    overlay.classList.remove('active');
+                }
+            }
+
+            if (result?.hasContent && result.content) {
+                setScannedContent(result.content);
+                setShowManualImport(true);
+            }
+        } catch (error) {
+            // 确保 overlay 被隐藏
+            const overlay = document.getElementById('scanner-overlay');
+            if (overlay) {
+                overlay.classList.remove('active');
+            }
+            await BarcodeScanner?.showBackground?.();
+            await BarcodeScanner?.stopScan?.();
+            console.error('扫描二维码失败:', error);
+            alert('扫描失败，请重试。');
+        }
+    }, [isNativePlatform, setImportConfigParam, setShowManualImport]);
 
     return (
         <div className="columns-1 sm:columns-2 xl:columns-3 gap-4 w-full">
@@ -910,7 +967,8 @@ const SettingsView = ({
 
                     {/* 操作按钮 */}
                     <div className="space-y-2">
-                        <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-3">
+                        {/* 第一行：测试连接和立即同步 */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <button
                                 onClick={testWebDAVConnection}
                                 className="py-2 px-4 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors duration-200 text-sm shadow flex items-center justify-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -963,25 +1021,49 @@ const SettingsView = ({
                             </div>
                         )}
                         
-                        {/* 手动输入配置链接按钮 */}
-                        <button
-                            onClick={() => setShowManualImport(true)}
-                            className="w-full py-2 px-4 border rounded-md transition-colors duration-200 text-sm flex items-center justify-center font-medium"
-                            style={{
-                                borderColor: colors.borderStrong,
-                                color: colors.textSecondary,
-                                backgroundColor: 'transparent'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = colors.bgBase;
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = 'transparent';
-                            }}
-                        >
-                            <LinkIcon size={16} className="mr-1.5" aria-hidden="true" />
-                            手动导入配置
-                        </button>
+                        {/* 导入配置按钮：扫描二维码和手动导入 */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {/* 扫描配置二维码按钮 - 仅在原生平台显示 */}
+                            {isNativePlatform && (
+                                <button
+                                    onClick={() => handleScanQRCode()}
+                                    className="py-2 px-4 border rounded-md transition-colors duration-200 text-sm flex items-center justify-center font-medium"
+                                    style={{
+                                        borderColor: colors.borderStrong,
+                                        color: colors.textSecondary,
+                                        backgroundColor: 'transparent'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = colors.bgBase;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                    }}
+                                >
+                                    <Camera size={16} className="mr-1.5" aria-hidden="true" />
+                                    扫描配置二维码
+                                </button>
+                            )}
+                            {/* 手动导入配置按钮 */}
+                            <button
+                                onClick={() => setShowManualImport(true)}
+                                className={`py-2 px-4 border rounded-md transition-colors duration-200 text-sm flex items-center justify-center font-medium ${!isNativePlatform ? 'col-span-2' : ''}`}
+                                style={{
+                                    borderColor: colors.borderStrong,
+                                    color: colors.textSecondary,
+                                    backgroundColor: 'transparent'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.backgroundColor = colors.bgBase;
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                }}
+                            >
+                                <LinkIcon size={16} className="mr-1.5" aria-hidden="true" />
+                                手动导入配置
+                            </button>
+                        </div>
                     </div>
 
 
@@ -1029,7 +1111,10 @@ const SettingsView = ({
                                                     borderColor: colors.info
                                                 }}
                                             >
-                                                <p className="font-medium" style={{ color: colors.infoText }}>📱 使用Android APP (推荐)</p>
+                                                <p className="font-medium flex items-center" style={{ color: colors.infoText }}>
+                                                    <Smartphone size={14} className="mr-1.5" />
+                                                    使用Android APP (推荐)
+                                                </p>
                                                 <p className="mt-1" style={{ color: colors.infoText }}>Android APP不受CORS限制，同步成功率更高。</p>
                                                 <a
                                                     href={appConfig.download_url}
@@ -1050,7 +1135,10 @@ const SettingsView = ({
                                                     borderColor: colors.borderStrong
                                                 }}
                                             >
-                                                <p className="font-medium" style={{ color: colors.textPrimary }}>📧 联系支持</p>
+                                                <p className="font-medium flex items-center" style={{ color: colors.textPrimary }}>
+                                                    <Mail size={14} className="mr-1.5" />
+                                                    联系支持
+                                                </p>
                                                 <p className="mt-1" style={{ color: colors.textSecondary }}>如果问题持续存在，请发送邮件至:</p>
                                                 <a
                                                     href="mailto:i@jerryz.com.cn?subject=咖啡因追踪器WebDAV同步问题&body=请描述您遇到的问题，并附上您的WebDAV服务商信息（如坚果云、NextCloud等）。"
@@ -1071,20 +1159,34 @@ const SettingsView = ({
 
                     {/* 同步状态 */}
                     {syncStatus.lastSyncTime && (
-                        <div className="text-sm transition-colors" style={{ color: colors.textMuted }}>
-                            <p>
-                                上次同步: {formatDatetimeLocal(syncStatus.lastSyncTime).replace('T', ' ')}
-                                {syncStatus.lastSyncResult && (
-                                    <span 
-                                        className="ml-2 font-medium"
-                                        style={{ 
-                                            color: syncStatus.lastSyncResult.success ? colors.safe : colors.danger 
-                                        }}
-                                    >
-                                        ({syncStatus.lastSyncResult.success ? '成功' : '失败'}: {syncStatus.lastSyncResult.message})
-                                    </span>
-                                )}
-                            </p>
+                        <div className="text-sm transition-colors">
+                            <div className="flex items-center" style={{ color: colors.textSecondary }}>
+                                <Clock size={14} className="mr-2" />
+                                <span>上次同步: {formatDatetimeLocal(syncStatus.lastSyncTime).replace('T', ' ')}</span>
+                            </div>
+                            {syncStatus.lastSyncResult && (
+                                <div
+                                    className="mt-2 p-3 border rounded-md flex items-start"
+                                    style={{
+                                        backgroundColor: syncStatus.lastSyncResult.success ? colors.safeBg : colors.dangerBg,
+                                        borderColor: syncStatus.lastSyncResult.success ? colors.safe : colors.danger
+                                    }}
+                                >
+                                    {syncStatus.lastSyncResult.success ? (
+                                        <CheckCircle2 size={18} className="mt-0.5 flex-shrink-0" style={{ color: colors.safe }} />
+                                    ) : (
+                                        <AlertTriangle size={18} className="mt-0.5 flex-shrink-0" style={{ color: colors.danger }} />
+                                    )}
+                                    <div className="ml-3" style={{ color: syncStatus.lastSyncResult.success ? colors.safeText : colors.dangerText }}>
+                                        <p className="font-medium">
+                                            {syncStatus.lastSyncResult.success ? '同步成功' : '同步失败'}
+                                        </p>
+                                        <p className="mt-1 break-words text-xs sm:text-sm">
+                                            {syncStatus.lastSyncResult.message}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                             {syncStatus.lastSyncResult && !syncStatus.lastSyncResult.success && (
                                 <div 
                                     className="mt-2 p-2 border rounded text-xs"
@@ -1093,7 +1195,10 @@ const SettingsView = ({
                                         borderColor: colors.warning
                                     }}
                                 >
-                                    <p className="font-medium" style={{ color: colors.warningText }}>💡 同步失败解决建议:</p>
+                                    <p className="font-medium flex items-center" style={{ color: colors.warningText }}>
+                                        <Lightbulb size={14} className="mr-1.5" />
+                                        同步失败解决建议:
+                                    </p>
                                     <p className="mt-1" style={{ color: colors.warningText }}>
                                         建议使用 <a
                                             href={appConfig.download_url}
@@ -1590,12 +1695,35 @@ const SettingsView = ({
             {/* 手动导入模态框 */}
             {showManualImport && (
                 <ManualImportModal 
-                    onClose={() => setShowManualImport(false)} 
+                    onClose={() => {
+                        setShowManualImport(false);
+                        setScannedContent(''); // 关闭时清空扫描内容
+                    }} 
                     colors={colors}
                     onImportConfig={onImportConfig}
                     initialConfigParam={importConfigParam}
+                    isNativePlatform={isNativePlatform}
+                    initialScannedContent={scannedContent}
                 />
             )}
+            
+            {/* 扫码界面 overlay */}
+            <div id="scanner-overlay">
+                <button id="scanner-back-btn" onClick={async () => {
+                    try {
+                        const { BarcodeScanner } = await import('@capacitor-community/barcode-scanner');
+                        await BarcodeScanner.stopScan?.();
+                        await BarcodeScanner.showBackground?.();
+                        document.getElementById('scanner-overlay').classList.remove('active');
+                    } catch (error) {
+                        console.error('停止扫码失败:', error);
+                    }
+                }}>
+                    返回
+                </button>
+                <div className="scan-frame"></div>
+                <div className="scan-line"></div>
+            </div>
         </div>
     );
 };

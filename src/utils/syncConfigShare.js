@@ -119,6 +119,42 @@ export function decodeConfigFromUrl(encodedConfig) {
 }
 
 /**
+ * 从任意URL中提取 config 参数（支持查询字符串和哈希片段）
+ * @param {string|URL} rawUrl - 包含配置信息的原始URL或URL对象
+ * @returns {string|null} 提取到的 config 参数
+ */
+export function extractConfigParam(rawUrl) {
+    try {
+        const parsedUrl = rawUrl instanceof URL ? rawUrl : new URL(rawUrl);
+
+        // 先尝试从查询字符串获取
+        const searchConfig = parsedUrl.searchParams?.get?.('config');
+        if (searchConfig) {
+            return searchConfig;
+        }
+
+        // 再尝试从 hash 片段获取（兼容 #/path?config=... 或 #config=...）
+        const hash = parsedUrl.hash;
+        if (hash) {
+            const queryIndex = hash.indexOf('?');
+            const hashQuery = queryIndex >= 0 ? hash.slice(queryIndex + 1) : hash.replace(/^#/, '');
+            if (hashQuery) {
+                const hashParams = new URLSearchParams(hashQuery);
+                const hashConfig = hashParams.get('config');
+                if (hashConfig) {
+                    return hashConfig;
+                }
+            }
+        }
+
+        return null;
+    } catch (error) {
+        console.debug('Failed to extract config param from URL:', error);
+        return null;
+    }
+}
+
+/**
  * 验证配置对象是否有效
  * @param {Object} config - 配置对象
  * @returns {boolean} 是否有效

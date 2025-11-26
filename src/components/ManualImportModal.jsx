@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react';
-import { X, Link, ShieldCheck, Server, User, KeyRound, Download, Loader2 } from 'lucide-react';
-import { decodeConfigFromUrl, isValidConfig, getServerDisplayName } from '../utils/syncConfigShare';
+import { X, Link, ShieldCheck, Server, User, KeyRound, Download, Loader2, Camera, Copy, Check } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { decodeConfigFromUrl, isValidConfig, getServerDisplayName, extractConfigParam } from '../utils/syncConfigShare';
 
-const ManualImportModal = ({ onClose, colors, onImportConfig, initialConfigParam }) => {
+const ManualImportModal = ({ onClose, colors, onImportConfig, initialConfigParam, isNativePlatform, initialScannedContent }) => {
   const [url, setUrl] = useState('');
   const [configData, setConfigData] = useState(null);
   const [error, setError] = useState('');
   const [importing, setImporting] = useState(false);
   const [importStatus, setImportStatus] = useState(''); // '', 'syncing', 'success', 'failed'
+  const [scannedLink, setScannedLink] = useState(initialScannedContent || '');
+  const [copied, setCopied] = useState(false);
 
   // 如果有 initialConfigParam，自动解析
   useEffect(() => {
-    if (initialConfigParam) {
+    if (initialConfigParam && !scannedLink) {
       try {
         const decoded = decodeConfigFromUrl(initialConfigParam);
         if (decoded && isValidConfig(decoded)) {
@@ -28,25 +31,25 @@ const ManualImportModal = ({ onClose, colors, onImportConfig, initialConfigParam
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (url) {
-      try {
-        const parsedUrl = new URL(url);
-        const config = new URLSearchParams(parsedUrl.hash.substring(parsedUrl.hash.indexOf('?') + 1)).get('config');
-        if (config) {
-          // 解码配置
-          const decoded = decodeConfigFromUrl(config);
-          if (decoded && isValidConfig(decoded)) {
-            setConfigData(decoded);
-            setError('');
-          } else {
-            setError('链接中的配置数据无效。');
-          }
-        } else {
-          setError('提供的URL中未找到配置信息。');
+    if (!url) return;
+    try {
+      const trimmed = url.trim();
+      const configParam = extractConfigParam(trimmed);
+      const candidate = configParam || (!/^https?:/i.test(trimmed) ? trimmed : null);
+
+      if (candidate) {
+        const decoded = decodeConfigFromUrl(candidate);
+        if (decoded && isValidConfig(decoded)) {
+          setConfigData(decoded);
+          setError('');
+          return;
         }
-      } catch (error) {
-        setError('无效的URL格式。');
+        setError('链接中的配置数据无效。');
+        return;
       }
+      setError('提供的URL中未找到配置信息。');
+    } catch (error) {
+      setError('无效的URL格式。');
     }
   };
 
@@ -73,8 +76,69 @@ const ManualImportModal = ({ onClose, colors, onImportConfig, initialConfigParam
     setError('');
   };
 
+  // 处理扫描二维码
+  const handleScan = async () => {
+    if (!isNativePlatform || !Capacitor.isPluginAvailable('BarcodeScanner')) {
+      setError('扫码功能仅在原生App中可用。');
+      return;
+    }
+    
+    let BarcodeScanner;
+    try {
+      ({ BarcodeScanner } = await import('@capacitor-community/barcode-scanner'));
+
+      const permission = await BarcodeScanner.checkPermission({ force: true });
+      if (!permission.granted) {
+        setError('需要相机权限才能扫描二维码');
+        return;
+      }
+
+      await BarcodeScanner.prepare?.();
+      await BarcodeScanner.hideBackground?.();
+      document.body.classList.add('barcode-scanner-active');
+
+      let result;
+      try {
+        result = await BarcodeScanner.startScan();
+      } finally {
+        await BarcodeScanner.showBackground?.();
+        await BarcodeScanner.stopScan?.();
+        document.body.classList.remove('barcode-scanner-active');
+      }
+
+      if (result?.hasContent && result.content) {
+        setScannedLink(result.content);
+        // 不再自动解析和导入，而是显示链接供用户复制
+      }
+    } catch (error) {
+      await BarcodeScanner?.showBackground?.();
+      await BarcodeScanner?.stopScan?.();
+      document.body.classList.remove('barcode-scanner-active');
+      console.error('扫描二维码失败:', error);
+      setError('扫描失败，请重试。');
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(scannedLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('复制失败:', err);
+      setError('复制失败，请手动复制。');
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+    <div
+      className="fixed inset-0 flex justify-center items-center z-50 p-4"
+      style={{
+        backgroundColor: 'rgba(0, 0, 0, 0.45)',
+        backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)'
+      }}
+    >
       <div 
         className="rounded-2xl shadow-2xl w-full max-w-md p-6 transform transition-all duration-300 border"
         style={{
@@ -125,6 +189,80 @@ const ManualImportModal = ({ onClose, colors, onImportConfig, initialConfigParam
               </>
             )}
           </div>
+        ) : scannedLink ? (
+          /* 显示扫描到的链接 */
+          <>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold" style={{ color: colors.espresso }}>扫描结果</h3>
+              <button 
+                onClick={onClose} 
+                className="transition-colors rounded-full p-1"
+                style={{ color: colors.textMuted }}
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <div className="mb-4">
+              <p className="text-sm mb-2" style={{ color: colors.textSecondary }}>
+                扫描到的链接：
+              </p>
+              <div 
+                className="p-3 rounded-lg border break-all text-sm mb-3 max-h-32 overflow-y-auto"
+                style={{
+                  backgroundColor: colors.bgBase,
+                  borderColor: colors.borderStrong,
+                  color: colors.textPrimary
+                }}
+              >
+                {scannedLink}
+              </div>
+              <button
+                onClick={handleCopyLink}
+                className="w-full py-2 px-4 rounded-lg flex items-center justify-center text-sm font-medium transition-colors"
+                style={{
+                  backgroundColor: copied ? colors.safeBg : colors.accent,
+                  color: copied ? colors.safeText : '#fff',
+                  border: copied ? `1px solid ${colors.safe}` : 'none'
+                }}
+              >
+                {copied ? (
+                  <>
+                    <Check size={16} className="mr-2" />
+                    已复制
+                  </>
+                ) : (
+                  <>
+                    <Copy size={16} className="mr-2" />
+                    复制链接
+                  </>
+                )}
+              </button>
+            </div>
+            <div 
+              className="p-3 border-l-4 rounded-md mb-4"
+              style={{
+                backgroundColor: colors.infoBg,
+                borderColor: colors.info
+              }}
+            >
+              <p className="text-sm" style={{ color: colors.infoText }}>
+                <b>提示:</b> 导入移动端App的数据需要复制该链接，然后在设置中的“手动导入配置”处粘贴并导入。
+              </p>
+            </div>
+            <div className="flex justify-end">
+              <button 
+                onClick={onClose} 
+                className="px-4 py-2 text-sm font-medium rounded-lg transition-colors border"
+                style={{
+                  color: colors.textSecondary,
+                  backgroundColor: colors.bgBase,
+                  borderColor: colors.borderStrong
+                }}
+              >
+                关闭
+              </button>
+            </div>
+          </>
         ) : configData ? (
           /* 显示确认导入界面 */
           <>
@@ -234,6 +372,31 @@ const ManualImportModal = ({ onClose, colors, onImportConfig, initialConfigParam
                   required
                 />
               </div>
+              
+              {/* 添加扫码按钮 - 仅在原生平台显示 */}
+              {isNativePlatform && (
+                <>
+                  <div className="relative flex items-center my-4">
+                    <div className="flex-grow border-t" style={{ borderColor: colors.borderSubtle }}></div>
+                    <span className="flex-shrink mx-4 text-xs" style={{ color: colors.textMuted }}>或</span>
+                    <div className="flex-grow border-t" style={{ borderColor: colors.borderSubtle }}></div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleScan}
+                    className="w-full py-2.5 px-4 border rounded-lg transition-colors text-sm flex items-center justify-center font-medium mb-4"
+                    style={{
+                      borderColor: colors.borderStrong,
+                      color: colors.textSecondary,
+                      backgroundColor: colors.bgBase
+                    }}
+                  >
+                    <Camera size={18} className="mr-2" />
+                    扫描配置二维码
+                  </button>
+                </>
+              )}
+              
               <div className="flex justify-end space-x-3 mt-6">
                 <button 
                   type="button" 
