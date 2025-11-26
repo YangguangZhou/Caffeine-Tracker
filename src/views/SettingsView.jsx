@@ -471,61 +471,6 @@ const SettingsView = ({
         window.location.href = url;
     }, []);
 
-    // 处理扫描二维码
-    const handleScanQRCode = useCallback(async () => {
-        if (!isNativePlatform || !Capacitor.isPluginAvailable('BarcodeScanner')) {
-            alert('扫码功能仅在原生App中可用。');
-            return;
-        }
-
-        let BarcodeScanner;
-        try {
-            ({ BarcodeScanner } = await import('@capacitor-community/barcode-scanner'));
-
-            const permission = await BarcodeScanner.checkPermission({ force: true });
-            if (!permission.granted) {
-                alert('需要相机权限才能扫描二维码');
-                return;
-            }
-
-            // 显示扫码 overlay
-            const overlay = document.getElementById('scanner-overlay');
-            if (overlay) {
-                overlay.classList.add('active');
-            }
-
-            await BarcodeScanner.prepare?.();
-            await BarcodeScanner.hideBackground?.();
-
-            let result;
-            try {
-                result = await BarcodeScanner.startScan();
-            } finally {
-                await BarcodeScanner.showBackground?.();
-                await BarcodeScanner.stopScan?.();
-                // 隐藏扫码 overlay
-                if (overlay) {
-                    overlay.classList.remove('active');
-                }
-            }
-
-            if (result?.hasContent && result.content) {
-                setScannedContent(result.content);
-                setShowManualImport(true);
-            }
-        } catch (error) {
-            // 确保 overlay 被隐藏
-            const overlay = document.getElementById('scanner-overlay');
-            if (overlay) {
-                overlay.classList.remove('active');
-            }
-            await BarcodeScanner?.showBackground?.();
-            await BarcodeScanner?.stopScan?.();
-            console.error('扫描二维码失败:', error);
-            alert('扫描失败，请重试。');
-        }
-    }, [isNativePlatform, setImportConfigParam, setShowManualImport]);
-
     return (
         <div className="columns-1 sm:columns-2 xl:columns-3 gap-4 w-full">
             {/* 个人参数设置 */}
@@ -1707,23 +1652,6 @@ const SettingsView = ({
                 />
             )}
             
-            {/* 扫码界面 overlay */}
-            <div id="scanner-overlay">
-                <button id="scanner-back-btn" onClick={async () => {
-                    try {
-                        const { BarcodeScanner } = await import('@capacitor-community/barcode-scanner');
-                        await BarcodeScanner.stopScan?.();
-                        await BarcodeScanner.showBackground?.();
-                        document.getElementById('scanner-overlay').classList.remove('active');
-                    } catch (error) {
-                        console.error('停止扫码失败:', error);
-                    }
-                }}>
-                    返回
-                </button>
-                <div className="scan-frame"></div>
-                <div className="scan-line"></div>
-            </div>
         </div>
     );
 };

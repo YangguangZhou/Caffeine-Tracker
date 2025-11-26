@@ -66,43 +66,6 @@ const SyncImportView = ({ onImportConfig, isNativePlatform, colors }) => {
     }
   };
 
-  const handleScan = async () => {
-    if (!isNativePlatform || !Capacitor.isPluginAvailable('BarcodeScanner')) {
-      setError('扫码功能仅在原生App中可用。');
-      return;
-    }
-    let BarcodeScanner;
-    try {
-      ({ BarcodeScanner } = await import('@capacitor-community/barcode-scanner'));
-      await BarcodeScanner.checkPermission({ force: true });
-
-      await BarcodeScanner.prepare?.();
-      await BarcodeScanner.hideBackground?.();
-      document.body.classList.add('barcode-scanner-active');
-
-      let result;
-      try {
-        result = await BarcodeScanner.startScan();
-      } finally {
-        await BarcodeScanner.showBackground?.();
-        await BarcodeScanner.stopScan?.();
-        document.body.classList.remove('barcode-scanner-active');
-      }
-
-      if (result?.hasContent && result.content) {
-        setScannedLink(result.content);
-        setShowConfirmation(true);
-        // 不再自动解析和导入
-      }
-    } catch (err) {
-      await BarcodeScanner?.showBackground?.();
-      await BarcodeScanner?.stopScan?.();
-      document.body.classList.remove('barcode-scanner-active');
-      console.error('扫码失败:', err);
-      setError('扫码失败，请重试。');
-    }
-  };
-
   const handleConfirmImport = async () => {
     if (!configData) return;
     setImporting(true);

@@ -76,49 +76,6 @@ const ManualImportModal = ({ onClose, colors, onImportConfig, initialConfigParam
     setError('');
   };
 
-  // 处理扫描二维码
-  const handleScan = async () => {
-    if (!isNativePlatform || !Capacitor.isPluginAvailable('BarcodeScanner')) {
-      setError('扫码功能仅在原生App中可用。');
-      return;
-    }
-    
-    let BarcodeScanner;
-    try {
-      ({ BarcodeScanner } = await import('@capacitor-community/barcode-scanner'));
-
-      const permission = await BarcodeScanner.checkPermission({ force: true });
-      if (!permission.granted) {
-        setError('需要相机权限才能扫描二维码');
-        return;
-      }
-
-      await BarcodeScanner.prepare?.();
-      await BarcodeScanner.hideBackground?.();
-      document.body.classList.add('barcode-scanner-active');
-
-      let result;
-      try {
-        result = await BarcodeScanner.startScan();
-      } finally {
-        await BarcodeScanner.showBackground?.();
-        await BarcodeScanner.stopScan?.();
-        document.body.classList.remove('barcode-scanner-active');
-      }
-
-      if (result?.hasContent && result.content) {
-        setScannedLink(result.content);
-        // 不再自动解析和导入，而是显示链接供用户复制
-      }
-    } catch (error) {
-      await BarcodeScanner?.showBackground?.();
-      await BarcodeScanner?.stopScan?.();
-      document.body.classList.remove('barcode-scanner-active');
-      console.error('扫描二维码失败:', error);
-      setError('扫描失败，请重试。');
-    }
-  };
-
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(scannedLink);
