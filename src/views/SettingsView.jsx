@@ -63,6 +63,12 @@ const SettingsView = ({
     const [importConfigParam, setImportConfigParam] = useState(''); // 用于存储URL参数中的config
     const [scannedContent, setScannedContent] = useState(''); // 用于存储扫描到的内容
 
+    // 包装手动同步函数，清除测试结果
+    const handleManualSync = useCallback(() => {
+        setWebDAVTestResult(null);
+        onManualSync();
+    }, [onManualSync]);
+
     // 检测URL参数中的config，如果存在则自动打开手动导入弹窗
     useEffect(() => {
         const configParam = searchParams.get('config');
@@ -930,6 +936,14 @@ const SettingsView = ({
                         </select>
                     </div>
 
+                    {/* 上次同步时间 */}
+                    {syncStatus.lastSyncTime && (
+                        <div className="flex items-center text-xs mb-2 justify-end" style={{ color: colors.textSecondary }}>
+                            <Clock size={12} className="mr-1.5" />
+                            <span>上次同步: {formatDatetimeLocal(syncStatus.lastSyncTime).replace('T', ' ')}</span>
+                        </div>
+                    )}
+
                     {/* 操作按钮 */}
                     <div className="space-y-2">
                         {/* 第一行：测试连接和立即同步 */}
@@ -943,7 +957,7 @@ const SettingsView = ({
                                 {testingWebDAV ? '测试中...' : '测试连接'}
                             </button>
                             <button
-                                onClick={onManualSync}
+                                onClick={handleManualSync}
                                 className="py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors duration-200 text-sm shadow flex items-center justify-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                 disabled={!isWebDAVConfigured || syncStatus.inProgress}
                             >
@@ -1033,105 +1047,98 @@ const SettingsView = ({
 
 
 
-                    {/* 测试结果 */}
-                    {webDAVTestResult && (
-                        <div 
-                            className="p-3 rounded-lg text-sm border"
-                            style={{
-                                backgroundColor: webDAVTestResult.success ? colors.safeBg : colors.dangerBg,
-                                borderColor: webDAVTestResult.success ? colors.safe : colors.danger,
-                                color: webDAVTestResult.success ? colors.safeText : colors.dangerText
-                            }}
-                        >
-                            <div className="flex items-start">
-                                <div 
-                                    className="flex-shrink-0 w-4 h-4 rounded-full mt-0.5 mr-2"
-                                    style={{ 
-                                        backgroundColor: webDAVTestResult.success ? colors.safe : colors.danger 
-                                    }}
-                                />
-                                <div className="flex-1">
-                                    <p className="font-medium">
-                                        {webDAVTestResult.success ? '连接成功' : '连接失败'}
-                                    </p>
-                                    <p className="mt-1">
-                                        {webDAVTestResult.message}
-                                    </p>
-                                    {!webDAVTestResult.success && (
-                                        <div className="mt-2 text-xs">
-                                            <p className="font-medium mb-2" style={{ color: colors.dangerText }}>故障排除建议:</p>
-                                            <ul className="list-disc list-inside mt-1 space-y-1">
-                                                <li>确认服务器地址格式正确 (http:// 或 https://)</li>
-                                                <li>检查用户名和密码是否正确</li>
-                                                <li>确认网络连接正常</li>
-                                                <li>确认WebDAV服务已启用</li>
-                                                <li>尝试使用其他WebDAV客户端测试服务器连接</li>
-                                            </ul>
-                                            <br></br>
-                                            <p className="font-medium mb-2" style={{ color: colors.dangerText }}>推荐解决方案:</p>
-                                            <div 
-                                                className="border rounded p-2 mb-2"
-                                                style={{
-                                                    backgroundColor: colors.infoBg,
-                                                    borderColor: colors.info
-                                                }}
-                                            >
-                                                <p className="font-medium flex items-center" style={{ color: colors.infoText }}>
-                                                    <Smartphone size={14} className="mr-1.5" />
-                                                    使用Android APP (推荐)
-                                                </p>
-                                                <p className="mt-1" style={{ color: colors.infoText }}>Android APP不受CORS限制，同步成功率更高。</p>
-                                                <a
-                                                    href={appConfig.download_url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="inline-block mt-1 underline"
-                                                    style={{ color: colors.infoText }}
-                                                    onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                                                    onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                    {/* 状态反馈区域 */}
+                    <div className="mt-4">
+                        {webDAVTestResult ? (
+                            <div 
+                                className="p-3 rounded-lg text-sm border"
+                                style={{
+                                    backgroundColor: webDAVTestResult.success ? colors.safeBg : colors.dangerBg,
+                                    borderColor: webDAVTestResult.success ? colors.safe : colors.danger,
+                                    color: webDAVTestResult.success ? colors.safeText : colors.dangerText
+                                }}
+                            >
+                                <div className="flex items-start">
+                                    <div 
+                                        className="flex-shrink-0 w-4 h-4 rounded-full mt-0.5 mr-2"
+                                        style={{ 
+                                            backgroundColor: webDAVTestResult.success ? colors.safe : colors.danger 
+                                        }}
+                                    />
+                                    <div className="flex-1">
+                                        <p className="font-medium">
+                                            {webDAVTestResult.success ? '连接成功' : '连接失败'}
+                                        </p>
+                                        <p className="mt-1">
+                                            {webDAVTestResult.message}
+                                        </p>
+                                        {!webDAVTestResult.success && (
+                                            <div className="mt-2 text-xs">
+                                                <p className="font-medium mb-2" style={{ color: colors.dangerText }}>故障排除建议:</p>
+                                                <ul className="list-disc list-inside mt-1 space-y-1">
+                                                    <li>确认服务器地址格式正确 (http:// 或 https://)</li>
+                                                    <li>检查用户名和密码是否正确</li>
+                                                    <li>确认网络连接正常</li>
+                                                    <li>确认WebDAV服务已启用</li>
+                                                    <li>尝试使用其他WebDAV客户端测试服务器连接</li>
+                                                </ul>
+                                                <br></br>
+                                                <p className="font-medium mb-2" style={{ color: colors.dangerText }}>推荐解决方案:</p>
+                                                <div 
+                                                    className="border rounded p-2 mb-2"
+                                                    style={{
+                                                        backgroundColor: colors.infoBg,
+                                                        borderColor: colors.info
+                                                    }}
                                                 >
-                                                    下载Android APP →
-                                                </a>
-                                            </div>
-                                            <div 
-                                                className="border rounded p-2 mb-2"
-                                                style={{
-                                                    backgroundColor: colors.bgBase,
-                                                    borderColor: colors.borderStrong
-                                                }}
-                                            >
-                                                <p className="font-medium flex items-center" style={{ color: colors.textPrimary }}>
-                                                    <Mail size={14} className="mr-1.5" />
-                                                    联系支持
-                                                </p>
-                                                <p className="mt-1" style={{ color: colors.textSecondary }}>如果问题持续存在，请发送邮件至:</p>
-                                                <a
-                                                    href="mailto:i@jerryz.com.cn?subject=咖啡因追踪器WebDAV同步问题&body=请描述您遇到的问题，并附上您的WebDAV服务商信息（如坚果云、NextCloud等）。"
-                                                    className="inline-block mt-1 underline"
-                                                    style={{ color: colors.textSecondary }}
-                                                    onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                                                    onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                                                    <p className="font-medium flex items-center" style={{ color: colors.infoText }}>
+                                                        <Smartphone size={14} className="mr-1.5" />
+                                                        使用Android APP (推荐)
+                                                    </p>
+                                                    <p className="mt-1" style={{ color: colors.infoText }}>Android APP不受CORS限制，同步成功率更高。</p>
+                                                    <a
+                                                        href={appConfig.download_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-block mt-1 underline"
+                                                        style={{ color: colors.infoText }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                                                    >
+                                                        下载Android APP →
+                                                    </a>
+                                                </div>
+                                                <div 
+                                                    className="border rounded p-2 mb-2"
+                                                    style={{
+                                                        backgroundColor: colors.bgBase,
+                                                        borderColor: colors.borderStrong
+                                                    }}
                                                 >
-                                                    i@jerryz.com.cn
-                                                </a>
+                                                    <p className="font-medium flex items-center" style={{ color: colors.textPrimary }}>
+                                                        <Mail size={14} className="mr-1.5" />
+                                                        联系支持
+                                                    </p>
+                                                    <p className="mt-1" style={{ color: colors.textSecondary }}>如果问题持续存在，请发送邮件至:</p>
+                                                    <a
+                                                        href="mailto:i@jerryz.com.cn?subject=咖啡因追踪器WebDAV同步问题&body=请描述您遇到的问题，并附上您的WebDAV服务商信息（如坚果云、NextCloud等）。"
+                                                        className="inline-block mt-1 underline"
+                                                        style={{ color: colors.textSecondary }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                                                    >
+                                                        i@jerryz.com.cn
+                                                    </a>
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    )}
-
-                    {/* 同步状态 */}
-                    {syncStatus.lastSyncTime && (
-                        <div className="text-sm transition-colors">
-                            <div className="flex items-center" style={{ color: colors.textSecondary }}>
-                                <Clock size={14} className="mr-2" />
-                                <span>上次同步: {formatDatetimeLocal(syncStatus.lastSyncTime).replace('T', ' ')}</span>
-                            </div>
-                            {syncStatus.lastSyncResult && (
+                        ) : syncStatus.lastSyncResult ? (
+                            <div className="text-sm transition-colors">
                                 <div
-                                    className="mt-2 p-3 border rounded-md flex items-start"
+                                    className="p-3 border rounded-md flex items-start"
                                     style={{
                                         backgroundColor: syncStatus.lastSyncResult.success ? colors.safeBg : colors.dangerBg,
                                         borderColor: syncStatus.lastSyncResult.success ? colors.safe : colors.danger
@@ -1151,40 +1158,40 @@ const SettingsView = ({
                                         </p>
                                     </div>
                                 </div>
-                            )}
-                            {syncStatus.lastSyncResult && !syncStatus.lastSyncResult.success && (
-                                <div 
-                                    className="mt-2 p-2 border rounded text-xs"
-                                    style={{
-                                        backgroundColor: colors.warningBg,
-                                        borderColor: colors.warning
-                                    }}
-                                >
-                                    <p className="font-medium flex items-center" style={{ color: colors.warningText }}>
-                                        <Lightbulb size={14} className="mr-1.5" />
-                                        同步失败解决建议:
-                                    </p>
-                                    <p className="mt-1" style={{ color: colors.warningText }}>
-                                        建议使用 <a
-                                            href={appConfig.download_url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="underline"
-                                            style={{ color: colors.warningText }}
-                                            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                                            onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-                                        >Android APP</a> 或联系 <a
-                                            href="mailto:i@jerryz.com.cn?subject=咖啡因追踪器WebDAV同步问题"
-                                            className="underline"
-                                            style={{ color: colors.warningText }}
-                                            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                                            onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-                                        >技术支持</a>
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-                    )}
+                                {!syncStatus.lastSyncResult.success && (
+                                    <div 
+                                        className="mt-2 p-2 border rounded text-xs"
+                                        style={{
+                                            backgroundColor: colors.warningBg,
+                                            borderColor: colors.warning
+                                        }}
+                                    >
+                                        <p className="font-medium flex items-center" style={{ color: colors.warningText }}>
+                                            <Lightbulb size={14} className="mr-1.5" />
+                                            同步失败解决建议:
+                                        </p>
+                                        <p className="mt-1" style={{ color: colors.warningText }}>
+                                            建议使用 <a
+                                                href={appConfig.download_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="underline"
+                                                style={{ color: colors.warningText }}
+                                                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                                                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                                            >Android APP</a> 或联系 <a
+                                                href="mailto:i@jerryz.com.cn?subject=咖啡因追踪器WebDAV同步问题"
+                                                className="underline"
+                                                style={{ color: colors.warningText }}
+                                                onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                                                onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                                            >技术支持</a>
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        ) : null}
+                    </div>
                 </div>
             </section>
 
@@ -1594,6 +1601,7 @@ const SettingsView = ({
                             style={{ color: colors.textMuted }}
                         >
                             将所有记录、设置和饮品列表导出为数据库备份文件 (.db)。
+                        </p>
                     </div>
 
                     {/* 导入数据 */}
