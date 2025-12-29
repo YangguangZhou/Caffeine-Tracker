@@ -6,6 +6,7 @@ import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar';
 import { Preferences } from '@capacitor/preferences';
 import { Capacitor } from '@capacitor/core';
 import { SplashScreen } from '@capacitor/splash-screen';
+import { getDBValue, setDBValue, exportDatabase, importDatabase } from './utils/db';
 
 // 导入工具函数
 import { getTotalCaffeineAtTime, estimateConcentration, estimateAmountFromConcentration, calculateHoursToReachTarget, generateMetabolismChartData } from './utils/caffeineCalculations';
@@ -30,6 +31,18 @@ const UMAMI_SRC = "https://umami.jerryz.com.cn/script.js";
 const UMAMI_WEBSITE_ID = "81f97aba-b11b-44f1-890a-9dc588a0d34d";
 const ADSENSE_SRC = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2597042766299857";
 const ADSENSE_CLIENT = "ca-pub-2597042766299857";
+
+const compareVersions = (v1, v2) => {
+  const p1 = v1.split('.').map(Number);
+  const p2 = v2.split('.').map(Number);
+  for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
+    const n1 = p1[i] || 0;
+    const n2 = p2[i] || 0;
+    if (n1 > n2) return 1;
+    if (n1 < n2) return -1;
+  }
+  return 0;
+};
 
 const presetDrinkLookup = new Map(initialPresetDrinks.map(drink => [drink.id, drink]));
 
@@ -95,6 +108,7 @@ const CaffeineTrackerApp = () => {
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const [webdavConfigured, setWebdavConfigured] = useState(false);
   const [syncError, setSyncError] = useState(null); // 同步错误弹窗
+  const [updateInfo, setUpdateInfo] = useState({ available: false, forced: false, downloadUrl: '', latestVersion: '' });
 
   // 根据当前路径确定视图模式
   const viewMode = useMemo(() => {
@@ -110,15 +124,39 @@ const CaffeineTrackerApp = () => {
     setIsNativePlatform(Capacitor.isNativePlatform());
   }, []);
 
-  // 获取应用配置
+  // 获取应用配置和版本检查
   useEffect(() => {
-    fetch('/version.json')
-      .then(response => response.json())
-      .then(data => {
-        setAppConfig(data);
-      })
-      .catch(error => console.error('Error fetching version.json:', error));
-  }, []);
+    const checkVersion = async () => {
+      try {
+        // 1. 获取本地配置 (当前版本)
+        const localResponse = await fetch('/version.json');
+        const localData = await localResponse.json();
+        setAppConfig(localData);
+
+        if (isNativePlatform) {
+          // 2. 获取远程配置 (最新版本)
+          const remoteResponse = await fetch('https://ct.jerryz.com.cn/version.json?_=' + new Date().getTime());
+          const remoteData = await remoteResponse.json();
+
+          const current = localData.latest_version;
+          const latest = remoteData.latest_version;
+          const min = remoteData.min_version || '0.0.0';
+
+          if (compareVersions(current, min) < 0) {
+            setUpdateInfo({ available: true, forced: true, downloadUrl: remoteData.download_url, latestVersion: latest });
+          } else if (compareVersions(current, latest) < 0) {
+            setUpdateInfo({ available: true, forced: false, downloadUrl: remoteData.download_url, latestVersion: latest });
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching version info:', error);
+      }
+    };
+
+    if (isNativePlatform !== null) {
+      checkVersion();
+    }
+  }, [isNativePlatform]);
 
   // 主题和颜色处理
   useEffect(() => {
@@ -177,6 +215,23 @@ const CaffeineTrackerApp = () => {
     [effectiveTheme]
   );
 
+  // 更新 theme-color meta 标签和 body 背景色
+  useEffect(() => {
+    // 更新 meta theme-color
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (metaThemeColor) {
+      metaThemeColor.setAttribute('content', colors.bgBase);
+    } else {
+      const meta = document.createElement('meta');
+      meta.name = 'theme-color';
+      meta.content = colors.bgBase;
+      document.head.appendChild(meta);
+    }
+    
+    // 更新 body 背景色
+    document.body.style.backgroundColor = colors.bgBase;
+  }, [colors.bgBase]);
+
   // 数据加载
   useEffect(() => {
     if (isNativePlatform === null) {
@@ -197,24 +252,43 @@ const CaffeineTrackerApp = () => {
           await Preferences.set({ key: 'capacitor_storage_migration_complete', value: 'true' });
         }
 
-        // 从 Preferences 加载数据
-        let settingsFromStore = null;
-        let recordsFromStore = null;
-        let drinksFromStore = null;
-        let persistedPassword = null;
+        // 尝试从 DB 加载数据
+        let settingsFromStore = await getDBValue('caffeineSettings');
+        let recordsFromStore = await getDBValue('caffeineRecords');
+        let drinksFromStore = await getDBValue('caffeineDrinks');
+        let persistedPassword = await getDBValue('webdavPassword');
 
-        const { value: savedSettingsJson } = await Preferences.get({ key: 'caffeineSettings' });
-        if (savedSettingsJson) settingsFromStore = JSON.parse(savedSettingsJson);
+        // 如果 DB 中没有数据，尝试从 Preferences 加载 (Legacy) 并迁移到 DB
+        if (!settingsFromStore) {
+          const { value } = await Preferences.get({ key: 'caffeineSettings' });
+          if (value) {
+            settingsFromStore = JSON.parse(value);
+            await setDBValue('caffeineSettings', settingsFromStore);
+          }
+        }
 
-        const { value: savedRecordsJson } = await Preferences.get({ key: 'caffeineRecords' });
-        if (savedRecordsJson) recordsFromStore = JSON.parse(savedRecordsJson);
+        if (!recordsFromStore) {
+          const { value } = await Preferences.get({ key: 'caffeineRecords' });
+          if (value) {
+            recordsFromStore = JSON.parse(value);
+            await setDBValue('caffeineRecords', recordsFromStore);
+          }
+        }
 
-        const { value: savedDrinksJson } = await Preferences.get({ key: 'caffeineDrinks' });
-        if (savedDrinksJson) drinksFromStore = JSON.parse(savedDrinksJson);
+        if (!drinksFromStore) {
+          const { value } = await Preferences.get({ key: 'caffeineDrinks' });
+          if (value) {
+            drinksFromStore = JSON.parse(value);
+            await setDBValue('caffeineDrinks', drinksFromStore);
+          }
+        }
 
-        const { value: webdavPasswordFromPrefs } = await Preferences.get({ key: 'webdavPassword' });
-        if (webdavPasswordFromPrefs) {
-          persistedPassword = webdavPasswordFromPrefs;
+        if (!persistedPassword) {
+          const { value } = await Preferences.get({ key: 'webdavPassword' });
+          if (value) {
+            persistedPassword = value;
+            await setDBValue('webdavPassword', persistedPassword);
+          }
         }
 
         // Web localStorage 迁移
@@ -229,7 +303,8 @@ const CaffeineTrackerApp = () => {
               if (lsSettings) {
                 console.log("Found settings in localStorage, migrating...");
                 settingsFromStore = JSON.parse(lsSettings);
-                await Preferences.set({ key: 'caffeineSettings', value: lsSettings });
+                await setDBValue('caffeineSettings', settingsFromStore); // Save to DB
+                await Preferences.set({ key: 'caffeineSettings', value: lsSettings }); // Keep sync
                 migratedWebData = true;
               }
             }
@@ -238,7 +313,8 @@ const CaffeineTrackerApp = () => {
               if (lsRecords) {
                 console.log("Found records in localStorage, migrating...");
                 recordsFromStore = JSON.parse(lsRecords);
-                await Preferences.set({ key: 'caffeineRecords', value: lsRecords });
+                await setDBValue('caffeineRecords', recordsFromStore); // Save to DB
+                await Preferences.set({ key: 'caffeineRecords', value: lsRecords }); // Keep sync
                 migratedWebData = true;
               }
             }
@@ -247,12 +323,13 @@ const CaffeineTrackerApp = () => {
               if (lsDrinks) {
                 console.log("Found drinks in localStorage, migrating...");
                 drinksFromStore = JSON.parse(lsDrinks);
-                await Preferences.set({ key: 'caffeineDrinks', value: lsDrinks });
+                await setDBValue('caffeineDrinks', drinksFromStore); // Save to DB
+                await Preferences.set({ key: 'caffeineDrinks', value: lsDrinks }); // Keep sync
                 migratedWebData = true;
               }
             }
             if (migratedWebData) {
-              console.log("Web localStorage data migrated to Preferences. Removing from localStorage.");
+              console.log("Web localStorage data migrated to DB and Preferences. Removing from localStorage.");
               localStorage.removeItem('caffeineSettings');
               localStorage.removeItem('caffeineRecords');
               localStorage.removeItem('caffeineDrinks');
@@ -313,12 +390,19 @@ const CaffeineTrackerApp = () => {
         const settingsToPersist = { ...userSettings };
         delete settingsToPersist.webdavPassword;
         delete settingsToPersist.themeMode;
+        
+        // Save to DB
+        await setDBValue('caffeineSettings', settingsToPersist);
+        await setDBValue('caffeineRecords', records);
+        await setDBValue('caffeineDrinks', drinks);
+
+        // Save to Preferences (Backup/Legacy)
         await Preferences.set({ key: 'caffeineSettings', value: JSON.stringify(settingsToPersist) });
         await Preferences.set({ key: 'caffeineRecords', value: JSON.stringify(records) });
         await Preferences.set({ key: 'caffeineDrinks', value: JSON.stringify(drinks) });
 
       } catch (error) {
-        console.error('Error saving data to Preferences:', error);
+        console.error('Error saving data:', error);
       }
     };
 
@@ -451,10 +535,14 @@ const CaffeineTrackerApp = () => {
         settingsToUse.webdavPassword
       );
 
+      // 使用数据库导出作为本地数据源，确保包含所有数据
+      const dbData = await exportDatabase();
       const localData = {
+        ...dbData,
+        // 确保包含运行时状态中的最新记录和饮品（虽然通常DB已同步，但为了保险）
         records: currentRecords,
         drinks: currentDrinks,
-        userSettings: { ...settingsToUse, webdavPassword: '' },
+        userSettings: { ...settingsToUse }, // 不再清除密码，因为用户要求导出所有内容
         syncTimestamp: settingsToUse.localLastModifiedTimestamp || Date.now(),
         version: appConfig.latest_version
       };
@@ -741,6 +829,7 @@ const CaffeineTrackerApp = () => {
       };
       
       // 保存密码到Preferences
+      await setDBValue('webdavPassword', config.password);
       await Preferences.set({ key: 'webdavPassword', value: config.password });
       
       // 更新设置
@@ -778,7 +867,7 @@ const CaffeineTrackerApp = () => {
       className={`min-h-screen font-sans transition-colors duration-300 ${effectiveTheme === 'dark' ? 'dark' : ''}`}
       style={{ backgroundColor: colors.bgBase, color: colors.textPrimary }}
     >
-      <header className="max-w-md mx-auto px-4 pt-6 pb-2 text-center relative">
+      <header className="max-w-md mx-auto px-4 pt-[env(safe-area-inset-top)] pb-2 text-center relative">
         <h1
           className="text-3xl font-bold flex justify-center items-center transition-colors"
           style={{ color: colors.espresso, marginTop: '4%' }}
@@ -794,7 +883,7 @@ const CaffeineTrackerApp = () => {
         </p>
 
         {/* 头部按钮 */}
-        <div className="absolute top-4 right-4 flex items-center space-x-2" style={{ marginTop: '5%' }}>
+        <div className="absolute top-[env(safe-area-inset-top)] right-4 flex items-center space-x-2" style={{ marginTop: '5%' }}>
           {/* 同步按钮 */}
           {userSettings.webdavEnabled && (
             <button
@@ -841,7 +930,7 @@ const CaffeineTrackerApp = () => {
                 alert(`同步失败\n\n原因: ${syncStatus.lastSyncResult.message}\n\n建议:\n1. 检查网络连接\n2. 验证WebDAV配置\n3. 使用Android APP获得更好的兼容性\n4. 联系技术支持: i@jerryz.com.cn`);
               }
             }}
-            className={`absolute top-14 right-4 mt-1 py-1 px-3 rounded-full text-xs font-medium z-10 flex items-center shadow-sm transition-all duration-200 border ${
+            className={`absolute top-[env(safe-area-inset-top)] right-4 mt-1 py-1 px-3 rounded-full text-xs font-medium z-10 flex items-center shadow-sm transition-all duration-200 border ${
               syncStatus.inProgress 
                 ? 'cursor-default' 
                 : !syncStatus.lastSyncResult?.success 
@@ -1026,7 +1115,7 @@ const CaffeineTrackerApp = () => {
           </Routes>
         </Suspense>
 
-        <footer className="max-w-md mx-auto mt-8 text-center text-xs transition-colors" style={{ color: colors.textMuted }}>
+        <footer className="max-w-md mx-auto mt-8 text-center text-xs transition-colors pb-[env(safe-area-inset-bottom)]" style={{ color: colors.textMuted }}>
           {userSettings.develop === true && (
             <p className="mb-2 font-semibold text-orange-500 flex items-center justify-center">
               <Code size={14} className="mr-1" aria-hidden="true" /> 开发模式已启用
@@ -1040,6 +1129,45 @@ const CaffeineTrackerApp = () => {
         </footer>
       </main>
 
+      {/* 更新提示弹窗 */}
+      {updateInfo.available && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-sm w-full overflow-hidden border border-gray-200 dark:border-gray-700">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-12 h-12 mx-auto bg-blue-100 dark:bg-blue-900/30 rounded-full mb-4">
+                <RefreshCw className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <h3 className="text-lg font-bold text-center text-gray-900 dark:text-white mb-2">
+                发现新版本 v{updateInfo.latestVersion}
+              </h3>
+              <p className="text-sm text-center text-gray-600 dark:text-gray-300 mb-6">
+                {updateInfo.forced 
+                  ? "当前版本过低，为了保证应用正常运行，请立即更新。" 
+                  : "新版本已发布，建议您更新以获得更好的体验。"}
+              </p>
+              <div className="space-y-3">
+                <a
+                  href={updateInfo.downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white text-center font-medium rounded-lg transition-colors"
+                >
+                  立即更新
+                </a>
+                {!updateInfo.forced && (
+                  <button
+                    onClick={() => setUpdateInfo(prev => ({ ...prev, available: false }))}
+                    className="block w-full py-2.5 px-4 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-center font-medium rounded-lg transition-colors"
+                  >
+                    暂不更新
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 同步错误弹窗 */}
       {syncError && (
         <SyncErrorModal
@@ -1048,6 +1176,7 @@ const CaffeineTrackerApp = () => {
           onRetry={handleManualSync}
           colors={colors}
           appConfig={appConfig}
+          isNativePlatform={isNativePlatform}
         />
       )}
     </div>

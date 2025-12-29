@@ -23,7 +23,10 @@ export default class WebDAVClient {
         this.server = server ? (server.endsWith('/') ? server : `${server}/`) : '';
         this.username = username;
         this.password = password;
-        this.fileName = 'caffeine-tracker-data.json';
+        this.dbFileName = 'caffeine-tracker.db';
+        this.jsonFileName = 'caffeine-tracker-db.json';
+        this.legacyFileName = 'caffeine-tracker-data.json';
+        this.fileName = this.dbFileName; // 兼容旧用法，默认以数据库文件名为主
         this.authHeader = (username && password) ? 'Basic ' + btoa(`${username}:${password}`) : null;
         this.userAgent = 'CaffeineTracker/1.0 (WebDAVClient)';
         this.platform = Capacitor.getPlatform();
@@ -261,11 +264,32 @@ export default class WebDAVClient {
         }
 
         try {
-            const url = new URL(this.fileName, this.server);
+            // 优先尝试新的数据库文件，其次是JSON文件，最后是旧版文件
             const fetchOptions = this.createFetchOptions('GET');
-            const response = await this.executeRequest(url, fetchOptions, 'GET下载数据');
+            const candidateFiles = [
+                { name: this.dbFileName, label: 'GET下载数据(DB)' },
+                { name: this.jsonFileName, label: 'GET下载数据(JSON)' },
+                { name: this.legacyFileName, label: 'GET下载数据(Legacy)' }
+            ];
 
-            if (response.status === 404) {
+            let response = null;
+            let usedFile = null;
+
+            for (const candidate of candidateFiles) {
+                const url = new URL(candidate.name, this.server);
+                const res = await this.executeRequest(url, fetchOptions, candidate.label);
+
+                if (res.status === 404) {
+                    console.log(`${candidate.name} 未找到 (404)，尝试下一个候选文件...`);
+                    continue;
+                }
+
+                response = res;
+                usedFile = candidate.name;
+                break;
+            }
+
+            if (!response) {
                 console.log("远程文件未找到 (404) - 这是正常的，表示首次同步");
                 return null;
             }
@@ -325,6 +349,7 @@ export default class WebDAVClient {
             }
 
             console.log("数据下载和验证成功:", {
+                usedFile,
                 recordsCount: data.records ? data.records.length : 0,
                 drinksCount: data.drinks ? data.drinks.length : 0,
                 hasUserSettings: !!data.userSettings,
@@ -358,31 +383,33 @@ export default class WebDAVClient {
             throw new Error(error);
         }
 
-        // 准备上传数据
         let dataToUpload;
         try {
+            // Deep copy to avoid modifying original state
             dataToUpload = JSON.parse(JSON.stringify(data));
-            if (dataToUpload.userSettings && dataToUpload.userSettings.hasOwnProperty('webdavPassword')) {
-                delete dataToUpload.userSettings.webdavPassword;
-            }
-            // 同步到远端时，不上传以下本地设备相关/敏感配置，避免覆盖其他设备配置
-            if (dataToUpload.userSettings) {
-                delete dataToUpload.userSettings.themeMode;
-                delete dataToUpload.userSettings.webdavEnabled;
-                delete dataToUpload.userSettings.webdavServer;
-                delete dataToUpload.userSettings.webdavUsername;
-            }
+
+            // 用户要求导出所有内容，包括密码等，因此不再删除敏感信息
+            // if (dataToUpload.userSettings && dataToUpload.userSettings.hasOwnProperty('webdavPassword')) {
+            //     delete dataToUpload.userSettings.webdavPassword;
+            // }
+            // // 同步到远端时，不上传以下本地设备相关/敏感配置，避免覆盖其他设备配置
+            // if (dataToUpload.userSettings) {
+            //     delete dataToUpload.userSettings.themeMode;
+            //     delete dataToUpload.userSettings.webdavEnabled;
+            //     delete dataToUpload.userSettings.webdavServer;
+            //     delete dataToUpload.userSettings.webdavUsername;
+            // }
         } catch (error) {
             console.error("准备上传数据时出错:", error.message);
             throw new Error(`数据序列化失败: ${error.message}`);
         }
 
         try {
-            const url = new URL(this.fileName, this.server);
+            const url = new URL(this.dbFileName, this.server);
             const jsonString = JSON.stringify(dataToUpload, null, 2);
 
             const fetchOptions = this.createFetchOptions('PUT', {
-                'Content-Type': 'application/json; charset=utf-8',
+                'Content-Type': 'application/octet-stream',
                 'Content-Length': jsonString.length.toString()
             }, jsonString);
 

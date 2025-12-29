@@ -22,4 +22,10 @@ sed -i '' "s/\"latest_version\": \"[^\"]*\"/\"latest_version\": \"$NEW_VERSION\"
 sed -i '' "s/versionCode [0-9]*/versionCode $VERSION_CODE/" android/app/build.gradle
 sed -i '' "s/versionName \"[^\"]*\"/versionName \"$NEW_VERSION\"/" android/app/build.gradle
 
+# 更新 iOS Info.plist
+if [ -f "ios/App/App/Info.plist" ]; then
+    plutil -replace CFBundleShortVersionString -string "$NEW_VERSION" ios/App/App/Info.plist
+    plutil -replace CFBundleVersion -string "$VERSION_CODE" ios/App/App/Info.plist
+fi
+
 echo "Version updated to $NEW_VERSION"

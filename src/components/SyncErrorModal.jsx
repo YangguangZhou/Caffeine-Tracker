@@ -1,10 +1,16 @@
 import { X, AlertTriangle, Smartphone, Mail, RefreshCw } from 'lucide-react';
+import { generateFeedbackMailto } from '../utils/feedbackUtils';
 
 /**
  * WebDAV 同步错误弹窗组件
  */
-const SyncErrorModal = ({ error, onClose, onRetry, colors, appConfig }) => {
+const SyncErrorModal = ({ error, onClose, onRetry, colors, appConfig, isNativePlatform }) => {
   if (!error) return null;
+
+  const handleContactSupport = () => {
+    const mailtoLink = generateFeedbackMailto('sync_error', appConfig, isNativePlatform, error);
+    window.open(mailtoLink);
+  };
 
   return (
     <div
@@ -100,15 +106,15 @@ const SyncErrorModal = ({ error, onClose, onRetry, colors, appConfig }) => {
                 <Mail size={14} className="mr-1.5" />
                 联系技术支持
               </p>
-              <a
-                href="mailto:i@jerryz.com.cn?subject=咖啡因追踪器WebDAV同步问题&body=请描述您遇到的问题，并附上您的WebDAV服务商信息（如坚果云、NextCloud等）。"
-                className="inline-block text-xs underline"
+              <button
+                onClick={handleContactSupport}
+                className="inline-block text-xs underline text-left"
                 style={{ color: colors.textSecondary }}
                 onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
                 onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
               >
-                i@jerryz.com.cn
-              </a>
+                发送错误报告邮件 (i@jerryz.com.cn)
+              </button>
             </div>
           </div>
 

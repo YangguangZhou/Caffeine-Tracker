@@ -7,6 +7,7 @@ import {
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import MathFormula from '../components/MathFormula';
+import { generateFeedbackMailto } from '../utils/feedbackUtils';
 
 
 /**
@@ -83,61 +84,13 @@ const AboutView = ({ colors, appConfig, isNativePlatform }) => {
   };
 
   const handleFeedback = () => {
-    const subject = encodeURIComponent('咖啡因追踪器 - 问题反馈');
-    const body = encodeURIComponent(`您好！
-
-我在使用咖啡因追踪器时遇到了以下问题：
-
-【问题描述】
-请详细描述您遇到的问题...
-
-【复现步骤】
-1. 
-2. 
-3. 
-
-【期望结果】
-您期望应该发生什么...
-
-【实际结果】
-实际发生了什么...
-
-【其他信息】
-- 应用版本: ${appConfig.latest_version || '未知'}
-- 平台: ${isNativePlatform ? 'Android客户端' : '网页版'}
-- 浏览器: ${navigator.userAgent}
-- 时间: ${new Date().toLocaleString()}
-
-感谢您的反馈！`);
-
-    window.open(`mailto:i@jerryz.com.cn?subject=${subject}&body=${body}`);
+    const mailtoLink = generateFeedbackMailto('feedback', appConfig, isNativePlatform);
+    window.open(mailtoLink);
   };
 
   const handleSuggestion = () => {
-    const subject = encodeURIComponent('咖啡因追踪器 - 功能建议');
-    const body = encodeURIComponent(`您好！
-
-我对咖啡因追踪器有以下建议：
-
-【建议内容】
-请详细描述您的建议...
-
-【使用场景】
-在什么情况下需要这个功能...
-
-【期望效果】
-您希望这个功能能够实现什么...
-
-【其他想法】
-任何其他相关的想法或建议...
-
-【应用信息】
-- 应用版本: ${appConfig.latest_version || '未知'}
-- 平台: ${isNativePlatform ? 'Android客户端' : '网页版'}
-
-感谢您的建议！`);
-
-    window.open(`mailto:i@jerryz.com.cn?subject=${subject}&body=${body}`);
+    const mailtoLink = generateFeedbackMailto('suggestion', appConfig, isNativePlatform);
+    window.open(mailtoLink);
   };
 
   return (

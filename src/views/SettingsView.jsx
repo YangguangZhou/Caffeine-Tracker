@@ -6,6 +6,7 @@ import {
     CloudDownload, Server, Lock, Activity, TestTubeDiagonal, Database, Smartphone, Link as LinkIcon, Camera, CheckCircle2, AlertTriangle, Lightbulb, Mail
 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Preferences } from '@capacitor/preferences';
 import { useSearchParams } from 'react-router-dom';
@@ -14,6 +15,7 @@ import { initialPresetDrinks, DRINK_CATEGORIES, DEFAULT_CATEGORY, defaultSetting
 import SyncConfigShare from '../components/SyncConfigShare';
 import ManualImportModal from '../components/ManualImportModal'; // 导入新组件
 import { extractConfigParam } from '../utils/syncConfigShare';
+import { getDBValue, setDBValue, exportDatabase, importDatabase } from '../utils/db';
 
 // 动态导入 WebDAVClient
 const WebDAVClientPromise = import('../utils/webdavSync');
@@ -76,7 +78,12 @@ const SettingsView = ({
     useEffect(() => {
         const loadPersistedPassword = async () => {
             try {
-                const { value } = await Preferences.get({ key: WEBDAV_PASSWORD_KEY });
+                let value = await getDBValue(WEBDAV_PASSWORD_KEY);
+                if (!value) {
+                    const { value: prefValue } = await Preferences.get({ key: WEBDAV_PASSWORD_KEY });
+                    value = prefValue;
+                }
+
                 if (value && value !== userSettings.webdavPassword) {
                     onUpdateSettings('webdavPassword', value, true);
                 }
@@ -94,8 +101,10 @@ const SettingsView = ({
         if (key === 'webdavPassword') {
             try {
                 if (value) {
+                    await setDBValue(WEBDAV_PASSWORD_KEY, value);
                     await Preferences.set({ key: WEBDAV_PASSWORD_KEY, value });
                 } else {
+                    await setDBValue(WEBDAV_PASSWORD_KEY, null);
                     await Preferences.remove({ key: WEBDAV_PASSWORD_KEY });
                 }
             } catch (error) {
@@ -348,45 +357,61 @@ const SettingsView = ({
     // 导出数据
     const exportData = useCallback(async () => {
         try {
-            const settingsToExport = { ...userSettings };
-
+            // 导出完整数据库内容，作为同步首选的数据库文件
+            const dbData = await exportDatabase();
             const exportDataObject = {
-                records,
-                userSettings: settingsToExport,
-                drinks,
+                ...dbData,
                 exportTimestamp: Date.now(),
                 version: appConfig.latest_version
             };
+
             const dataStr = JSON.stringify(exportDataObject, null, 2);
-            const exportFileDefaultName = `caffeine-tracker-data-${new Date().toISOString().slice(0, 10)}.json`;
+            const exportFileDefaultName = `caffeine-tracker-${new Date().toISOString().slice(0, 10)}.db`;
 
             if (isNativePlatform) {
                 try {
+                    const directory = Directory.Cache;
                     await Filesystem.writeFile({
                         path: exportFileDefaultName,
                         data: dataStr,
-                        directory: Directory.Documents,
+                        directory,
                         encoding: Encoding.UTF8,
                     });
-                    alert(`数据已导出到文档目录: ${exportFileDefaultName}`);
+
+                    // 获取可分享的文件 URI，并调用系统分享面板
+                    const { uri } = await Filesystem.getUri({ directory, path: exportFileDefaultName });
+                    const shareUrl = uri || (Capacitor.convertFileSrc ? Capacitor.convertFileSrc(exportFileDefaultName) : exportFileDefaultName);
+
+                    try {
+                        await Share.share({
+                            title: '导出数据',
+                            text: '请选择保存位置或分享对象。',
+                            url: shareUrl
+                        });
+                    } catch (shareError) {
+                        console.warn('分享失败，文件已写入缓存目录', shareError);
+                        alert(`文件已导出到缓存目录: ${exportFileDefaultName}\n分享失败: ${shareError.message}`);
+                    }
                 } catch (e) {
-                    console.error('Capacitor 文件保存失败', e);
+                    console.error('Capacitor 文件保存或分享失败', e);
                     alert(`导出失败: ${e.message}`);
                 }
             } else {
-                const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
+                const blob = new Blob([dataStr], { type: 'application/octet-stream' });
+                const dataUri = URL.createObjectURL(blob);
                 const linkElement = document.createElement('a');
                 linkElement.setAttribute('href', dataUri);
                 linkElement.setAttribute('download', exportFileDefaultName);
                 document.body.appendChild(linkElement);
                 linkElement.click();
                 document.body.removeChild(linkElement);
+                URL.revokeObjectURL(dataUri);
             }
         } catch (error) {
             console.error("导出数据失败:", error);
-            alert("导出数据时发生错误。");
+            alert("导出数据时发生错误: " + error.message);
         }
-    }, [records, userSettings, drinks, appConfig.latest_version, isNativePlatform]);
+    }, [appConfig.latest_version, isNativePlatform]);
 
     // 清除所有数据
     const clearAllData = useCallback(async () => {
@@ -422,35 +447,30 @@ const SettingsView = ({
                     return;
                 }
 
-                const { records: importedRecords, drinks: importedDrinks, userSettings: importedUserSettings, version } = importedFullData;
+                // 尝试从导入数据中提取核心数据
+                const { records: importedRecords, drinks: importedDrinks, userSettings: importedUserSettings } = importedFullData;
 
                 if (!Array.isArray(importedRecords) || !Array.isArray(importedDrinks) || typeof importedUserSettings !== 'object') {
                     alert("导入数据结构不完整或无效。");
                     return;
                 }
 
-                // 合并设置，但保留当前的 WebDAV 凭据和同步频率等敏感或设备特定的设置
-                const currentWebDavPassword = userSettings.webdavPassword || (await Preferences.get({ key: WEBDAV_PASSWORD_KEY })).value;
-                const settingsToKeep = {
-                    webdavServer: userSettings.webdavServer,
-                    webdavUsername: userSettings.webdavUsername,
-                    webdavPassword: currentWebDavPassword,
-                    webdavEnabled: userSettings.webdavEnabled,
-                    webdavSyncFrequency: userSettings.webdavSyncFrequency,
-                    lastSyncTimestamp: userSettings.lastSyncTimestamp,
-                    localLastModifiedTimestamp: Date.now(),
-                    themeMode: userSettings.themeMode,
-                };
-
-                const mergedSettings = {
-                    ...defaultSettings,
-                    ...importedUserSettings,
-                    ...settingsToKeep
-                };
+                // 导入到数据库
+                await importDatabase(importedFullData);
 
                 // 更新状态
                 setRecords(importedRecords || []);
                 setDrinks(importedDrinks || []);
+                
+                // 直接使用导入的设置，不再保留当前设置（因为用户要求完全导入）
+                // 但为了安全，如果导入的设置中缺少某些关键字段，可以回退到默认值
+                const mergedSettings = {
+                    ...defaultSettings,
+                    ...importedUserSettings,
+                    // 强制更新本地修改时间戳，触发同步
+                    localLastModifiedTimestamp: Date.now()
+                };
+                
                 onUpdateSettings(mergedSettings, null, true);
 
                 alert('数据导入成功！');
@@ -461,7 +481,7 @@ const SettingsView = ({
         };
         reader.readAsText(file);
         event.target.value = null;
-    }, [setRecords, onUpdateSettings, setDrinks, userSettings]);
+    }, [setRecords, onUpdateSettings, setDrinks]);
 
     // 处理手动导入
     const handleManualImport = useCallback(async (url) => {
@@ -969,7 +989,7 @@ const SettingsView = ({
                         {/* 导入配置按钮：扫描二维码和手动导入 */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             {/* 扫描配置二维码按钮 - 仅在原生平台显示 */}
-                            {isNativePlatform && (
+                            {/* {isNativePlatform && (
                                 <button
                                     onClick={() => handleScanQRCode()}
                                     className="py-2 px-4 border rounded-md transition-colors duration-200 text-sm flex items-center justify-center font-medium"
@@ -988,11 +1008,11 @@ const SettingsView = ({
                                     <Camera size={16} className="mr-1.5" aria-hidden="true" />
                                     扫描配置二维码
                                 </button>
-                            )}
+                            )} */}
                             {/* 手动导入配置按钮 */}
                             <button
                                 onClick={() => setShowManualImport(true)}
-                                className={`py-2 px-4 border rounded-md transition-colors duration-200 text-sm flex items-center justify-center font-medium ${!isNativePlatform ? 'col-span-2' : ''}`}
+                                className={`py-2 px-4 border rounded-md transition-colors duration-200 text-sm flex items-center justify-center font-medium col-span-2`}
                                 style={{
                                     borderColor: colors.borderStrong,
                                     color: colors.textSecondary,
@@ -1567,14 +1587,13 @@ const SettingsView = ({
                             onClick={exportData}
                             className="w-full py-2.5 px-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center shadow text-sm font-medium"
                         >
-                            <Download size={16} className="mr-1.5" /> 导出所有数据 (.json)
+                            <Download size={16} className="mr-1.5" /> 导出所有数据 (.db)
                         </button>
                         <p
                             className="text-xs mt-1 transition-colors"
                             style={{ color: colors.textMuted }}
                         >
-                            将所有记录、设置和饮品列表导出为 JSON 文件备份。
-                        </p>
+                            将所有记录、设置和饮品列表导出为数据库备份文件 (.db)。
                     </div>
 
                     {/* 导入数据 */}
@@ -1589,17 +1608,17 @@ const SettingsView = ({
                             <Upload size={16} className="mr-1.5" /> 选择文件导入数据
                             <input
                                 type="file"
-                                accept=".json"
+                                accept=".db,.json"
                                 className="hidden"
                                 onChange={importData}
-                                aria-label="选择要导入的 JSON 文件"
+                                aria-label="选择要导入的备份文件 (.db 或 .json)"
                             />
                         </label>
                         <p
                             className="text-xs mt-1 transition-colors"
                             style={{ color: colors.textMuted }}
                         >
-                            从之前导出的 JSON 文件恢复数据。注意：这将覆盖当前所有数据。
+                            从之前导出的数据库备份 (.db) 或旧版 JSON 文件恢复数据。注意：这将覆盖当前所有数据。
                         </p>
                     </div>
 
