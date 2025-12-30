@@ -883,7 +883,7 @@ const CaffeineTrackerApp = () => {
         </p>
 
         {/* 头部按钮 */}
-        <div className="absolute top-[env(safe-area-inset-top)] right-4 flex items-center space-x-2" style={{ marginTop: '5%' }}>
+        <div className="absolute top-[env(safe-area-inset-top)] right-4 flex items-center space-x-2" style={{ marginTop: '0%' }}>
           {/* 同步按钮 */}
           {userSettings.webdavEnabled && (
             <button
@@ -938,7 +938,7 @@ const CaffeineTrackerApp = () => {
                   : 'cursor-default'
             }`}
             style={{
-              marginTop: '5%',
+              marginTop: '8%',
               backgroundColor: syncStatus.inProgress 
                 ? colors.infoBg 
                 : syncStatus.lastSyncResult?.success 
