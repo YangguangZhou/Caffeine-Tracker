@@ -5,7 +5,7 @@ import { Capacitor } from '@capacitor/core';
 import { decodeConfigFromUrl, isValidConfig, getServerDisplayName, extractConfigParam } from '../utils/syncConfigShare';
 
 const CustomModal = ({ children, colors }) => (
-  <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+  <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
     <div 
       className="rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-100 p-6 border"
       style={{
@@ -245,12 +245,12 @@ const SyncImportView = ({ onImportConfig, isNativePlatform, colors }) => {
         <div 
           className="p-3 border-l-4 rounded-md mb-4"
           style={{
-            backgroundColor: colors.warningBg,
-            borderColor: colors.warning
+            backgroundColor: colors.dangerBg,
+            borderColor: colors.danger,
           }}
         >
-          <p className="text-sm" style={{ color: colors.warningText }}>
-            <b>重要:</b> 导入将使用此配置覆盖您当前的 WebDAV 设置，并从服务器同步数据，这可能会覆盖您本地的记录。
+          <p className="text-sm font-medium" style={{ color: colors.dangerText }}>
+            <b>警告:</b> 导入将使用此配置覆盖您当前的 WebDAV 设置，并从服务器强制同步数据，这将会<b>完全覆盖</b>您本地的所有记录。
           </p>
         </div>
         <div className="flex justify-end space-x-3">

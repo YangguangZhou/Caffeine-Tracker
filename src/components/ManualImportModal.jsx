@@ -12,6 +12,14 @@ const ManualImportModal = ({ onClose, colors, onImportConfig, initialConfigParam
   const [scannedLink, setScannedLink] = useState(initialScannedContent || '');
   const [copied, setCopied] = useState(false);
 
+  // 锁定背景滚动
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
+
   // 如果有 initialConfigParam，自动解析
   useEffect(() => {
     if (initialConfigParam && !scannedLink) {
@@ -91,16 +99,14 @@ const ManualImportModal = ({ onClose, colors, onImportConfig, initialConfigParam
     <div
       className="fixed inset-0 flex justify-center items-center z-50 p-4"
       style={{
-        backgroundColor: 'rgba(0, 0, 0, 0.45)',
-        backdropFilter: 'blur(6px)',
-        WebkitBackdropFilter: 'blur(6px)'
+        backgroundColor: 'rgba(0, 0, 0, 0.6)',
       }}
     >
       <div 
-        className="rounded-2xl shadow-2xl w-full max-w-md p-6 transform transition-all duration-300 border"
+        className="rounded-2xl shadow-2xl w-full max-w-md p-6 transform transition-all duration-300 border bg-white dark:bg-gray-800"
         style={{
-          backgroundColor: colors.bgCard,
-          borderColor: colors.borderSubtle
+          borderColor: colors.borderSubtle,
+          backgroundColor: colors.bgCard
         }}
       >
         {/* 如果正在导入或已完成 */}
@@ -253,12 +259,12 @@ const ManualImportModal = ({ onClose, colors, onImportConfig, initialConfigParam
             <div 
               className="p-3 border-l-4 rounded-md mb-4"
               style={{
-                backgroundColor: colors.warningBg,
-                borderColor: colors.warning
+                backgroundColor: colors.dangerBg,
+                borderColor: colors.danger,
               }}
             >
-              <p className="text-sm" style={{ color: colors.warningText }}>
-                <b>重要:</b> 导入将使用此配置覆盖您当前的 WebDAV 设置，并从服务器同步数据，这可能会覆盖您本地的记录。
+              <p className="text-sm font-medium" style={{ color: colors.dangerText }}>
+                <b>警告:</b> 导入将使用此配置覆盖您当前的 WebDAV 设置，并从服务器强制同步数据，这将会<b>完全覆盖</b>您本地的所有记录。
               </p>
             </div>
             <div className="flex justify-end space-x-3">
@@ -330,29 +336,7 @@ const ManualImportModal = ({ onClose, colors, onImportConfig, initialConfigParam
                 />
               </div>
               
-              {/* 添加扫码按钮 - 仅在原生平台显示 */}
-              {isNativePlatform && (
-                <>
-                  <div className="relative flex items-center my-4">
-                    <div className="flex-grow border-t" style={{ borderColor: colors.borderSubtle }}></div>
-                    <span className="flex-shrink mx-4 text-xs" style={{ color: colors.textMuted }}>或</span>
-                    <div className="flex-grow border-t" style={{ borderColor: colors.borderSubtle }}></div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleScan}
-                    className="w-full py-2.5 px-4 border rounded-lg transition-colors text-sm flex items-center justify-center font-medium mb-4"
-                    style={{
-                      borderColor: colors.borderStrong,
-                      color: colors.textSecondary,
-                      backgroundColor: colors.bgBase
-                    }}
-                  >
-                    <Camera size={18} className="mr-2" />
-                    扫描配置二维码
-                  </button>
-                </>
-              )}
+              {/* 添加扫码按钮 - 已移除，因依赖缺失导致崩溃 */}
               
               <div className="flex justify-end space-x-3 mt-6">
                 <button 

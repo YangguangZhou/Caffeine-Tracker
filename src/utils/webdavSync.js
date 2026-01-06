@@ -1,7 +1,23 @@
 // WebDAV 同步实用工具
 
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
+import JSZip from 'jszip';
 import { getPresetIconColor, DEFAULT_CATEGORY } from './constants';
+import { deserializeSQLiteBytes, serializeDataToSQLiteBytes } from './db';
+
+// 将 ArrayBuffer 转为 Base64，供原生 HTTP 上传使用
+const arrayBufferToBase64 = (buffer) => {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+};
+
+const SIZE_MISMATCH_TOLERANCE_BYTES = 1024;
+const SIZE_MISMATCH_TOLERANCE_RATIO = 0.01;
 
 const knownSettingKeys = [
     'weight', 'maxDailyCaffeine', 'recommendedDosePerKg',
@@ -15,7 +31,7 @@ const knownSettingKeys = [
  * WebDAV 同步客户端
  */
 export default class WebDAVClient {
-    constructor(server, username, password) {
+    constructor(server, username, password, logger = null) {
         if (!server || !username) {
             console.warn("WebDAVClient 使用不完整的凭据进行初始化。");
         }
@@ -23,21 +39,28 @@ export default class WebDAVClient {
         this.server = server ? (server.endsWith('/') ? server : `${server}/`) : '';
         this.username = username;
         this.password = password;
-        this.dbFileName = 'caffeine-tracker.db';
+        this.dbFileName = 'caffeine-tracker.sqlite';
+        this.zipFileName = 'caffeine-tracker-backup.zip';
         this.jsonFileName = 'caffeine-tracker-db.json';
         this.legacyFileName = 'caffeine-tracker-data.json';
-        this.fileName = this.dbFileName; // 兼容旧用法，默认以数据库文件名为主
+        this.fileName = this.dbFileName; // 默认以真实数据库文件为主
         this.authHeader = (username && password) ? 'Basic ' + btoa(`${username}:${password}`) : null;
         this.userAgent = 'CaffeineTracker/1.0 (WebDAVClient)';
         this.platform = Capacitor.getPlatform();
         this.isNative = Capacitor.isNativePlatform();
+        this.logger = logger;
 
-        console.log('WebDAVClient 初始化完成', {
-            serverUrl: this.server ? this.server.substring(0, 30) + '...' : '未设置',
-            hasAuthHeader: !!this.authHeader,
-            platform: this.platform,
-            isNative: this.isNative
-        });
+        this.log('WebDAVClient 初始化完成', 'info');
+    }
+
+    log(message, type = 'info') {
+        if (this.logger) {
+            this.logger(message, type);
+        }
+        // Also log to console for debugging
+        if (type === 'error') console.error(`[WebDAV] ${message}`);
+        else if (type === 'warn') console.warn(`[WebDAV] ${message}`);
+        else console.log(`[WebDAV] ${message}`);
     }
 
     isConfigured() {
@@ -47,7 +70,16 @@ export default class WebDAVClient {
 
     // 创建请求配置
     createFetchOptions(method, additionalHeaders = {}, body = null) {
-        const currentAuthHeader = (this.username && this.password) ? 'Basic ' + btoa(`${this.username}:${this.password}`) : null;
+        // 修复：使用 UTF-8 安全的 Base64 编码，防止中文用户名/密码乱码
+        const safeBtoa = (str) => {
+            try {
+                return btoa(unescape(encodeURIComponent(str)));
+            } catch (e) {
+                console.warn("Base64编码失败，回退到普通btoa", e);
+                return btoa(str);
+            }
+        };
+        const currentAuthHeader = (this.username && this.password) ? 'Basic ' + safeBtoa(`${this.username}:${this.password}`) : null;
 
         const headers = {
             'User-Agent': this.userAgent,
@@ -85,40 +117,27 @@ export default class WebDAVClient {
 
     // 执行HTTP请求
     async executeRequest(url, options, operation = 'request') {
-        console.log(`开始执行 ${operation}`, {
-            url: url.toString(),
-            method: options.method,
-            platform: this.platform,
-            isNative: this.isNative
-        });
+        this.log(`开始执行 ${operation}: ${options.method} ${url.toString()}`, 'info');
 
         try {
             const response = await fetch(url.toString(), options);
 
-            console.log(`${operation} 响应状态: ${response.status} ${response.statusText}`, {
-                ok: response.ok,
-                type: response.type
-            });
+            this.log(`${operation} 响应状态: ${response.status} ${response.statusText}`, response.ok ? 'info' : 'warn');
 
             return response;
         } catch (error) {
-            console.error(`${operation} 请求失败`, {
-                error: error.message,
-                platform: this.platform,
-                url: url.toString(),
-                method: options.method
-            });
+            this.log(`${operation} 请求失败: ${error.message}`, 'error');
 
             throw error;
         }
     }
 
     async testConnection() {
-        console.log("开始WebDAV连接测试...");
+        this.log("开始WebDAV连接测试...", 'info');
 
         if (!this.isConfigured()) {
             const error = "缺少WebDAV配置信息 (服务器, 用户名, 或密码)";
-            console.error("配置检查失败:", error);
+            this.log(error, 'error');
             return { success: false, message: error };
         }
 
@@ -255,42 +274,45 @@ export default class WebDAVClient {
     }
 
     async downloadData() {
-        console.log("开始下载远程数据...");
+        this.log("开始下载远程数据...", 'info');
 
         if (!this.isConfigured()) {
             const error = "WebDAV未配置，无法下载数据";
-            console.error(error);
+            this.log(error, 'error');
             throw new Error(error);
         }
 
         try {
-            // 优先尝试新的数据库文件，其次是JSON文件，最后是旧版文件
             const fetchOptions = this.createFetchOptions('GET');
             const candidateFiles = [
-                { name: this.dbFileName, label: 'GET下载数据(DB)' },
-                { name: this.jsonFileName, label: 'GET下载数据(JSON)' },
-                { name: this.legacyFileName, label: 'GET下载数据(Legacy)' }
+                { name: this.zipFileName, label: 'GET下载数据(ZIP)', type: 'zip' },
+                { name: this.dbFileName, label: 'GET下载数据(SQLite)', type: 'sqlite' },
+                { name: this.jsonFileName, label: 'GET下载数据(JSON)', type: 'json' },
+                { name: this.legacyFileName, label: 'GET下载数据(Legacy)', type: 'json' }
             ];
 
             let response = null;
             let usedFile = null;
+            let usedType = null;
 
             for (const candidate of candidateFiles) {
                 const url = new URL(candidate.name, this.server);
+                // executeRequest already logs
                 const res = await this.executeRequest(url, fetchOptions, candidate.label);
 
                 if (res.status === 404) {
-                    console.log(`${candidate.name} 未找到 (404)，尝试下一个候选文件...`);
+                    this.log(`${candidate.name} 未找到 (404)，尝试下一个候选文件...`, 'warn');
                     continue;
                 }
 
                 response = res;
                 usedFile = candidate.name;
+                usedType = candidate.type;
                 break;
             }
 
             if (!response) {
-                console.log("远程文件未找到 (404) - 这是正常的，表示首次同步");
+                this.log("远程文件未找到 (404) - 这是正常的，表示首次同步", 'info');
                 return null;
             }
 
@@ -306,6 +328,119 @@ export default class WebDAVClient {
                 const error = `下载数据失败: ${response.status} ${response.statusText}`;
                 console.error(error);
                 throw new Error(error);
+            }
+
+            if (usedType === 'zip') {
+                let buffer = await response.arrayBuffer();
+                if (!buffer || buffer.byteLength === 0) {
+                    console.warn("下载的ZIP文件为空");
+                    return null;
+                }
+
+                // 修复：检查是否为 Base64 编码的纯文本文件 (常见于 native upload 导致的问题)
+                // "UEsDB" 是 "PK\x03\x04" 的 Base64 编码前缀
+                const headerBytes = new Uint8Array(buffer).subarray(0, 5);
+                const headerStr = String.fromCharCode(...headerBytes);
+                if (headerStr === 'UEsDB') {
+                    this.log("⚠️ 检测到 ZIP 文件内容为 Base64 文本 (UEsDB...)，正在尝试解码...", 'warn');
+                    try {
+                        const textContent = new TextDecoder().decode(buffer);
+                        // 某些 WebDAV 服务器可能会在 text 中包含换行符
+                        const base64Clean = textContent.replace(/[\r\n\s]/g, '');
+                        const binaryStr = atob(base64Clean);
+                        const len = binaryStr.length;
+                        const bytes = new Uint8Array(len);
+                        for (let i = 0; i < len; i++) {
+                            bytes[i] = binaryStr.charCodeAt(i);
+                        }
+                        buffer = bytes.buffer;
+                        this.log(`Base64数据已自动解码为二进制 ZIP (${buffer.byteLength} bytes)`, 'info');
+                    } catch (b64Error) {
+                        this.log(`尝试解码 Base64 ZIP 失败: ${b64Error.message}`, 'error');
+                    }
+                }
+                
+                try {
+                    const zip = await JSZip.loadAsync(buffer);
+                    const sqliteFile = zip.file(this.dbFileName);
+                    
+                    if (!sqliteFile) {
+                        throw new Error(`ZIP文件中未找到 ${this.dbFileName}`);
+                    }
+                    
+                    const bytes = await sqliteFile.async("uint8array");
+                    const parsed = await deserializeSQLiteBytes(bytes);
+                    const data = {
+                        ...parsed,
+                        version: parsed.version || parsed.userSettings?.version,
+                        syncTimestamp: parsed.syncTimestamp || parsed.userSettings?.localLastModifiedTimestamp
+                    };
+                    
+                    this.log("ZIP解压并解析SQLite成功", 'success');
+                    return { format: 'sqlite-zip', data, bytes, usedFile };
+                } catch (zipError) {
+                    const headerBytes = new Uint8Array(buffer.slice(0, 32));
+                    const headerHex = Array.from(headerBytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
+                    const contentType = response.headers?.get?.('content-type');
+                    this.log(`ZIP解析失败: ${zipError.message}`, 'error');
+                    this.log(`ZIP响应 Content-Type: ${contentType || '未知'}, 大小: ${buffer.byteLength} bytes, 头部Hex: ${headerHex}`, 'warn');
+                    // 如果ZIP解析失败，可能需要尝试其他方式，但目前我们假设ZIP损坏就是损坏
+                    return { format: 'corrupted', data: null, usedFile, error: zipError.message };
+                }
+            }
+
+            if (usedType === 'sqlite') {
+                const buffer = await response.arrayBuffer();
+                if (!buffer || buffer.byteLength === 0) {
+                    console.warn("下载的SQLite文件为空");
+                    return null;
+                }
+                const bytes = new Uint8Array(buffer);
+
+                try {
+                    const parsed = await deserializeSQLiteBytes(bytes);
+                    const data = {
+                        ...parsed,
+                        version: parsed.version || parsed.userSettings?.version,
+                        syncTimestamp: parsed.syncTimestamp || parsed.userSettings?.localLastModifiedTimestamp
+                    };
+
+                    console.log("SQLite 数据下载成功", {
+                        usedFile,
+                        recordsCount: data.records?.length || 0,
+                        drinksCount: data.drinks?.length || 0
+                    });
+
+                    return { format: 'sqlite', data, bytes, usedFile };
+                } catch (sqliteError) {
+                    // 记录详细的错误信息和文件头，以便调试
+                    const headerBytes = bytes.slice(0, 16);
+                    const headerHex = Array.from(headerBytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
+                    const headerText = new TextDecoder().decode(headerBytes).replace(/[\x00-\x1F\x7F-\x9F]/g, '.'); // Replace non-printable chars
+                    
+                    this.log(`SQLite解析失败: ${sqliteError.message}`, 'warn');
+                    this.log(`文件头(Hex): ${headerHex}`, 'warn');
+                    this.log(`文件头(Text): ${headerText}`, 'warn');
+                    this.log("尝试按JSON兼容模式解析（可能是旧的.json或伪.db文件）", 'warn');
+
+                    try {
+                        const textFallback = new TextDecoder().decode(bytes);
+                        const data = JSON.parse(textFallback);
+                        if (typeof data !== 'object' || data === null) {
+                            throw new Error('JSON内容无效');
+                        }
+                        this.log("使用JSON兼容模式解析成功", 'info');
+                        console.log("使用JSON兼容模式解析成功", {
+                            usedFile,
+                            recordsCount: Array.isArray(data.records) ? data.records.length : Array.isArray(data.caffeineRecords) ? data.caffeineRecords.length : 0,
+                            drinksCount: Array.isArray(data.drinks) ? data.drinks.length : Array.isArray(data.caffeineDrinks) ? data.caffeineDrinks.length : 0
+                        });
+                        return { format: 'json-fallback', data, usedFile };
+                    } catch (jsonFallbackError) {
+                        this.log(`兼容解析失败: ${jsonFallbackError.message}`, 'error');
+                        return { format: 'corrupted', data: null, usedFile, error: sqliteError.message };
+                    }
+                }
             }
 
             const text = await response.text();
@@ -327,25 +462,8 @@ export default class WebDAVClient {
                 throw new Error(`下载的数据JSON格式无效: ${parseError.message}`);
             }
 
-            // 数据验证
             if (typeof data !== 'object' || data === null) {
                 throw new Error("下载的数据格式无效 (非对象或为null)");
-            }
-
-            const coreKeys = ['records', 'drinks', 'userSettings', 'version'];
-            const missingKeys = coreKeys.filter(key => !data.hasOwnProperty(key));
-            if (missingKeys.length > 0) {
-                console.warn(`下载的数据缺少核心键: ${missingKeys.join(', ')}`);
-            }
-
-            if (data.records && !Array.isArray(data.records)) {
-                throw new Error("下载的数据中 'records' 必须是数组");
-            }
-            if (data.drinks && !Array.isArray(data.drinks)) {
-                throw new Error("下载的数据中 'drinks' 必须是数组");
-            }
-            if (data.userSettings && typeof data.userSettings !== 'object') {
-                throw new Error("下载的数据中 'userSettings' 必须是对象");
             }
 
             console.log("数据下载和验证成功:", {
@@ -357,7 +475,7 @@ export default class WebDAVClient {
                 syncTimestamp: data.syncTimestamp
             });
 
-            return data;
+            return { format: 'json', data, usedFile };
         } catch (error) {
             console.error("下载数据过程中发生错误:", {
                 message: error.message,
@@ -368,89 +486,178 @@ export default class WebDAVClient {
         }
     }
 
+    async verifyRemoteSize(url, expectedSize) {
+        const allowedDrift = Math.max(SIZE_MISMATCH_TOLERANCE_BYTES, expectedSize * SIZE_MISMATCH_TOLERANCE_RATIO);
+
+        try {
+            const fetchOptions = this.createFetchOptions('HEAD');
+            const response = await this.executeRequest(url, fetchOptions, 'HEAD上传大小校验');
+
+            if (!response.ok) {
+                this.log(`大小校验跳过：HEAD返回 ${response.status} ${response.statusText}`, 'warn');
+                return { supported: false };
+            }
+
+            const rawSize = response.headers?.get?.('content-length');
+            if (!rawSize) {
+                this.log('服务器未返回 Content-Length，无法校验上传文件大小', 'warn');
+                return { supported: false };
+            }
+
+            const remoteSize = parseInt(rawSize, 10);
+            if (!Number.isFinite(remoteSize) || remoteSize <= 0) {
+                this.log(`Content-Length 无效: ${rawSize}`, 'warn');
+                return { supported: false };
+            }
+
+            const delta = Math.abs(remoteSize - expectedSize);
+            const mismatch = delta > allowedDrift;
+
+            if (mismatch) {
+                this.log(`警告：服务器文件大小(${remoteSize} bytes)与本地(${expectedSize} bytes)差异 ${delta} bytes，超出允许范围 ${allowedDrift} bytes`, 'warn');
+            } else {
+                this.log(`大小校验通过：服务器=${remoteSize} bytes，本地=${expectedSize} bytes`, 'info');
+            }
+
+            return { supported: true, mismatch, remoteSize, delta, allowedDrift };
+        } catch (error) {
+            this.log(`大小校验失败：${error.message}`, 'warn');
+            return { supported: false, error: error.message };
+        }
+    }
+
     async uploadData(data) {
-        console.log("开始上传数据...");
+        this.log("开始上传数据...", 'info');
 
         if (!this.isConfigured()) {
             const error = "WebDAV未配置，无法上传数据";
-            console.error(error);
+            this.log(error, 'error');
             throw new Error(error);
         }
 
         if (typeof data !== 'object' || data === null) {
             const error = "无效的上传数据 (非对象)";
-            console.error(error);
+            this.log(error, 'error');
             throw new Error(error);
         }
 
-        let dataToUpload;
         try {
-            // Deep copy to avoid modifying original state
-            dataToUpload = JSON.parse(JSON.stringify(data));
+            const sqliteBytes = await serializeDataToSQLiteBytes(data);
+            
+            // 压缩为 ZIP
+            this.log("正在压缩数据库...", 'info');
+            const zip = new JSZip();
+            zip.file(this.dbFileName, sqliteBytes);
+            
+            // 使用 blob 类型，这是 fetch 上传二进制数据的标准方式
+            // 避免使用 uint8array，因为某些 fetch 实现可能会将其视为文本进行错误编码
+            const zipBlob = await zip.generateAsync({ 
+                type: "blob", 
+                compression: "DEFLATE",
+                compressionOptions: { level: 9 }
+            });
+            
+            const expectedSize = zipBlob.size;
+            this.log(`ZIP压缩完成，大小: ${expectedSize} bytes`, 'info');
+            const url = new URL(this.zipFileName, this.server);
 
-            // 用户要求导出所有内容，包括密码等，因此不再删除敏感信息
-            // if (dataToUpload.userSettings && dataToUpload.userSettings.hasOwnProperty('webdavPassword')) {
-            //     delete dataToUpload.userSettings.webdavPassword;
-            // }
-            // // 同步到远端时，不上传以下本地设备相关/敏感配置，避免覆盖其他设备配置
-            // if (dataToUpload.userSettings) {
-            //     delete dataToUpload.userSettings.themeMode;
-            //     delete dataToUpload.userSettings.webdavEnabled;
-            //     delete dataToUpload.userSettings.webdavServer;
-            //     delete dataToUpload.userSettings.webdavUsername;
-            // }
-        } catch (error) {
-            console.error("准备上传数据时出错:", error.message);
-            throw new Error(`数据序列化失败: ${error.message}`);
-        }
+            const uploadHeaders = {
+                'Content-Type': 'application/zip'
+            };
 
-        try {
-            const url = new URL(this.dbFileName, this.server);
-            const jsonString = JSON.stringify(dataToUpload, null, 2);
-
-            const fetchOptions = this.createFetchOptions('PUT', {
-                'Content-Type': 'application/octet-stream',
-                'Content-Length': jsonString.length.toString()
-            }, jsonString);
-
-            const response = await this.executeRequest(url, fetchOptions, 'PUT上传数据');
-
-            if (response.status === 401) {
-                throw new Error("认证失败 (401): 用户名或密码错误");
+            // 尝试显式禁用 Chunked 和 Expect: 100-continue
+            if (this.isNative) {
+                uploadHeaders['Content-Length'] = `${expectedSize}`;
+                uploadHeaders['Expect'] = '';
+                uploadHeaders['Transfer-Encoding'] = 'identity';
+                this.log('已显式设置 Content-Length 并禁用 Chunked/Expect 以避免截断问题 (原生)', 'info');
+            } else {
+                this.log('浏览器环境将自动设置 Content-Length，默认不发送 Expect/Chunked', 'info');
             }
 
-            if (response.status === 403) {
-                throw new Error("权限被拒绝 (403): 用户没有写入权限");
-            }
+            // 原生环境使用 CapacitorHttp，避免 WKWebView 对 PUT + Blob 的兼容性问题
+            if (this.isNative) {
+                const headers = this.createFetchOptions('PUT', uploadHeaders).headers;
 
-            if (response.status === 507) {
-                throw new Error("存储空间不足 (507): 服务器空间已满");
-            }
+                const base64Zip = arrayBufferToBase64(await zipBlob.arrayBuffer());
+                const nativeResponse = await CapacitorHttp.request({
+                    url: url.toString(),
+                    method: 'PUT',
+                    headers,
+                    data: base64Zip,
+                    dataType: 'base64',
+                    responseType: 'text'
+                });
 
-            if (!response.ok) {
-                const error = `上传数据失败: ${response.status} ${response.statusText}`;
-                console.error(error);
+                const status = nativeResponse.status ?? 0;
+                const statusText = nativeResponse?.data && typeof nativeResponse.data === 'string'
+                    ? nativeResponse.data.substring(0, 120)
+                    : '';
 
-                try {
-                    const responseText = await response.text();
-                    if (responseText) {
-                        console.error("服务器错误详情:", responseText);
-                    }
-                } catch (textError) {
-                    console.warn("无法读取错误响应:", textError.message);
+                this.log(`原生上传响应: ${status} ${statusText || ''}`.trim(), status >= 200 && status < 300 ? 'info' : 'warn');
+
+                if (status === 401) {
+                    throw new Error("认证失败 (401): 用户名或密码错误");
                 }
 
-                throw new Error(error);
+                if (status === 403) {
+                    throw new Error("权限被拒绝 (403): 用户没有写入权限");
+                }
+
+                if (status === 507) {
+                    throw new Error("存储空间不足 (507): 服务器空间已满");
+                }
+
+                if (!(status >= 200 && status < 300)) {
+                    throw new Error(`上传数据失败: ${status} ${statusText || ''}`.trim());
+                }
+
+                this.log("数据上传成功 (ZIP, 原生)", 'success');
+            } else {
+                // Web 环境沿用 fetch
+                const fetchOptions = this.createFetchOptions('PUT', uploadHeaders, zipBlob);
+
+                const response = await this.executeRequest(url, fetchOptions, 'PUT上传数据(ZIP)');
+
+                if (response.status === 401) {
+                    throw new Error("认证失败 (401): 用户名或密码错误");
+                }
+
+                if (response.status === 403) {
+                    throw new Error("权限被拒绝 (403): 用户没有写入权限");
+                }
+
+                if (response.status === 507) {
+                    throw new Error("存储空间不足 (507): 服务器空间已满");
+                }
+
+                if (!response.ok) {
+                    const error = `上传数据失败: ${response.status} ${response.statusText}`;
+                    this.log(error, 'error');
+
+                    try {
+                        const responseText = await response.text();
+                        if (responseText) {
+                            this.log(`服务器错误详情: ${responseText}`, 'error');
+                        }
+                    } catch (textError) {
+                        console.warn("无法读取错误响应:", textError.message);
+                    }
+
+                    throw new Error(error);
+                }
+
+                this.log("数据上传成功 (ZIP)", 'success');
             }
 
-            console.log("数据上传成功");
-            return { success: true, message: "数据上传成功" };
+            const verifyResult = await this.verifyRemoteSize(url, expectedSize);
+            if (verifyResult.supported && verifyResult.mismatch) {
+                throw new Error("上传后服务器文件大小与本地不一致，疑似被截断。建议重试或更换 WebDAV 服务");
+            }
+
+            return { success: true, message: verifyResult.supported ? "数据上传成功（大小校验通过）" : "数据上传成功" };
         } catch (error) {
-            console.error("上传数据过程中发生错误:", {
-                message: error.message,
-                platform: this.platform,
-                hasAuth: !!this.authHeader
-            });
+            this.log(`上传数据过程中发生错误: ${error.message}`, 'error');
             throw error;
         }
     }
@@ -471,7 +678,11 @@ export default class WebDAVClient {
 
     // 合并本地和远程数据
     mergeData(localData, remoteData, initialPresetDrinks = [], originalPresetDrinkIds = new Set()) {
-        console.log("正在合并本地和远程数据...");
+        this.log("正在合并本地和远程数据...", 'info');
+        
+        // 打印合并前数据统计
+        this.log(`本地数据状况: 记录=${localData?.records?.length || 0}, 饮品=${localData?.drinks?.length || 0}, 已删除=${localData?.deletedItems?.length || 0}`, 'info');
+        this.log(`远程数据状况: 记录=${remoteData?.records?.length || 0}, 饮品=${remoteData?.drinks?.length || 0}, 已删除=${remoteData?.deletedItems?.length || 0}`, 'info');
 
         const localTs = localData?.syncTimestamp || localData?.userSettings?.localLastModifiedTimestamp || 0;
         const remoteTs = remoteData?.syncTimestamp || 0;
@@ -481,20 +692,52 @@ export default class WebDAVClient {
 
         const primarySource = isRemotePrimary ? remoteData : localData;
         const secondarySource = isRemotePrimary ? localData : remoteData;
-        console.log(`合并的主要来源 (基于 syncTimestamp): ${isRemotePrimary ? '远程' : '本地'} (LocalTS: ${localTs}, RemoteTS: ${remoteTs})`);
+        const sourceInfo = isRemotePrimary 
+            ? `远程 (时间戳: ${new Date(remoteTs).toLocaleTimeString()})` 
+            : `本地 (时间戳: ${new Date(localTs).toLocaleTimeString()})`;
+        
+        this.log(`合并的主要来源: ${sourceInfo}`, 'info');
+
+        // Merge Deleted Items
+        const deletedMap = new Map();
+        const allDeleted = [...(localData.deletedItems || []), ...(remoteData.deletedItems || [])];
+        allDeleted.forEach(item => {
+            if (!item || !item.id) return;
+            const existing = deletedMap.get(item.id);
+            if (!existing || (item.deletedAt || 0) > (existing.deletedAt || 0)) {
+                deletedMap.set(item.id, item);
+            }
+        });
+        const mergedDeletedItems = Array.from(deletedMap.values());
+        this.log(`合并后的删除记录数: ${mergedDeletedItems.length}`, 'info');
+
+        // Helper to check if item is deleted
+        const isDeleted = (id, timestamp) => {
+            const deletedItem = deletedMap.get(id);
+            if (!deletedItem) return false;
+            // If item timestamp is older than deletion timestamp, it is deleted.
+            // If item timestamp is newer, it means it was re-created/updated after deletion.
+            return (timestamp || 0) < (deletedItem.deletedAt || 0);
+        };
 
         // 合并记录
         const recordMap = new Map();
         const allRecords = [...(localData.records || []), ...(remoteData.records || [])];
+        let newRecordsCount = 0;
         allRecords.forEach(record => {
             if (!record || !record.id) {
-                console.warn("发现无效记录，已跳过:", record);
+                // console.warn("发现无效记录，已跳过:", record);
                 return;
             }
+
+            const tsCurrent = record.updatedAt || record.timestamp || 0;
+            if (isDeleted(record.id, tsCurrent)) {
+                return;
+            }
+
             const existing = recordMap.get(record.id);
             if (existing) {
                 const tsExisting = existing.updatedAt || existing.timestamp || 0;
-                const tsCurrent = record.updatedAt || record.timestamp || 0;
                 if (tsCurrent > tsExisting) {
                     recordMap.set(record.id, { ...record });
                 } else if (tsCurrent === tsExisting && tsCurrent !== 0) {
@@ -505,10 +748,13 @@ export default class WebDAVClient {
                 }
             } else {
                 recordMap.set(record.id, { ...record });
+                if (!localData.records?.some(r => r.id === record.id)) {
+                    newRecordsCount++;
+                }
             }
         });
         const mergedRecords = Array.from(recordMap.values());
-        console.log(`合并后的记录数: ${mergedRecords.length}`);
+        this.log(`合并后的记录数: ${mergedRecords.length} (新增/更新: ${newRecordsCount})`, 'info');
 
         // 合并饮品
         const drinkMap = new Map();
@@ -516,14 +762,19 @@ export default class WebDAVClient {
 
         allDrinks.forEach(drink => {
             if (!drink || !drink.id || typeof drink.name !== 'string') {
-                console.warn("发现无效饮品，已跳过:", drink);
+                // console.warn("发现无效饮品，已跳过:", drink);
                 return;
             }
+
+            const tsCurrent = drink.updatedAt || 0;
+            if (isDeleted(drink.id, tsCurrent)) {
+                return;
+            }
+
             const existing = drinkMap.get(drink.id);
             if (existing) {
                 const tsExisting = existing.updatedAt || 0;
-                const tsCurrent = drink.updatedAt || 0;
-
+                
                 if (tsCurrent > tsExisting) {
                     drinkMap.set(drink.id, { ...drink });
                 } else if (tsCurrent === tsExisting && tsCurrent !== 0) {
@@ -578,36 +829,53 @@ export default class WebDAVClient {
                 };
             });
 
-        console.log(`合并后的饮品数: ${mergedDrinks.length}`);
+        this.log(`合并后的饮品数: ${mergedDrinks.length}`, 'info');
 
         // 合并用户设置
+        // 个人参数、代谢与睡眠设置的同步也加上时间戳比较，新的覆盖旧的
+        const localSettingsTs = localData?.userSettings?.localLastModifiedTimestamp || localData?.syncTimestamp || 0;
+        const remoteSettingsTs = remoteData?.userSettings?.localLastModifiedTimestamp || remoteData?.syncTimestamp || 0;
+        
+        const settingsComparison = this.compareTimestamps(localSettingsTs, remoteSettingsTs);
+        const isRemoteSettingsPrimary = settingsComparison === 'remote_newer' || settingsComparison === 'only_remote';
+        
+        this.log(`设置合并的主要来源: ${isRemoteSettingsPrimary ? '远程' : '本地'} (时间戳: ${isRemoteSettingsPrimary ? new Date(remoteSettingsTs).toLocaleTimeString() : new Date(localSettingsTs).toLocaleTimeString()})`, 'info');
+
         const mergedSettings = {};
-        const primarySettings = primarySource?.userSettings || {};
-        const secondarySettings = secondarySource?.userSettings || {};
+        const settingsPrimary = (isRemoteSettingsPrimary ? remoteData?.userSettings : localData?.userSettings) || {};
+        const settingsSecondary = (isRemoteSettingsPrimary ? localData?.userSettings : remoteData?.userSettings) || {};
 
-        knownSettingKeys.forEach(key => {
-            if (key === 'webdavPassword') return;
+        // 获取所有可能的设置键
+        const allSettingKeys = new Set([
+            ...Object.keys(settingsPrimary),
+            ...Object.keys(settingsSecondary)
+        ]);
 
-            if (key === 'themeMode' || key === 'webdavEnabled' || key === 'webdavServer' || key === 'webdavUsername') {
+        allSettingKeys.forEach(key => {
+            // 跳过敏感或设备特定配置
+            if (key === 'webdavPassword' || key === 'themeMode' || key === 'webdavEnabled' || key === 'webdavServer' || key === 'webdavUsername') {
                 return;
             }
 
-            if (primarySettings.hasOwnProperty(key)) {
-                if (key === 'develop' && typeof primarySettings[key] !== 'boolean') {
-                    if (secondarySettings.hasOwnProperty(key) && typeof secondarySettings[key] === 'boolean') {
-                        mergedSettings[key] = secondarySettings[key];
+            // 优先使用主要来源（较新）的设置
+            if (settingsPrimary.hasOwnProperty(key)) {
+                // 特殊处理 develop 标志，确保它是布尔值
+                if (key === 'develop' && typeof settingsPrimary[key] !== 'boolean') {
+                    if (settingsSecondary.hasOwnProperty(key) && typeof settingsSecondary[key] === 'boolean') {
+                        mergedSettings[key] = settingsSecondary[key];
                     } else {
                         mergedSettings[key] = false;
                     }
                 } else {
-                    mergedSettings[key] = primarySettings[key];
+                    mergedSettings[key] = settingsPrimary[key];
                 }
             }
-            else if (secondarySettings.hasOwnProperty(key)) {
-                if (key === 'develop' && typeof secondarySettings[key] !== 'boolean') {
+            // 如果主要来源没有，使用次要来源的
+            else if (settingsSecondary.hasOwnProperty(key)) {
+                if (key === 'develop' && typeof settingsSecondary[key] !== 'boolean') {
                     mergedSettings[key] = false;
                 } else {
-                    mergedSettings[key] = secondarySettings[key];
+                    mergedSettings[key] = settingsSecondary[key];
                 }
             }
         });
@@ -617,15 +885,14 @@ export default class WebDAVClient {
             mergedSettings.webdavPassword = localData.userSettings.webdavPassword;
         }
 
-        // 处理localLastModifiedTimestamp
-        if (localData?.userSettings?.localLastModifiedTimestamp && localData.userSettings.localLastModifiedTimestamp > (primarySettings.localLastModifiedTimestamp || 0)) {
-            mergedSettings.localLastModifiedTimestamp = localData.userSettings.localLastModifiedTimestamp;
-        }
+        // 处理localLastModifiedTimestamp，取两者中最新的
+        mergedSettings.localLastModifiedTimestamp = Math.max(localSettingsTs, remoteSettingsTs);
 
         const mergedResult = {
             records: mergedRecords.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)),
             drinks: mergedDrinks,
             userSettings: mergedSettings,
+            deletedItems: mergedDeletedItems,
             syncTimestamp: Date.now(),
             version: primarySource.version || secondarySource.version || 'unknown'
         };
@@ -634,22 +901,12 @@ export default class WebDAVClient {
     }
 
     // 执行同步操作
-    async performSync(localData, initialPresetDrinks = [], originalPresetDrinkIds = new Set()) {
-        console.log("=== 开始WebDAV同步过程 ===");
-        console.log("同步参数 (计数):", {
-            platform: this.platform,
-            isNative: this.isNative,
-            hasLocalData: !!localData,
-            localRecordsCount: localData?.records?.length || 0,
-            localDrinksCount: localData?.drinks?.length || 0,
-            localSyncTimestamp: localData?.syncTimestamp || localData?.userSettings?.localLastModifiedTimestamp,
-            initialPresetDrinksCount: initialPresetDrinks.length,
-            originalPresetDrinkIdsCount: originalPresetDrinkIds.size
-        });
-
+    async performSync(localData, initialPresetDrinks = [], originalPresetDrinkIds = new Set(), forceDownload = false) {
+        this.log("=== 开始WebDAV同步过程 ===", 'info');
+        
         if (!this.isConfigured()) {
             const error = "WebDAV未配置";
-            console.error("同步中止:", error);
+            this.log(`同步中止: ${error}`, 'error');
             return {
                 success: false,
                 message: error,
@@ -666,69 +923,116 @@ export default class WebDAVClient {
 
         try {
             // 下载远程数据
+            let remoteResult = null;
             let remoteData = null;
             try {
-                remoteData = await this.downloadData();
-                console.log("远程数据下载结果:", {
-                    hasData: !!remoteData,
-                    remoteRecordsCount: remoteData?.records?.length || 0,
-                    remoteDrinksCount: remoteData?.drinks?.length || 0,
-                    remoteSyncTimestamp: remoteData?.syncTimestamp
-                });
+                remoteResult = await this.downloadData();
+                remoteData = remoteResult?.data || remoteResult;
+                
+                if (remoteData) {
+                    this.log(`远程数据下载成功 (格式: ${remoteResult?.format})`, 'success');
+                } else {
+                    this.log("远程无数据 (首次同步)", 'info');
+                }
             } catch (downloadError) {
-                console.error("下载远程数据失败，详细错误:", {
-                    message: downloadError.message,
-                    platform: this.platform
-                });
+                this.log(`下载远程数据失败: ${downloadError.message}`, 'error');
 
-                // 检查是否可以进行初始上传
-                if (!localTs && (currentLocalData.records?.length > 0 || currentLocalData.drinks?.length > 0 ||
-                    Object.keys(currentLocalData.userSettings || {}).filter(k => k !== 'webdavPassword').length > 0)) {
-                    console.warn("下载失败，但本地数据似乎是新的，尝试初始上传");
-                    try {
-                        const uploadTimestamp = localTs || Date.now();
-                        const initialUploadData = {
-                            ...currentLocalData,
-                            syncTimestamp: uploadTimestamp,
-                            userSettings: { ...(currentLocalData.userSettings || {}) }
-                        };
+                // 如果是强制下载且下载失败，则直接报错
+                if (forceDownload) {
+                    throw new Error(`强制下载失败: ${downloadError.message}`);
+                }
 
-                        await this.uploadData(initialUploadData);
+                // 特殊处理：如果错误是 "database disk image is malformed"，说明远程文件损坏
+                // 此时我们不应该报错，而应该将其视为 corrupted 状态，允许后续逻辑进行自愈（上传本地数据）
+                if (downloadError.message && downloadError.message.includes('malformed')) {
+                    this.log("捕获到 malformed 错误，视为远程文件损坏，将尝试自愈", 'warn');
+                    remoteResult = { format: 'corrupted' };
+                    // 继续执行后续逻辑，不要 return
+                } else {
+                    // 检查是否可以进行初始上传
+                    if (!localTs && (currentLocalData.records?.length > 0 || currentLocalData.drinks?.length > 0 ||
+                        Object.keys(currentLocalData.userSettings || {}).filter(k => k !== 'webdavPassword').length > 0)) {
+                        this.log("下载失败，但本地数据似乎是新的，尝试初始上传", 'warn');
+                        try {
+                            const uploadTimestamp = localTs || Date.now();
+                            const initialUploadData = {
+                                ...currentLocalData,
+                                syncTimestamp: uploadTimestamp,
+                                userSettings: { ...(currentLocalData.userSettings || {}) }
+                            };
 
-                        const returnData = { ...initialUploadData };
-                        if (localData?.userSettings?.webdavPassword) {
-                            returnData.userSettings = {
-                                ...returnData.userSettings,
-                                webdavPassword: localData.userSettings.webdavPassword
+                            await this.uploadData(initialUploadData);
+
+                            const returnData = { ...initialUploadData };
+                            if (localData?.userSettings?.webdavPassword) {
+                                returnData.userSettings = {
+                                    ...returnData.userSettings,
+                                    webdavPassword: localData.userSettings.webdavPassword
+                                };
+                            }
+
+                            this.log("初始上传成功", 'success');
+                            return {
+                                success: true,
+                                message: "首次同步或本地较新：已上传本地数据",
+                                data: returnData,
+                                timestamp: uploadTimestamp
+                            };
+                        } catch (uploadError) {
+                            this.log(`初始上传也失败: ${uploadError.message}`, 'error');
+                            return {
+                                success: false,
+                                message: `同步失败：无法下载远程数据且上传初始数据失败 (${uploadError.message})`,
+                                data: null,
+                                timestamp: null
                             };
                         }
-
-                        console.log("初始上传成功");
-                        return {
-                            success: true,
-                            message: "首次同步或本地较新：已上传本地数据",
-                            data: returnData,
-                            timestamp: uploadTimestamp
-                        };
-                    } catch (uploadError) {
-                        console.error("初始上传也失败:", {
-                            message: uploadError.message
-                        });
+                    } else {
                         return {
                             success: false,
-                            message: `同步失败：无法下载远程数据且上传初始数据失败 (${uploadError.message})`,
+                            message: `同步失败：无法下载远程数据 (${downloadError.message})`,
                             data: null,
                             timestamp: null
                         };
                     }
-                } else {
-                    return {
-                        success: false,
-                        message: `同步失败：无法下载远程数据 (${downloadError.message})`,
-                        data: null,
-                        timestamp: null
-                    };
                 }
+            }
+
+            // 如果是强制下载，直接使用远程数据
+            if (forceDownload) {
+                this.log("执行操作: 强制下载 (覆盖本地数据)", 'warn');
+                if (!remoteData) {
+                    throw new Error("远程没有数据可供下载");
+                }
+                
+                let finalData = { ...remoteData };
+                
+                // 恢复本地的关键配置
+                if (localData?.userSettings) {
+                    if (!finalData.userSettings) finalData.userSettings = {};
+                    
+                    // 保留WebDAV配置
+                    if (localData.userSettings.webdavPassword) finalData.userSettings.webdavPassword = localData.userSettings.webdavPassword;
+                    if (localData.userSettings.webdavServer) finalData.userSettings.webdavServer = localData.userSettings.webdavServer;
+                    if (localData.userSettings.webdavUsername) finalData.userSettings.webdavUsername = localData.userSettings.webdavUsername;
+                    if (localData.userSettings.webdavEnabled) finalData.userSettings.webdavEnabled = localData.userSettings.webdavEnabled;
+                    
+                    // 保留主题设置
+                    if (localData.userSettings.themeMode) finalData.userSettings.themeMode = localData.userSettings.themeMode;
+                }
+
+                return {
+                    success: true,
+                    message: "同步成功：已强制从服务器下载并覆盖本地数据",
+                    data: finalData,
+                    timestamp: finalData.syncTimestamp
+                };
+            }
+
+            // 如果远程文件损坏，视为无远程数据，允许本地数据上传修复
+            if (remoteResult?.format === 'corrupted') {
+                this.log('远程文件损坏，使用本地数据进行自愈上传', 'warn');
+                remoteData = null;
             }
 
             // 判断数据是否有意义（非空）
@@ -754,31 +1058,17 @@ export default class WebDAVClient {
                 ).length > 0)
             );
 
-            console.log("数据有效性检查:", {
-                isLocalDataMeaningful,
-                isRemoteDataMeaningful,
-                localRecords: currentLocalData.records?.length || 0,
-                remoteRecords: remoteData?.records?.length || 0,
-                localDrinks: currentLocalData.drinks?.length || 0,
-                remoteDrinks: remoteData?.drinks?.length || 0
-            });
-
             // 比较并决定操作
             const remoteTs = remoteData?.syncTimestamp || null;
             let comparison = this.compareTimestamps(localTs, remoteTs);
 
-            // 修复：新设备数据丢失问题
-            // 如果本地没有记录，但远程有记录，说明可能是新设备或数据被清除
-            // 此时应优先信任远程数据，避免本地空数据覆盖远程数据
-            const localHasRecords = currentLocalData.records && currentLocalData.records.length > 0;
-            const remoteHasRecords = remoteData && remoteData.records && remoteData.records.length > 0;
-            
-            if (!localHasRecords && remoteHasRecords) {
-                 console.log("检测到潜在的新设备状态 (本地无记录，远程有记录): 强制视为远程数据较新，以防止数据丢失");
+            // 如果本地没有意义的数据（如刚清除或新安装），而远程有数据，则强制视为远程较新
+            if (!isLocalDataMeaningful && isRemoteDataMeaningful) {
+                 this.log("检测到本地数据为空且远程有有效数据: 强制视为远程数据较新，以从服务器同步数据", 'warn');
                  comparison = 'remote_newer';
             }
 
-            console.log(`时间戳比较结果: ${comparison} (本地: ${localTs}, 远程: ${remoteTs})`);
+            this.log(`时间戳比较结果: ${comparison} (本地: ${localTs}, 远程: ${remoteTs})`, 'info');
 
             let finalData = null;
             let message = "";
@@ -791,24 +1081,34 @@ export default class WebDAVClient {
                     // 如果本地数据为空但远程有数据，不要上传空数据
                     if (!isLocalDataMeaningful && isRemoteDataMeaningful) {
                         action = "download";
-                        console.log("执行操作: 使用远程数据 (本地为空，远程有内容)");
+                        this.log("执行操作: 使用远程数据 (本地为空，远程有内容)", 'info');
                         finalData = this.mergeData(currentLocalData, remoteData, initialPresetDrinks, originalPresetDrinkIds);
                         message = "同步成功：已从服务器下载数据";
                     } else if (isLocalDataMeaningful) {
-                        action = "upload";
-                        console.log("执行操作: 上传本地数据 (本地较新或仅本地存在)");
-                        const uploadTs = localTs || Date.now();
-                        finalData = {
-                            ...currentLocalData,
-                            syncTimestamp: uploadTs,
-                            userSettings: { ...(currentLocalData.userSettings || {}) }
-                        };
-                        await this.uploadData(finalData);
-                        message = "同步成功：本地数据已上传";
+                        // 修改：即使本地较新，也执行合并，以防止远程有本地没有的记录（例如来自其他设备）
+                        // 只有当远程完全为空时，才直接上传
+                        if (isRemoteDataMeaningful) {
+                            action = "merge";
+                            this.log("执行操作: 合并本地和远程数据 (本地较新，但远程也有数据)", 'info');
+                            finalData = this.mergeData(currentLocalData, remoteData, initialPresetDrinks, originalPresetDrinkIds);
+                            await this.uploadData(finalData);
+                            message = "同步成功：已合并本地和远程数据";
+                        } else {
+                            action = "upload";
+                            this.log("执行操作: 上传本地数据 (本地较新或仅本地存在)", 'info');
+                            const uploadTs = localTs || Date.now();
+                            finalData = {
+                                ...currentLocalData,
+                                syncTimestamp: uploadTs,
+                                userSettings: { ...(currentLocalData.userSettings || {}) }
+                            };
+                            await this.uploadData(finalData);
+                            message = "同步成功：本地数据已上传";
+                        }
                     } else {
                         // 本地和远程都为空
                         action = "no_action";
-                        console.log("执行操作: 本地和远程都为空，无需操作");
+                        this.log("执行操作: 本地和远程都为空，无需操作", 'info');
                         finalData = currentLocalData;
                         message = "同步完成：无数据需要同步";
                     }
@@ -820,7 +1120,7 @@ export default class WebDAVClient {
                 case 'remote_newer':
                 case 'only_remote':
                     action = "merge";
-                    console.log("执行操作: 合并本地和远程数据（远程较新或仅远程存在）");
+                    this.log("执行操作: 合并本地和远程数据（远程较新或仅远程存在）", 'info');
                     finalData = this.mergeData(currentLocalData, remoteData, initialPresetDrinks, originalPresetDrinkIds);
                     // 只有在合并后的数据有意义时才上传
                     const isMergedDataMeaningful = (finalData.records?.length > 0) || (finalData.drinks?.length > 0);
@@ -834,7 +1134,7 @@ export default class WebDAVClient {
 
                 case 'equal':
                     action = "merge";
-                    console.log("执行操作: 时间戳相等，执行合并以确保数据一致性");
+                    this.log("执行操作: 时间戳相等，执行合并以确保数据一致性", 'info');
                     finalData = this.mergeData(currentLocalData, remoteData, initialPresetDrinks, originalPresetDrinkIds);
                     // 检查是否需要上传
                     const needsUpload = isLocalDataMeaningful || isRemoteDataMeaningful;
@@ -850,7 +1150,7 @@ export default class WebDAVClient {
                     // 无时间戳时，优先保留有数据的一方
                     if (isRemoteDataMeaningful && !isLocalDataMeaningful) {
                         action = "download";
-                        console.log("执行操作: 使用远程数据 (无时间戳，远程有数据，本地为空)");
+                        this.log("执行操作: 使用远程数据 (无时间戳，远程有数据，本地为空)", 'info');
                         finalData = { ...remoteData };
                         if (localData?.userSettings?.webdavPassword) {
                             finalData.userSettings = {
@@ -861,7 +1161,7 @@ export default class WebDAVClient {
                         message = "同步成功：已从服务器下载数据";
                     } else if (isLocalDataMeaningful && !isRemoteDataMeaningful) {
                         action = "upload";
-                        console.log("执行操作: 上传本地数据 (无时间戳，本地有数据，远程为空)");
+                        this.log("执行操作: 上传本地数据 (无时间戳，本地有数据，远程为空)", 'info');
                         finalData = {
                             ...currentLocalData,
                             syncTimestamp: Date.now(),
@@ -871,13 +1171,13 @@ export default class WebDAVClient {
                         message = "同步成功：本地数据已上传";
                     } else if (isLocalDataMeaningful && isRemoteDataMeaningful) {
                         action = "merge";
-                        console.log("执行操作: 合并数据 (无时间戳，本地和远程都有数据)");
+                        this.log("执行操作: 合并数据 (无时间戳，本地和远程都有数据)", 'info');
                         finalData = this.mergeData(currentLocalData, remoteData, initialPresetDrinks, originalPresetDrinkIds);
                         await this.uploadData(finalData);
                         message = "同步成功：无时间戳数据已合并";
                     } else {
                         action = "no_action";
-                        console.log("执行操作: 本地和远程都为空，无需操作");
+                        this.log("执行操作: 本地和远程都为空，无需操作", 'info');
                         finalData = currentLocalData;
                         message = "同步完成：无数据需要同步";
                     }
@@ -888,7 +1188,7 @@ export default class WebDAVClient {
 
                 default:
                     action = "no_action";
-                    console.log("执行操作: 未定义的时间戳比较结果，未执行操作");
+                    this.log("执行操作: 未定义的时间戳比较结果，未执行操作", 'warn');
                     finalData = currentLocalData;
                     message = "同步警告：无法确定操作，未更改数据";
                     if (localData?.userSettings?.webdavPassword && finalData.userSettings && !finalData.userSettings.webdavPassword) {
@@ -896,12 +1196,7 @@ export default class WebDAVClient {
                     }
             }
 
-            console.log("同步操作完成:", {
-                action,
-                finalDataTimestamp: finalData?.syncTimestamp,
-                finalRecordsCount: finalData?.records?.length || 0,
-                finalDrinksCount: finalData?.drinks?.length || 0
-            });
+            this.log(`同步操作完成: ${action}`, 'success');
 
             return {
                 success: true,
@@ -911,10 +1206,7 @@ export default class WebDAVClient {
             };
 
         } catch (error) {
-            console.error("同步过程中发生严重错误:", {
-                message: error.message,
-                platform: this.platform
-            });
+            this.log(`同步过程中发生严重错误: ${error.message}`, 'error');
 
             // 返回本地数据防止数据丢失
             const returnLocalDataOnError = { ...currentLocalData };
@@ -929,7 +1221,7 @@ export default class WebDAVClient {
                 timestamp: localTs
             };
         } finally {
-            console.log("=== WebDAV同步过程结束 ===");
+            this.log("=== WebDAV同步过程结束 ===", 'info');
         }
     }
 }

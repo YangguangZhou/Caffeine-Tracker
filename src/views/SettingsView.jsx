@@ -3,7 +3,7 @@ import {
     User, Weight, Target, Sliders, Clock, Moon,
     Droplet, Coffee, Plus, X, Save, Edit, Trash2,
     Download, Upload, RotateCcw, HelpCircle, Tag,
-    CloudDownload, Server, Lock, Activity, TestTubeDiagonal, Database, Smartphone, Link as LinkIcon, Camera, CheckCircle2, AlertTriangle, Lightbulb, Mail
+    CloudDownload, Server, Lock, Activity, TestTubeDiagonal, Database, Smartphone, Link as LinkIcon, Camera, CheckCircle2, AlertTriangle, Lightbulb, Mail, FileText
 } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
@@ -15,7 +15,7 @@ import { initialPresetDrinks, DRINK_CATEGORIES, DEFAULT_CATEGORY, defaultSetting
 import SyncConfigShare from '../components/SyncConfigShare';
 import ManualImportModal from '../components/ManualImportModal'; // 导入新组件
 import { extractConfigParam } from '../utils/syncConfigShare';
-import { getDBValue, setDBValue, exportDatabase, importDatabase } from '../utils/db';
+import { getDBValue, setDBValue, importDatabase, exportDatabaseBinary, importDatabaseBinary, exportAllDataSnapshot } from '../utils/db';
 
 // 动态导入 WebDAVClient
 const WebDAVClientPromise = import('../utils/webdavSync');
@@ -39,7 +39,8 @@ const SettingsView = ({
     colors,
     appConfig,
     isNativePlatform,
-    onImportConfig
+    onImportConfig,
+    onShowLogs
 }) => {
     const [searchParams, setSearchParams] = useSearchParams();
     
@@ -363,35 +364,31 @@ const SettingsView = ({
     // 导出数据
     const exportData = useCallback(async () => {
         try {
-            // 导出完整数据库内容，作为同步首选的数据库文件
-            const dbData = await exportDatabase();
-            const exportDataObject = {
-                ...dbData,
-                exportTimestamp: Date.now(),
-                version: appConfig.latest_version
-            };
+            const dbBytes = await exportDatabaseBinary();
+            const exportFileDefaultName = `caffeine-tracker-${new Date().toISOString().slice(0, 10)}.sqlite`;
 
-            const dataStr = JSON.stringify(exportDataObject, null, 2);
-            const exportFileDefaultName = `caffeine-tracker-${new Date().toISOString().slice(0, 10)}.db`;
+            const bytesToBase64 = (bytes) => {
+                let binary = '';
+                for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+                return btoa(binary);
+            };
 
             if (isNativePlatform) {
                 try {
                     const directory = Directory.Cache;
                     await Filesystem.writeFile({
                         path: exportFileDefaultName,
-                        data: dataStr,
+                        data: bytesToBase64(dbBytes),
                         directory,
-                        encoding: Encoding.UTF8,
+                        encoding: Encoding.BASE64
                     });
 
-                    // 获取可分享的文件 URI，并调用系统分享面板
                     const { uri } = await Filesystem.getUri({ directory, path: exportFileDefaultName });
                     const shareUrl = uri || (Capacitor.convertFileSrc ? Capacitor.convertFileSrc(exportFileDefaultName) : exportFileDefaultName);
 
                     try {
                         await Share.share({
                             title: '导出数据',
-                            text: '请选择保存位置或分享对象。',
                             url: shareUrl
                         });
                     } catch (shareError) {
@@ -403,7 +400,7 @@ const SettingsView = ({
                     alert(`导出失败: ${e.message}`);
                 }
             } else {
-                const blob = new Blob([dataStr], { type: 'application/octet-stream' });
+                const blob = new Blob([dbBytes], { type: 'application/octet-stream' });
                 const dataUri = URL.createObjectURL(blob);
                 const linkElement = document.createElement('a');
                 linkElement.setAttribute('href', dataUri);
@@ -441,19 +438,32 @@ const SettingsView = ({
     const importData = useCallback(async (event) => {
         const file = event.target.files[0];
         if (!file) return;
+        const isSqlite = file.name?.toLowerCase().endsWith('.sqlite') || file.type === 'application/octet-stream';
 
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const importedFullData = JSON.parse(e.target.result);
+        try {
+            if (isSqlite) {
+                const buffer = await file.arrayBuffer();
+                await importDatabaseBinary(new Uint8Array(buffer));
+                const snapshot = await exportAllDataSnapshot();
 
-                // 确保导入的数据结构是预期的
+                setRecords(snapshot.records || []);
+                setDrinks(snapshot.drinks || []);
+                const mergedSettings = {
+                    ...defaultSettings,
+                    ...(snapshot.userSettings || {}),
+                    localLastModifiedTimestamp: Date.now()
+                };
+                onUpdateSettings(mergedSettings, null, true);
+                alert('数据库导入成功！');
+            } else {
+                const text = await file.text();
+                const importedFullData = JSON.parse(text);
+
                 if (!importedFullData || typeof importedFullData !== 'object') {
                     alert("导入文件格式无效。");
                     return;
                 }
 
-                // 尝试从导入数据中提取核心数据
                 const { records: importedRecords, drinks: importedDrinks, userSettings: importedUserSettings } = importedFullData;
 
                 if (!Array.isArray(importedRecords) || !Array.isArray(importedDrinks) || typeof importedUserSettings !== 'object') {
@@ -461,32 +471,23 @@ const SettingsView = ({
                     return;
                 }
 
-                // 导入到数据库
                 await importDatabase(importedFullData);
-
-                // 更新状态
                 setRecords(importedRecords || []);
                 setDrinks(importedDrinks || []);
-                
-                // 直接使用导入的设置，不再保留当前设置（因为用户要求完全导入）
-                // 但为了安全，如果导入的设置中缺少某些关键字段，可以回退到默认值
                 const mergedSettings = {
                     ...defaultSettings,
                     ...importedUserSettings,
-                    // 强制更新本地修改时间戳，触发同步
                     localLastModifiedTimestamp: Date.now()
                 };
-                
                 onUpdateSettings(mergedSettings, null, true);
-
                 alert('数据导入成功！');
-            } catch (error) {
-                console.error("导入数据时出错:", error);
-                alert(`导入失败: ${error.message}`);
             }
-        };
-        reader.readAsText(file);
-        event.target.value = null;
+        } catch (error) {
+            console.error("导入数据时出错:", error);
+            alert(`导入失败: ${error.message}`);
+        } finally {
+            event.target.value = null;
+        }
     }, [setRecords, onUpdateSettings, setDrinks]);
 
     // 处理手动导入
@@ -946,8 +947,47 @@ const SettingsView = ({
 
                     {/* 操作按钮 */}
                     <div className="space-y-2">
-                        {/* 第一行：测试连接和立即同步 */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {/* 第一行：立即同步 */}
+                        <div className="w-full">
+                            <button
+                                onClick={handleManualSync}
+                                className="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors duration-200 text-sm shadow flex items-center justify-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={!isWebDAVConfigured || syncStatus.inProgress}
+                            >
+                                <CloudDownload size={16} className="mr-1.5" aria-hidden="true" />
+                                {syncStatus.inProgress ? '同步中...' : '立即同步'}
+                            </button>
+                        </div>
+
+                        {/* 第二行：分享配置 和 手动导入 */}
+                        <div className="grid grid-cols-1 xs:grid-cols-2 gap-2">
+                             <button
+                                onClick={() => setShowConfigShare(true)}
+                                className="py-2 px-4 text-white rounded-md transition-all duration-200 text-sm shadow flex items-center justify-center font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:brightness-90"
+                                style={{ backgroundColor: colors.accent }}
+                                disabled={!isWebDAVConfigured}
+                            >
+                                <Smartphone size={16} className="mr-1.5" aria-hidden="true" />
+                                分享配置
+                            </button>
+                             <button
+                                onClick={() => setShowManualImport(true)}
+                                className="py-2 px-4 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-colors duration-200 text-sm shadow flex items-center justify-center font-medium"
+                            >
+                                <Upload size={16} className="mr-1.5" aria-hidden="true" />
+                                手动导入
+                            </button>
+                        </div>
+                        
+                        {/* 第三行：查看日志 和 测试连接 */}
+                        <div className="grid grid-cols-1 xs:grid-cols-2 gap-2">
+                            <button
+                                onClick={onShowLogs}
+                                className="py-2 px-4 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors duration-200 text-sm shadow flex items-center justify-center font-medium"
+                            >
+                                <FileText size={16} className="mr-1.5" aria-hidden="true" />
+                                查看日志
+                            </button>
                             <button
                                 onClick={testWebDAVConnection}
                                 className="py-2 px-4 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors duration-200 text-sm shadow flex items-center justify-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -956,29 +996,7 @@ const SettingsView = ({
                                 <TestTubeDiagonal size={16} className="mr-1.5" aria-hidden="true" />
                                 {testingWebDAV ? '测试中...' : '测试连接'}
                             </button>
-                            <button
-                                onClick={handleManualSync}
-                                className="py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors duration-200 text-sm shadow flex items-center justify-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                                disabled={!isWebDAVConfigured || syncStatus.inProgress}
-                            >
-                                <CloudDownload size={16} className="mr-1.5" aria-hidden="true" />
-                                {syncStatus.inProgress ? '同步中...' : '立即同步'}
-                            </button>
                         </div>
-                        
-                        {/* 配置有效时显示：生成配置分享 */}
-                        {isWebDAVConfigured && (
-                            <button
-                                onClick={() => setShowConfigShare(true)}
-                                className="w-full py-2 px-4 text-white rounded-md transition-colors duration-200 text-sm shadow flex items-center justify-center font-medium"
-                                style={{
-                                    backgroundColor: colors.accent
-                                }}
-                            >
-                                <Smartphone size={16} className="mr-1.5" aria-hidden="true" />
-                                分享同步配置
-                            </button>
-                        )}
                         
                         {/* 配置无效时显示提示 */}
                         {!isWebDAVConfigured && userSettings.webdavEnabled && (
@@ -999,50 +1017,6 @@ const SettingsView = ({
                                 </p>
                             </div>
                         )}
-                        
-                        {/* 导入配置按钮：扫描二维码和手动导入 */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {/* 扫描配置二维码按钮 - 仅在原生平台显示 */}
-                            {/* {isNativePlatform && (
-                                <button
-                                    onClick={() => handleScanQRCode()}
-                                    className="py-2 px-4 border rounded-md transition-colors duration-200 text-sm flex items-center justify-center font-medium"
-                                    style={{
-                                        borderColor: colors.borderStrong,
-                                        color: colors.textSecondary,
-                                        backgroundColor: 'transparent'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.backgroundColor = colors.bgBase;
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.backgroundColor = 'transparent';
-                                    }}
-                                >
-                                    <Camera size={16} className="mr-1.5" aria-hidden="true" />
-                                    扫描配置二维码
-                                </button>
-                            )} */}
-                            {/* 手动导入配置按钮 */}
-                            <button
-                                onClick={() => setShowManualImport(true)}
-                                className={`py-2 px-4 border rounded-md transition-colors duration-200 text-sm flex items-center justify-center font-medium col-span-2`}
-                                style={{
-                                    borderColor: colors.borderStrong,
-                                    color: colors.textSecondary,
-                                    backgroundColor: 'transparent'
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = colors.bgBase;
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                }}
-                            >
-                                <LinkIcon size={16} className="mr-1.5" aria-hidden="true" />
-                                手动导入配置
-                            </button>
-                        </div>
                     </div>
 
 
@@ -1594,13 +1568,13 @@ const SettingsView = ({
                             onClick={exportData}
                             className="w-full py-2.5 px-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center shadow text-sm font-medium"
                         >
-                            <Download size={16} className="mr-1.5" /> 导出所有数据 (.db)
+                            <Download size={16} className="mr-1.5" /> 导出所有数据 (.sqlite)
                         </button>
                         <p
                             className="text-xs mt-1 transition-colors"
                             style={{ color: colors.textMuted }}
                         >
-                            将所有记录、设置和饮品列表导出为数据库备份文件 (.db)。
+                            将所有记录、设置和饮品列表导出为数据库备份文件 (.sqlite)。
                         </p>
                     </div>
 
@@ -1616,17 +1590,17 @@ const SettingsView = ({
                             <Upload size={16} className="mr-1.5" /> 选择文件导入数据
                             <input
                                 type="file"
-                                accept=".db,.json"
+                                accept=".sqlite,.db,.json"
                                 className="hidden"
                                 onChange={importData}
-                                aria-label="选择要导入的备份文件 (.db 或 .json)"
+                                aria-label="选择要导入的备份文件 (.sqlite 或 .json)"
                             />
                         </label>
                         <p
                             className="text-xs mt-1 transition-colors"
                             style={{ color: colors.textMuted }}
                         >
-                            从之前导出的数据库备份 (.db) 或旧版 JSON 文件恢复数据。注意：这将覆盖当前所有数据。
+                            从之前导出的数据库备份 (.sqlite) 或旧版 JSON 文件恢复数据。注意：这将覆盖当前所有数据。
                         </p>
                     </div>
 

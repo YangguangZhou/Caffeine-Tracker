@@ -25,3 +25,4 @@ dist-ssr
 package-lock.json
 *.sh
 .github/workflows/ios-build.yml
+/tools

@@ -1,14 +1,23 @@
+import React, { useEffect } from 'react';
 import { X, AlertTriangle, Smartphone, Mail, RefreshCw } from 'lucide-react';
 import { generateFeedbackMailto } from '../utils/feedbackUtils';
 
 /**
  * WebDAV 同步错误弹窗组件
  */
-const SyncErrorModal = ({ error, onClose, onRetry, colors, appConfig, isNativePlatform }) => {
+const SyncErrorModal = ({ error, onClose, onRetry, colors, appConfig, isNativePlatform, logs }) => {
+  // 锁定背景滚动
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
+
   if (!error) return null;
 
   const handleContactSupport = () => {
-    const mailtoLink = generateFeedbackMailto('sync_error', appConfig, isNativePlatform, error);
+    const mailtoLink = generateFeedbackMailto('sync_error', appConfig, isNativePlatform, error, logs);
     window.open(mailtoLink);
   };
 

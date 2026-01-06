@@ -6,7 +6,7 @@ import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar';
 import { Preferences } from '@capacitor/preferences';
 import { Capacitor } from '@capacitor/core';
 import { SplashScreen } from '@capacitor/splash-screen';
-import { getDBValue, setDBValue, exportDatabase, importDatabase } from './utils/db';
+import { getDBValue, setDBValue, exportDatabase, importDatabase, addRecord, updateRecord, deleteRecord, saveAllDrinks, saveSettings } from './utils/db';
 
 // 导入工具函数
 import { getTotalCaffeineAtTime, estimateConcentration, estimateAmountFromConcentration, calculateHoursToReachTarget, generateMetabolismChartData } from './utils/caffeineCalculations';
@@ -17,6 +17,8 @@ import { defaultSettings, initialPresetDrinks, originalPresetDrinkIds, COFFEE_CO
 import WebDAVClient from './utils/webdavSync';
 // 导入错误弹窗组件
 import SyncErrorModal from './components/SyncErrorModal';
+// 导入同步日志弹窗组件
+import SyncLogModal from './components/SyncLogModal';
 
 // 懒加载视图组件
 const CurrentStatusView = lazy(() => import('./views/CurrentStatusView'));
@@ -109,6 +111,8 @@ const CaffeineTrackerApp = () => {
   const [webdavConfigured, setWebdavConfigured] = useState(false);
   const [syncError, setSyncError] = useState(null); // 同步错误弹窗
   const [updateInfo, setUpdateInfo] = useState({ available: false, forced: false, downloadUrl: '', latestVersion: '' });
+  const [showLogModal, setShowLogModal] = useState(false); // 同步日志弹窗
+  const [syncLogs, setSyncLogs] = useState([]); // 同步日志数据
 
   // 根据当前路径确定视图模式
   const viewMode = useMemo(() => {
@@ -343,15 +347,37 @@ const CaffeineTrackerApp = () => {
         if (settingsFromStore) {
           const { themeMode, ...sanitizedSettings } = settingsFromStore;
           const finalPassword = settingsFromStore.webdavPassword || persistedPassword || null;
+          
+          // 检查是否为本地开发环境
+          const isLocalDev = !isNativePlatform && (
+            window.location.hostname === 'localhost' || 
+            window.location.hostname === '127.0.0.1'
+          );
+
           const newSettings = {
             ...defaultSettings,
             ...sanitizedSettings,
             webdavPassword: finalPassword,
-            localLastModifiedTimestamp: settingsFromStore.localLastModifiedTimestamp || Date.now()
+            localLastModifiedTimestamp: settingsFromStore.localLastModifiedTimestamp || Date.now(),
+            // 如果是本地开发环境，强制开启开发模式，但不改变数据库中的值（因为保存时会使用 userSettings）
+            // 注意：这里直接修改 userSettings 会导致保存时覆盖数据库。
+            // 所以我们需要一个机制：在保存时，如果 develop 是因为环境被强制开启的，不要保存 true。
+            // 或者，我们允许 userSettings.develop 为 true，但在保存逻辑中进行特殊处理。
+            // 简单起见，我们在这里设置 develop 为 true，并在保存时检查环境。
+            develop: isLocalDev ? true : (sanitizedSettings.develop || false)
           };
           setUserSettings(newSettings);
         } else {
-          setUserSettings({ ...defaultSettings, webdavPassword: persistedPassword, localLastModifiedTimestamp: Date.now() });
+          const isLocalDev = !isNativePlatform && (
+            window.location.hostname === 'localhost' || 
+            window.location.hostname === '127.0.0.1'
+          );
+          setUserSettings({ 
+            ...defaultSettings, 
+            webdavPassword: persistedPassword, 
+            localLastModifiedTimestamp: Date.now(),
+            develop: isLocalDev ? true : false
+          });
         }
 
         if (recordsFromStore) {
@@ -373,6 +399,13 @@ const CaffeineTrackerApp = () => {
         setDrinks(initialPresetDrinks);
       } finally {
         setInitialDataLoaded(true);
+        if (isNativePlatform) {
+          try {
+            await SplashScreen.hide();
+          } catch (e) {
+            console.warn("Failed to hide splash screen", e);
+          }
+        }
       }
     };
 
@@ -391,10 +424,32 @@ const CaffeineTrackerApp = () => {
         delete settingsToPersist.webdavPassword;
         delete settingsToPersist.themeMode;
         
-        // Save to DB
-        await setDBValue('caffeineSettings', settingsToPersist);
-        await setDBValue('caffeineRecords', records);
-        await setDBValue('caffeineDrinks', drinks);
+        // 如果是本地开发环境，且 develop 为 true，我们需要判断这是否是用户手动开启的。
+        // 由于无法区分是“环境强制”还是“用户手动”，为了满足“数据库中依然保持原有的状态”的需求，
+        // 我们在保存时，如果当前是本地环境，且 develop 为 true，我们应该尝试恢复数据库中原有的 develop 值。
+        // 但这比较复杂，因为我们需要读取旧值。
+        // 简化的逻辑：如果是本地开发环境，我们在保存时强制将 develop 设为 false (或者不保存该字段，但这会依赖默认值)。
+        // 更好的方式：在加载时，我们把“真实的”develop状态存在另一个变量里？或者我们接受这样一个事实：
+        // 在本地开发时，我们看到的 develop 是 true，但保存到数据库时，我们希望它是 false (除非用户真的想改)。
+        // 鉴于需求是“本地调试的时候开发模式为true...但是不会对数据库中进行改变”，
+        // 我们可以在保存前，检查环境。如果是本地环境，强制将 settingsToPersist.develop 设为 false (或者从数据库读取原值，但这太慢)。
+        // 假设：用户在本地调试时不需要手动去开关 develop 模式，因为它已经自动开启了。
+        // 所以，在本地调试环境下，我们保存时总是将 develop 设为 false (或者保留原有的逻辑，即如果用户没动过，它就是 false？不对，userSettings.develop 已经是 true 了)。
+        
+        const isLocalDev = !isNativePlatform && (
+            window.location.hostname === 'localhost' || 
+            window.location.hostname === '127.0.0.1'
+        );
+
+        if (isLocalDev) {
+            // 在本地开发环境，不保存 develop: true 到数据库，保持数据库干净
+            // 如果用户真的想在数据库里开启，需要使用 Python 工具
+            settingsToPersist.develop = false; 
+        }
+
+        // Save Settings and Drinks to DB (Records are handled individually)
+        await saveSettings(settingsToPersist);
+        await saveAllDrinks(drinks);
 
         // Save to Preferences (Backup/Legacy)
         await Preferences.set({ key: 'caffeineSettings', value: JSON.stringify(settingsToPersist) });
@@ -495,16 +550,29 @@ const CaffeineTrackerApp = () => {
   }, [userSettings.weight, userSettings.recommendedDosePerKg, userSettings.maxDailyCaffeine]);
 
   // WebDAV同步功能
-  const performWebDAVSync = useCallback(async (settingsToUse, currentRecords, currentDrinks) => {
+  const performWebDAVSync = useCallback(async (settingsToUse, currentRecords, currentDrinks, forceDownload = false) => {
     console.log("=== performWebDAVSync 被调用 ===");
+    
+    // 清空旧日志并定义日志记录器
+    setSyncLogs([]);
+    const logger = (message, type = 'info') => {
+      const now = Date.now();
+      const timeStr = new Date(now).toLocaleString();
+      setSyncLogs(prev => [...prev, { message, type, timestamp: now, time: timeStr }]);
+      // 同时保留控制台输出以便调试
+      const consoleMsg = `[${timeStr}] ${message}`;
+      if (type === 'error') console.error(consoleMsg);
+      else if (type === 'warn') console.warn(consoleMsg);
+      else console.log(consoleMsg);
+    };
 
     if (!initialDataLoaded) {
-      console.log("初始数据未加载完成，跳过WebDAV同步");
+      logger("初始数据未加载完成，跳过WebDAV同步", 'warn');
       return { success: false, message: "初始数据未加载完成" };
     }
 
     if (!settingsToUse.webdavEnabled) {
-      console.log("WebDAV同步已禁用");
+      logger("WebDAV同步已禁用", 'warn');
       setSyncStatus(prev => ({
         ...prev,
         inProgress: false,
@@ -514,7 +582,7 @@ const CaffeineTrackerApp = () => {
     }
 
     if (!settingsToUse.webdavServer || !settingsToUse.webdavUsername || !settingsToUse.webdavPassword) {
-      console.error("WebDAV配置不完整");
+      logger("WebDAV配置不完整", 'error');
       setSyncStatus(prev => ({
         ...prev,
         inProgress: false,
@@ -532,10 +600,12 @@ const CaffeineTrackerApp = () => {
       const webdavClient = new WebDAVClient(
         settingsToUse.webdavServer,
         settingsToUse.webdavUsername,
-        settingsToUse.webdavPassword
+        settingsToUse.webdavPassword,
+        logger // 传入日志记录器
       );
 
       // 使用数据库导出作为本地数据源，确保包含所有数据
+      logger("正在导出本地数据库...", 'info');
       const dbData = await exportDatabase();
       const localData = {
         ...dbData,
@@ -547,11 +617,17 @@ const CaffeineTrackerApp = () => {
         version: appConfig.latest_version
       };
 
-      const result = await webdavClient.performSync(localData, initialPresetDrinks, originalPresetDrinkIds);
+      const result = await webdavClient.performSync(localData, initialPresetDrinks, originalPresetDrinkIds, forceDownload);
 
       if (result.success) {
         let updatedSettings = { ...settingsToUse };
         if (result.data) {
+          try {
+            await importDatabase(result.data);
+            logger("同步数据已写入本地数据库", 'success');
+          } catch (persistError) {
+            logger(`同步结果写入本地数据库失败: ${persistError.message}`, 'warn');
+          }
           const processSyncedDrinks = (drinksToProcess) => {
             if (!Array.isArray(drinksToProcess)) return sanitizeDrinkList(initialPresetDrinks);
             const validDrinks = drinksToProcess.filter(d => d && typeof d.id !== 'undefined' && typeof d.name === 'string');
@@ -590,11 +666,11 @@ const CaffeineTrackerApp = () => {
           };
 
           if (result.data.records && Array.isArray(result.data.records)) {
-            console.log(`更新记录: ${result.data.records.length} 条`);
+            logger(`更新记录: ${result.data.records.length} 条`, 'info');
             setRecords(result.data.records.sort((a, b) => b.timestamp - a.timestamp));
           }
           if (result.data.drinks && Array.isArray(result.data.drinks)) {
-            console.log(`更新饮品: ${result.data.drinks.length} 种`);
+            logger(`更新饮品: ${result.data.drinks.length} 种`, 'info');
             setDrinks(processSyncedDrinks(result.data.drinks));
           }
           if (result.data.userSettings) {
@@ -605,7 +681,7 @@ const CaffeineTrackerApp = () => {
               webdavPassword: settingsToUse.webdavPassword,
               develop: typeof syncedDevelop === 'boolean' ? syncedDevelop : settingsToUse.develop,
             };
-            console.log("同步后更新设置完成");
+            logger("同步后更新设置完成", 'info');
           }
         }
         updatedSettings.lastSyncTimestamp = result.timestamp;
@@ -620,10 +696,7 @@ const CaffeineTrackerApp = () => {
         throw new Error(result.message || "同步失败");
       }
     } catch (error) {
-      console.error("WebDAV同步过程中发生错误:", {
-        message: error.message,
-        platform: isNativePlatform ? 'native' : 'web'
-      });
+      logger(`WebDAV同步过程中发生错误: ${error.message}`, 'error');
       setSyncStatus({
         inProgress: false,
         lastSyncTime: new Date(),
@@ -639,7 +712,7 @@ const CaffeineTrackerApp = () => {
       throw error; // 重新抛出错误以便调用者捕获
     } finally {
       setTimeout(() => { setShowSyncBadge(false); }, 5000);
-      console.log("=== performWebDAVSync 完成 ===");
+      logger("=== performWebDAVSync 完成 ===", 'info');
     }
   }, [appConfig.latest_version, isNativePlatform, initialDataLoaded]);
 
@@ -704,17 +777,21 @@ const CaffeineTrackerApp = () => {
   // 事件处理
   const handleAddRecord = useCallback(async (record) => {
     const newTimestamp = Date.now();
+    const normalizedTimestamp = typeof record.timestamp === 'number'
+      ? record.timestamp
+      : new Date(record.timestamp || Date.now()).getTime();
+    const recordId = record.id || `record_${newTimestamp}`;
+    const newRecord = {
+      ...record,
+      id: recordId,
+      timestamp: normalizedTimestamp,
+      updatedAt: newTimestamp
+    };
+
+    // Add to DB
+    await addRecord(newRecord);
+
     setRecords(prevRecords => {
-      const normalizedTimestamp = typeof record.timestamp === 'number'
-        ? record.timestamp
-        : new Date(record.timestamp || Date.now()).getTime();
-      const recordId = record.id || `record_${newTimestamp}`;
-      const newRecord = {
-        ...record,
-        id: recordId,
-        timestamp: normalizedTimestamp,
-        updatedAt: newTimestamp
-      };
       const newRecords = [...prevRecords, newRecord]
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       return newRecords;
@@ -724,27 +801,31 @@ const CaffeineTrackerApp = () => {
 
   const handleEditRecord = useCallback(async (updatedRecord) => {
     const newTimestamp = Date.now();
-    setRecords(prevRecords => {
-      const fallbackId = updatedRecord?.id || `record_${newTimestamp}`;
-      let found = false;
+    const fallbackId = updatedRecord?.id || `record_${newTimestamp}`;
+    const finalRecord = { 
+        ...updatedRecord, 
+        id: fallbackId, 
+        updatedAt: newTimestamp,
+        timestamp: typeof updatedRecord.timestamp === 'number' ? updatedRecord.timestamp : new Date(updatedRecord.timestamp || Date.now()).getTime()
+    };
 
+    // Update DB
+    await updateRecord(finalRecord);
+
+    setRecords(prevRecords => {
+      let found = false;
       const updatedList = prevRecords.map(record => {
         if (record.id === fallbackId) {
           found = true;
-          return { ...updatedRecord, id: fallbackId, updatedAt: newTimestamp };
+          return finalRecord;
         }
         return record;
       });
-
       if (!found) {
-        updatedList.push({ ...updatedRecord, id: fallbackId, updatedAt: newTimestamp });
+        updatedList.push(finalRecord);
       }
 
       return updatedList
-        .map(entry => ({
-          ...entry,
-          timestamp: typeof entry.timestamp === 'number' ? entry.timestamp : new Date(entry.timestamp || Date.now()).getTime(),
-        }))
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     });
     setUserSettings(prev => ({ ...prev, localLastModifiedTimestamp: newTimestamp }));
@@ -752,6 +833,10 @@ const CaffeineTrackerApp = () => {
 
   const handleDeleteRecord = useCallback(async (id) => {
     const newTimestamp = Date.now();
+    
+    // Delete from DB
+    await deleteRecord(id);
+
     setRecords(prevRecords => {
       const newRecords = prevRecords.filter(r => r.id !== id);
       return newRecords;
@@ -835,9 +920,9 @@ const CaffeineTrackerApp = () => {
       // 更新设置
       setUserSettings(newSettings);
       
-      // 立即执行同步,从服务器下载数据并覆盖本地
-      console.log("开始从服务器同步数据...");
-      const syncResult = await performWebDAVSync(newSettings, records, drinks);
+      // 立即执行同步,从服务器下载数据并覆盖本地 (强制下载)
+      console.log("开始从服务器同步数据 (强制下载)...");
+      const syncResult = await performWebDAVSync(newSettings, records, drinks, true);
       
       if (!syncResult || !syncResult.success) {
         // 如果同步失败，抛出错误
@@ -868,114 +953,110 @@ const CaffeineTrackerApp = () => {
       style={{ backgroundColor: colors.bgBase, color: colors.textPrimary }}
     >
       <header className="max-w-md mx-auto px-4 pt-[env(safe-area-inset-top)] pb-2 text-center relative">
-        <h1
-          className="text-3xl font-bold flex justify-center items-center transition-colors"
-          style={{ color: colors.espresso, marginTop: '4%' }}
-        >
-          <Coffee className="mr-2" size={30} aria-hidden="true" />
-          咖啡因追踪器
-        </h1>
-        <p
-          className="mt-1 transition-colors"
-          style={{ color: colors.textSecondary }}
-        >
-          科学管理 · 健康生活
-        </p>
+        <div className="relative flex items-center justify-center mt-4">
+          <h1
+            className="text-3xl font-bold flex justify-center items-center transition-colors"
+            style={{ color: colors.espresso }}
+          >
+            <Coffee className="mr-2" size={30} aria-hidden="true" />
+            咖啡因追踪器
+          </h1>
 
-        {/* 头部按钮 */}
-        <div className="absolute top-[env(safe-area-inset-top)] right-4 flex items-center space-x-2" style={{ marginTop: '0%' }}>
-          {/* 同步按钮 */}
-          {userSettings.webdavEnabled && (
+          {/* 头部按钮 */}
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center space-x-1">
+            {/* 同步按钮 */}
+            {userSettings.webdavEnabled && (
+              <button
+                onClick={handleManualSync}
+                disabled={!webdavConfigured || syncStatus.inProgress}
+                className={`p-2 rounded-full transition-all duration-300 ${
+                  syncStatus.inProgress 
+                    ? 'animate-spin' 
+                    : ''
+                  } ${
+                  !webdavConfigured 
+                    ? 'opacity-50 cursor-not-allowed' 
+                    : 'hover:bg-opacity-10'
+                  }`}
+                style={{ 
+                  color: syncStatus.inProgress ? colors.accent : colors.textSecondary,
+                  backgroundColor: !webdavConfigured || syncStatus.inProgress ? 'transparent' : undefined
+                }}
+                aria-label="手动同步 WebDAV 数据"
+                title={!webdavConfigured ? 'WebDAV配置不完整' : '手动同步'}
+              >
+                <RefreshCw size={20} />
+              </button>
+            )}
+
+            {/* 主题切换按钮 */}
             <button
-              onClick={handleManualSync}
-              disabled={!webdavConfigured || syncStatus.inProgress}
-              className={`p-2 rounded-full transition-all duration-300 ${
-                syncStatus.inProgress 
-                  ? 'animate-spin' 
-                  : ''
-                } ${
-                !webdavConfigured 
-                  ? 'opacity-50 cursor-not-allowed' 
-                  : 'hover:bg-opacity-10'
-                }`}
-              style={{ 
-                color: syncStatus.inProgress ? colors.accent : colors.textSecondary,
-                backgroundColor: !webdavConfigured || syncStatus.inProgress ? 'transparent' : undefined
-              }}
-              aria-label="手动同步 WebDAV 数据"
-              title={!webdavConfigured ? 'WebDAV配置不完整' : '手动同步'}
+              onClick={toggleThemeMode}
+              className="p-2 rounded-full transition-colors"
+              style={{ color: colors.textSecondary }}
+              aria-label={`切换主题模式 (当前: ${userSettings.themeMode})`}
             >
-              <RefreshCw size={20} />
+              {userSettings.themeMode === 'auto' ? <Laptop size={20} /> :
+                userSettings.themeMode === 'light' ? <Sun size={20} /> :
+                  <Moon size={20} />}
+            </button>
+          </div>
+        </div>
+        <div className="relative mt-1 flex justify-center items-center w-full">
+          <p
+            className="transition-colors"
+            style={{ color: colors.textSecondary }}
+          >
+            科学管理 · 健康生活
+          </p>
+
+          {/* 同步状态显示 */}
+          {showSyncBadge && (
+            <button
+              onClick={() => setShowLogModal(true)}
+              className={`absolute right-0 top-1/2 -translate-y-1/2 py-1 px-3 rounded-full text-xs font-medium z-10 flex items-center shadow-sm transition-all duration-200 border ${
+                syncStatus.inProgress 
+                  ? 'cursor-pointer hover:shadow-md' 
+                  : 'cursor-pointer hover:shadow-md'
+              }`}
+              style={{
+                backgroundColor: syncStatus.inProgress 
+                  ? colors.infoBg 
+                  : syncStatus.lastSyncResult?.success 
+                    ? colors.successBg  // 成功时使用绿色背景
+                    : colors.dangerBg,
+                borderColor: syncStatus.inProgress 
+                  ? colors.info 
+                  : syncStatus.lastSyncResult?.success 
+                    ? colors.safe  // 成功时绿色边框
+                    : colors.danger,
+                color: syncStatus.inProgress 
+                  ? colors.infoText 
+                  : syncStatus.lastSyncResult?.success 
+                    ? colors.successText  // 成功时绿色文字
+                    : colors.dangerText
+              }}
+              aria-label={syncStatus.inProgress ? '同步中，点击查看详情' : syncStatus.lastSyncResult?.success ? '同步成功，点击查看详情' : '同步失败，点击查看详情'}
+            >
+              {syncStatus.inProgress ? (
+                <>
+                  <span className="animate-spin inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full mr-1.5"></span>
+                  同步中
+                </>
+              ) : syncStatus.lastSyncResult?.success ? (
+                <>
+                  <CheckCircle2 size={16} className="mr-1.5" />
+                  成功
+                </>
+              ) : (
+                <>
+                  <AlertTriangle size={16} className="mr-1.5" />
+                  失败
+                </>
+              )}
             </button>
           )}
-
-          {/* 主题切换按钮 */}
-          <button
-            onClick={toggleThemeMode}
-            className="p-2 rounded-full transition-colors"
-            style={{ color: colors.textSecondary }}
-            aria-label={`切换主题模式 (当前: ${userSettings.themeMode})`}
-          >
-            {userSettings.themeMode === 'auto' ? <Laptop size={20} /> :
-              userSettings.themeMode === 'light' ? <Sun size={20} /> :
-                <Moon size={20} />}
-          </button>
         </div>
-
-        {/* 同步状态显示 */}
-        {showSyncBadge && (
-          <button
-            onClick={() => {
-              if (syncStatus.lastSyncResult && !syncStatus.lastSyncResult.success && !syncStatus.inProgress) {
-                alert(`同步失败\n\n原因: ${syncStatus.lastSyncResult.message}\n\n建议:\n1. 检查网络连接\n2. 验证WebDAV配置\n3. 使用Android APP获得更好的兼容性\n4. 联系技术支持: i@jerryz.com.cn`);
-              }
-            }}
-            className={`absolute top-[env(safe-area-inset-top)] right-4 mt-1 py-1 px-3 rounded-full text-xs font-medium z-10 flex items-center shadow-sm transition-all duration-200 border ${
-              syncStatus.inProgress 
-                ? 'cursor-default' 
-                : !syncStatus.lastSyncResult?.success 
-                  ? 'cursor-pointer hover:shadow-md' 
-                  : 'cursor-default'
-            }`}
-            style={{
-              marginTop: '8%',
-              backgroundColor: syncStatus.inProgress 
-                ? colors.infoBg 
-                : syncStatus.lastSyncResult?.success 
-                  ? 'transparent'  // 成功时透明背景
-                  : colors.dangerBg,
-              borderColor: syncStatus.inProgress 
-                ? colors.info 
-                : syncStatus.lastSyncResult?.success 
-                  ? colors.safe  // 成功时绿色边框
-                  : colors.danger,
-              color: syncStatus.inProgress 
-                ? colors.infoText 
-                : syncStatus.lastSyncResult?.success 
-                  ? colors.safe  // 成功时绿色文字
-                  : colors.dangerText
-            }}
-            disabled={syncStatus.inProgress || syncStatus.lastSyncResult?.success}
-            aria-label={syncStatus.inProgress ? '同步中' : syncStatus.lastSyncResult?.success ? '同步成功' : '同步失败，点击查看详情'}
-          >
-            {syncStatus.inProgress ? (
-              <>
-                <span className="animate-spin inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full mr-1.5"></span>
-                同步中
-              </>
-            ) : syncStatus.lastSyncResult?.success ? (
-              <>
-                <CheckCircle2 size={16} className="mr-1.5" />
-                成功
-              </>
-            ) : (
-              <>
-                <AlertTriangle size={16} className="mr-1.5" />
-                失败
-              </>
-            )}
-          </button>
-        )}
       </header>
 
       <main className="w-full max-w-screen-xl mx-auto px-4 pb-6">
@@ -1094,6 +1175,7 @@ const CaffeineTrackerApp = () => {
                 appConfig={appConfig}
                 isNativePlatform={isNativePlatform}
                 onImportConfig={handleImportConfig}
+                onShowLogs={() => setShowLogModal(true)}
               />
             } />
 
@@ -1177,6 +1259,17 @@ const CaffeineTrackerApp = () => {
           colors={colors}
           appConfig={appConfig}
           isNativePlatform={isNativePlatform}
+          logs={syncLogs}
+        />
+      )}
+
+      {/* 同步日志弹窗 */}
+      {showLogModal && (
+        <SyncLogModal
+          isOpen={showLogModal}
+          onClose={() => setShowLogModal(false)}
+          logs={syncLogs}
+          colors={colors}
         />
       )}
     </div>

@@ -1,4 +1,4 @@
-export const generateFeedbackMailto = (type, appConfig, isNativePlatform, errorDetails = null) => {
+export const generateFeedbackMailto = (type, appConfig, isNativePlatform, errorDetails = null, logs = []) => {
   const subjectPrefix = '咖啡因追踪器';
   let subject = '';
   let bodyTemplate = '';
@@ -59,6 +59,12 @@ ${errorDetails || '无详细错误信息'}
 请描述您在进行什么操作时出现了此错误...
 
 `;
+    if (logs && logs.length > 0) {
+      const logText = logs.map(l => `[${l.time}] ${l.type.toUpperCase()}: ${l.message}`).join('\n');
+      // 截断日志以防止 URL 过长
+      const truncatedLogs = logText.length > 1000 ? logText.substring(0, 1000) + '\n... (日志已截断)' : logText;
+      bodyTemplate += `\n【同步日志片段】\n${truncatedLogs}\n`;
+    }
   }
 
   const body = encodeURIComponent(bodyTemplate + commonInfo + '\n感谢您的反馈！');

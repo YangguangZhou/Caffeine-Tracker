@@ -41,6 +41,12 @@ const SyncConfigShare = ({ webdavConfig, onClose, colors }) => {
     return () => observer.disconnect();
   }, []);
 
+  // 锁定背景滚动
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = 'unset'; };
+  }, []);
+
   useEffect(() => {
     if (webdavConfig && shareUrl) {
       const generateQrCode = async () => {
