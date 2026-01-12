@@ -83,6 +83,9 @@ export default class WebDAVClient {
 
         const headers = {
             'User-Agent': this.userAgent,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
             ...additionalHeaders
         };
 
@@ -117,10 +120,16 @@ export default class WebDAVClient {
 
     // 执行HTTP请求
     async executeRequest(url, options, operation = 'request') {
-        this.log(`开始执行 ${operation}: ${options.method} ${url.toString()}`, 'info');
+        // 添加时间戳防止缓存，特别是对于GET和HEAD请求
+        const urlWithParams = new URL(url.toString());
+        if (options.method === 'GET' || options.method === 'HEAD') {
+            urlWithParams.searchParams.append('_t', Date.now());
+        }
+
+        this.log(`开始执行 ${operation}: ${options.method} ${urlWithParams.toString()}`, 'info');
 
         try {
-            const response = await fetch(url.toString(), options);
+            const response = await fetch(urlWithParams.toString(), options);
 
             this.log(`${operation} 响应状态: ${response.status} ${response.statusText}`, response.ok ? 'info' : 'warn');
 
@@ -1031,8 +1040,8 @@ export default class WebDAVClient {
 
             // 如果远程文件损坏，视为无远程数据，允许本地数据上传修复
             if (remoteResult?.format === 'corrupted') {
-                this.log('远程文件损坏，使用本地数据进行自愈上传', 'warn');
-                remoteData = null;
+                this.log(`远程文件似乎已损坏 (${remoteResult.error})，为安全起见，中止本次同步，避免覆盖云端数据。`, 'error');
+                throw new Error(`远程数据校验失败: ${remoteResult.error}，请重试`);
             }
 
             // 判断数据是否有意义（非空）
