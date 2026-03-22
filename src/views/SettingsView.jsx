@@ -419,6 +419,29 @@ const SettingsView = ({
     // 状态管理
     const [repairLogOpen, setRepairLogOpen] = useState(false);
     const [currentRepairLogs, setCurrentRepairLogs] = useState([]);
+    const [copySuccess, setCopySuccess] = useState(false);
+
+    // 复制日志到剪贴板
+    const copyLogsToClipboard = useCallback(() => {
+        const logContent = getRepairLogs()
+            .map(log => `[${log.timestamp}] [${log.type.toUpperCase()}] ${log.message}`)
+            .join('\n');
+        
+        if (Capacitor.isNativePlatform()) {
+             // 简单的回退或使用原生调用，由于未导入 Clipboard，这里尝试直接调用
+             navigator.clipboard.writeText(logContent).then(() => {
+                 setCopySuccess(true);
+                 setTimeout(() => setCopySuccess(false), 2000);
+             });
+        } else {
+            navigator.clipboard.writeText(logContent).then(() => {
+                setCopySuccess(true);
+                setTimeout(() => setCopySuccess(false), 2000);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+            });
+        }
+    }, []);
 
     // 辅助获取并显示日志
     const showRepairLogs = useCallback(() => {
@@ -473,7 +496,7 @@ const SettingsView = ({
 
     // 尝试修复数据库
     const handleRepairDatabase = useCallback(async () => {
-        const confirmMsg = "这仅会尝试重置和修复数据库查询引擎，【不会清空您的任何数据】。\n\n如果当前数据库文件损坏，该操作可能会导致某些物理层面的访问问题，但在重置引擎前我们会先尝试进行数据备份。是否继续？";
+        const confirmMsg = "这仅会尝试重置和修复数据库查询引擎，不会清空您的任何数据。\n\n如果当前数据库文件损坏，该操作可能会导致某些物理层面的访问问题，但在重置引擎前我们会先尝试进行数据备份。是否继续？";
         if (!window.confirm(confirmMsg)) return;
         
         try {
@@ -1706,43 +1729,59 @@ const SettingsView = ({
                         </p>
                     </div>
 
-                    <div 
-                        className="p-4 rounded-xl border mt-4 space-y-3"
-                        style={{
-                            backgroundColor: colors.dangerBg,
-                            borderColor: colors.danger,
-                        }}
-                    >
-                        <h3 className="text-base font-semibold flex items-center" style={{ color: colors.dangerText }}>
-                            <AlertTriangle size={18} className="mr-2" /> 故障救助
-                        </h3>
-                        <p className="text-xs" style={{ color: colors.dangerText }}>
-                            如果遇到 "WebAssembly" 报错或数据丢失：
-                        </p>
-                        
-                        <button
-                            onClick={handleRescueExport}
-                            className="w-full py-2 px-3 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors duration-200 flex items-center justify-center shadow text-xs font-medium"
-                        >
-                            <Database size={14} className="mr-1.5" /> 救援数据导出 (.sqlite)
-                        </button>
-                        
-                        <button
-                            onClick={handleRepairDatabase}
-                            className="w-full py-2 px-3 bg-red-800 text-white rounded-md hover:bg-red-900 transition-colors duration-200 flex items-center justify-center shadow text-xs font-medium"
-                        >
-                            <Activity size={14} className="mr-1.5" /> 尝试修复/重置引擎
-                        </button>
-                        
-                        <div className="flex justify-between items-center text-[10px]" style={{ color: colors.dangerText }}>
-                            <span>注：此操作不会清空您的数据。</span>
+                    <hr className="opacity-10 border-black dark:border-white" />
+
+                    {/* 故障救助 */}
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                            <h3
+                                className="font-medium text-sm transition-colors"
+                                style={{ color: colors.textSecondary }}
+                            >
+                                故障救助:
+                            </h3>
                             <button 
                                 onClick={showRepairLogs}
-                                className="underline opacity-80 hover:opacity-100 flex items-center"
+                                className="text-[10px] underline flex items-center opacity-60 hover:opacity-100"
+                                style={{ color: colors.textSecondary }}
                             >
-                                <FileText size={10} className="mr-0.5" /> 查看运行日志
+                                <FileText size={10} className="mr-0.5" /> 运行日志
                             </button>
                         </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                onClick={handleRescueExport}
+                                className="py-2 px-3 border rounded-md transition-colors duration-200 flex items-center justify-center text-xs font-medium"
+                                style={{ 
+                                    borderColor: colors.borderStrong,
+                                    backgroundColor: colors.bgBase,
+                                    color: colors.textPrimary
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.borderSubtle}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = colors.bgBase}
+                            >
+                                <Database size={14} className="mr-1.5" /> 救援导出
+                            </button>
+                            
+                            <button
+                                onClick={handleRepairDatabase}
+                                className="py-2 px-3 border rounded-md transition-colors duration-200 flex items-center justify-center text-xs font-medium"
+                                style={{ 
+                                    borderColor: colors.borderStrong,
+                                    backgroundColor: colors.bgBase,
+                                    color: colors.textPrimary
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = colors.borderSubtle}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = colors.bgBase}
+                            >
+                                <Activity size={14} className="mr-1.5" /> 重置引擎
+                            </button>
+                        </div>
+                        
+                        <p className="text-[10px] opacity-60 text-center" style={{ color: colors.textSecondary }}>
+                            ※ 重置引擎不会清空数据。如果遇到报错或数据丢失，请优先尝试救援导出。
+                        </p>
                     </div>
                 </div>
             </section>
@@ -1781,20 +1820,34 @@ const SettingsView = ({
                                 ))
                             )}
                         </div>
-                        <div className="p-4 border-t bg-gray-50 dark:bg-black/20 flex justify-end space-x-3" style={{ borderColor: colors.borderSubtle }}>
+                        <div className="p-4 border-t bg-gray-50 dark:bg-black/10 flex flex-wrap justify-between items-center gap-2" style={{ borderColor: colors.borderSubtle }}>
                            <button 
-                                onClick={() => { clearRepairLogs(); setCurrentRepairLogs([]); }}
-                                className="px-4 py-2 rounded-md text-xs border"
-                                style={{ borderColor: colors.borderStrong, color: colors.textSecondary }}
+                                onClick={copyLogsToClipboard}
+                                className="px-3 py-1.5 rounded-md text-xs font-medium border flex items-center transition-all bg-white dark:bg-zinc-800"
+                                style={{ borderColor: colors.borderStrong, color: colors.textPrimary }}
                            >
-                               清空日志
+                               {copySuccess ? (
+                                   <><CheckCircle2 size={12} className="mr-1.5 text-emerald-500" /> 已复制</>
+                               ) : (
+                                   <><Save size={12} className="mr-1.5" /> 复制全部日志</>
+                               )}
                            </button>
-                           <button 
-                                onClick={() => setRepairLogOpen(false)}
-                                className="px-4 py-2 rounded-md text-xs bg-emerald-600 text-white font-medium"
-                           >
-                               关闭
-                           </button>
+                           
+                           <div className="flex space-x-2">
+                               <button 
+                                    onClick={() => { clearRepairLogs(); setCurrentRepairLogs([]); }}
+                                    className="px-3 py-1.5 rounded-md text-xs border bg-white dark:bg-zinc-800"
+                                    style={{ borderColor: colors.borderStrong, color: colors.textSecondary }}
+                               >
+                                   清空
+                               </button>
+                               <button 
+                                    onClick={() => setRepairLogOpen(false)}
+                                    className="px-4 py-1.5 rounded-md text-xs bg-emerald-600 text-white font-medium"
+                               >
+                                   关闭
+                               </button>
+                           </div>
                         </div>
                     </div>
                 </div>
