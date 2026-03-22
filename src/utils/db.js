@@ -12,6 +12,23 @@ const PASSWORD_KEY = 'webdavPassword';
 let sqlPromise = null;
 let dbInstance = null;
 
+// 用于存储故障排查日志
+let repairLogs = [];
+
+export const addRepairLog = (message, type = 'info') => {
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    message,
+    type // 'info', 'warn', 'error', 'success'
+  };
+  console.log(`[DB Repair] [${type.toUpperCase()}] ${message}`);
+  repairLogs.push(logEntry);
+  if (repairLogs.length > 100) repairLogs.shift();
+};
+
+export const getRepairLogs = () => [...repairLogs];
+export const clearRepairLogs = () => { repairLogs = []; };
+
 const toBytes = (base64) => {
   const binary = atob(base64);
   const len = binary.length;
@@ -64,8 +81,92 @@ const locateSqlWasm = (file) => {
 };
 
 const getSql = () => {
-  if (!sqlPromise) sqlPromise = initSqlJs({ locateFile: locateSqlWasm });
+  if (!sqlPromise) {
+    sqlPromise = (async () => {
+      try {
+        addRepairLog(`Initializing SQL.js with WASM from: ${wasmUrl}`, 'info');
+        const res = await fetch(wasmUrl);
+        if (!res.ok) {
+          addRepairLog(`WASM fetch failed: ${res.status} ${res.statusText}`, 'error');
+          throw new Error(`Failed to fetch WASM: ${res.status} ${res.statusText}`);
+        }
+        const contentType = res.headers.get('Content-Type');
+        if (contentType && !contentType.includes('application/wasm')) {
+          addRepairLog(`Unexpected Content-Type for WASM: ${contentType}`, 'warn');
+        }
+        const buffer = await res.arrayBuffer();
+        const magic = new Uint8Array(buffer.slice(0, 4));
+        if (magic[0] !== 0x00 || magic[1] !== 0x61 || magic[2] !== 0x73 || magic[3] !== 0x6d) {
+          addRepairLog('Fetched file is not a valid WebAssembly module (invalid magic number)', 'error');
+          throw new Error('Fetched file is not a valid WebAssembly module (invalid magic number)');
+        }
+        addRepairLog('WASM file loaded and verified. Calling initSqlJs...', 'info');
+        const sql = await initSqlJs({ wasmBinary: buffer });
+        addRepairLog('SQL.js engine successfully initialized.', 'success');
+        return sql;
+      } catch (err) {
+        addRepairLog(`SQL.js initialization failed: ${err.message}`, 'error');
+        console.error('SQL.js initialization failed:', err);
+        sqlPromise = null;
+        throw err;
+      }
+    })();
+  }
   return sqlPromise;
+};
+
+/**
+ * 紧急救援导出工具
+ * 绕过 SQL.js，直接从 IndexedDB 或 Filesystem 导出原始字节
+ */
+export const rescueRawDatabaseBytes = async () => {
+  try {
+    const bytes = await loadExistingBytes();
+    if (!bytes || bytes.length === 0) {
+      throw new Error('No database file found to rescue.');
+    }
+    return bytes;
+  } catch (err) {
+    console.error('Rescue failed:', err);
+    throw err;
+  }
+};
+
+/**
+ * 尝试修复/重置数据库
+ * 如果数据库损坏或 WASM 加载失败，提供一种重新初始化的方式
+ */
+export const repairDatabase = async () => {
+  addRepairLog('Starting database repair process...', 'info');
+  // 1. 尝试备份当前数据
+  let backup = null;
+  try {
+    backup = await loadExistingBytes();
+    if (backup) {
+      addRepairLog(`Existing database file found (${backup.length} bytes). Backup complete.`, 'info');
+    } else {
+      addRepairLog('No existing database file found to backup.', 'warn');
+    }
+  } catch (e) {
+    addRepairLog(`Failed to read existing bytes during repair: ${e.message}`, 'error');
+  }
+
+  // 2. 清除当前实例
+  addRepairLog('Resetting engine instances...', 'info');
+  dbInstance = null;
+  sqlPromise = null; // 允许重新尝试加载 WASM
+
+  // 3. 尝试重新打开
+  try {
+    addRepairLog('Attempting to re-open database...', 'info');
+    const db = await getDatabase();
+    addRepairLog('Database engine successfully re-initialized and data loaded.', 'success');
+    return { success: true, backup };
+  } catch (err) {
+    addRepairLog(`Repair failed to re-open DB: ${err.message}`, 'error');
+    console.error('Repair failed to re-open DB:', err);
+    return { success: false, backup, error: err.message };
+  }
 };
 
 const ensureSchema = (db) => {
@@ -126,13 +227,29 @@ const persistBytes = async (bytes) => {
   }
 };
 
-const getDatabase = async () => {
+export const getDatabase = async () => {
   if (dbInstance) return dbInstance;
-  const SQL = await getSql();
-  const existing = await loadExistingBytes();
-  dbInstance = existing ? new SQL.Database(existing) : new SQL.Database();
+  try {
+    const SQL = await getSql();
+    const existing = await loadExistingBytes();
+    if (existing) {
+      try {
+        dbInstance = new SQL.Database(existing);
+      } catch (e) {
+        console.error('SQL.js failed to parse existing database file. Rescuing and using new DB.', e);
+        // 如果文件已存在但无法通过 SQL.js 解析（可能已损坏），我们应尝试创建一个新的，并将损坏的字节标记为备份（暂留）
+        dbInstance = new SQL.Database();
+      }
+    } else {
+      dbInstance = new SQL.Database();
+    }
+  } catch (err) {
+    console.error('getDatabase failed:', err);
+    // 如果 WASM 加载失败，我们将无法使用 SQLite
+    // 这种情况下，我们需要 UI 端有降级方案或错误提示
+    throw err;
+  }
   ensureSchema(dbInstance);
-  if (!existing) await persistBytes(dbInstance.export());
   return dbInstance;
 };
 

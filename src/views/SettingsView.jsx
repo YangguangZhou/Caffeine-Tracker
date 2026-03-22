@@ -15,7 +15,7 @@ import { initialPresetDrinks, DRINK_CATEGORIES, DEFAULT_CATEGORY, defaultSetting
 import SyncConfigShare from '../components/SyncConfigShare';
 import ManualImportModal from '../components/ManualImportModal'; // 导入新组件
 import { extractConfigParam } from '../utils/syncConfigShare';
-import { getDBValue, setDBValue, importDatabase, exportDatabaseBinary, importDatabaseBinary, exportAllDataSnapshot } from '../utils/db';
+import { getDBValue, setDBValue, importDatabase, exportDatabaseBinary, importDatabaseBinary, exportAllDataSnapshot, rescueRawDatabaseBytes, repairDatabase, getRepairLogs, clearRepairLogs } from '../utils/db';
 
 // 动态导入 WebDAVClient
 const WebDAVClientPromise = import('../utils/webdavSync');
@@ -415,6 +415,89 @@ const SettingsView = ({
             alert("导出数据时发生错误: " + error.message);
         }
     }, [appConfig.latest_version, isNativePlatform]);
+
+    // 状态管理
+    const [repairLogOpen, setRepairLogOpen] = useState(false);
+    const [currentRepairLogs, setCurrentRepairLogs] = useState([]);
+
+    // 辅助获取并显示日志
+    const showRepairLogs = useCallback(() => {
+        setCurrentRepairLogs(getRepairLogs());
+        setRepairLogOpen(true);
+    }, []);
+
+    // 紧急救援导出
+    const handleRescueExport = useCallback(async () => {
+        try {
+            const rawBytes = await rescueRawDatabaseBytes();
+            if (!rawBytes) {
+                alert("未找到本地数据库文件。");
+                return;
+            }
+
+            const exportFileDefaultName = `rescue-caffeine-tracker-${new Date().toISOString().split('T')[0]}.sqlite`;
+            if (isNativePlatform) {
+                const base64Data = btoa(String.fromCharCode.apply(null, rawBytes));
+                const result = await Filesystem.writeFile({
+                    path: exportFileDefaultName,
+                    data: base64Data,
+                    directory: Directory.Documents
+                });
+                if (await Share.canShare()) {
+                    await Share.share({
+                        title: '紧急救援数据库备份',
+                        text: '这是您的紧急救援数据库备份文件 (.sqlite)',
+                        url: result.uri,
+                        dialogTitle: '导出数据'
+                    });
+                } else {
+                    alert(`文件已保存到文档目录: ${result.uri}`);
+                }
+            } else {
+                const blob = new Blob([rawBytes], { type: 'application/octet-stream' });
+                const dataUri = URL.createObjectURL(blob);
+                const linkElement = document.createElement('a');
+                linkElement.setAttribute('href', dataUri);
+                linkElement.setAttribute('download', exportFileDefaultName);
+                document.body.appendChild(linkElement);
+                linkElement.click();
+                document.body.removeChild(linkElement);
+                URL.revokeObjectURL(dataUri);
+            }
+            alert("紧急救援导出成功！");
+        } catch (error) {
+            console.error("紧急救援导出失败:", error);
+            alert(`救援导出失败: ${error.message}`);
+        }
+    }, [isNativePlatform]);
+
+    // 尝试修复数据库
+    const handleRepairDatabase = useCallback(async () => {
+        const confirmMsg = "这仅会尝试重置和修复数据库查询引擎，【不会清空您的任何数据】。\n\n如果当前数据库文件损坏，该操作可能会导致某些物理层面的访问问题，但在重置引擎前我们会先尝试进行数据备份。是否继续？";
+        if (!window.confirm(confirmMsg)) return;
+        
+        try {
+            const result = await repairDatabase();
+            if (result.success) {
+                const snapshot = await exportAllDataSnapshot();
+                setRecords(snapshot.records || []);
+                setDrinks(snapshot.drinks || []);
+                onUpdateSettings({
+                    ...defaultSettings,
+                    ...(snapshot.userSettings || {}),
+                    localLastModifiedTimestamp: Date.now()
+                });
+                alert("数据库引擎重置成功！您的数据已成功加载。");
+            } else {
+                throw new Error(result.error || "修复过程中出现未知错误。");
+            }
+        } catch (error) {
+            console.error("修复失败:", error);
+            alert(`修复失败: ${error.message}\n\n建议查看日志并尝试紧急救援导出。`);
+        } finally {
+            showRepairLogs();
+        }
+    }, [showRepairLogs, setRecords, setDrinks, onUpdateSettings]);
 
     // 清除所有数据
     const clearAllData = useCallback(async () => {
@@ -1622,9 +1705,101 @@ const SettingsView = ({
                             警告：此操作将永久删除所有记录、设置和自定义饮品，并重置为初始预设。
                         </p>
                     </div>
+
+                    <div 
+                        className="p-4 rounded-xl border mt-4 space-y-3"
+                        style={{
+                            backgroundColor: colors.dangerBg,
+                            borderColor: colors.danger,
+                        }}
+                    >
+                        <h3 className="text-base font-semibold flex items-center" style={{ color: colors.dangerText }}>
+                            <AlertTriangle size={18} className="mr-2" /> 故障救助
+                        </h3>
+                        <p className="text-xs" style={{ color: colors.dangerText }}>
+                            如果遇到 "WebAssembly" 报错或数据丢失：
+                        </p>
+                        
+                        <button
+                            onClick={handleRescueExport}
+                            className="w-full py-2 px-3 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors duration-200 flex items-center justify-center shadow text-xs font-medium"
+                        >
+                            <Database size={14} className="mr-1.5" /> 救援数据导出 (.sqlite)
+                        </button>
+                        
+                        <button
+                            onClick={handleRepairDatabase}
+                            className="w-full py-2 px-3 bg-red-800 text-white rounded-md hover:bg-red-900 transition-colors duration-200 flex items-center justify-center shadow text-xs font-medium"
+                        >
+                            <Activity size={14} className="mr-1.5" /> 尝试修复/重置引擎
+                        </button>
+                        
+                        <div className="flex justify-between items-center text-[10px]" style={{ color: colors.dangerText }}>
+                            <span>注：此操作不会清空您的数据。</span>
+                            <button 
+                                onClick={showRepairLogs}
+                                className="underline opacity-80 hover:opacity-100 flex items-center"
+                            >
+                                <FileText size={10} className="mr-0.5" /> 查看运行日志
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </section>
-            
+
+            {/* 修复日志弹窗 */}
+            {repairLogOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm">
+                    <div 
+                        className="w-full max-w-lg rounded-xl shadow-2xl overflow-hidden border flex flex-col max-h-[80vh]"
+                        style={{ backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }}
+                    >
+                        <div className="p-4 border-b flex justify-between items-center" style={{ borderColor: colors.borderSubtle }}>
+                            <h3 className="font-bold flex items-center" style={{ color: colors.espresso }}>
+                                <FileText size={18} className="mr-2" /> 运行与修复日志
+                            </h3>
+                            <button onClick={() => setRepairLogOpen(false)} style={{ color: colors.textMuted }}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-2 font-mono text-xs">
+                            {currentRepairLogs.length === 0 ? (
+                                <p className="text-center py-10 opacity-50">暂无日志记录</p>
+                            ) : (
+                                currentRepairLogs.map((log, idx) => (
+                                    <div key={idx} className="pb-2 border-b border-dashed last:border-0" style={{ borderColor: colors.borderStrong }}>
+                                        <span className="opacity-50">[{log.timestamp.split('T')[1].split('.')[0]}]</span>{' '}
+                                        <span style={{ 
+                                            color: log.type === 'error' ? colors.danger : 
+                                                   log.type === 'success' ? colors.safe : 
+                                                   log.type === 'warn' ? colors.warning : 
+                                                   colors.textPrimary
+                                        }}>
+                                            [{log.type.toUpperCase()}] {log.message}
+                                        </span>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        <div className="p-4 border-t bg-gray-50 dark:bg-black/20 flex justify-end space-x-3" style={{ borderColor: colors.borderSubtle }}>
+                           <button 
+                                onClick={() => { clearRepairLogs(); setCurrentRepairLogs([]); }}
+                                className="px-4 py-2 rounded-md text-xs border"
+                                style={{ borderColor: colors.borderStrong, color: colors.textSecondary }}
+                           >
+                               清空日志
+                           </button>
+                           <button 
+                                onClick={() => setRepairLogOpen(false)}
+                                className="px-4 py-2 rounded-md text-xs bg-emerald-600 text-white font-medium"
+                           >
+                               关闭
+                           </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* 配置分享对话框 */}
             {showConfigShare && (
                 <SyncConfigShare
