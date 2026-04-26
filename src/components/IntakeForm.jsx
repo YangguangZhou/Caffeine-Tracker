@@ -224,7 +224,7 @@ const IntakeForm = ({
           style={{ backgroundColor: colors.infoBg, color: colors.infoText, borderColor: colors.infoText, borderWidth: '1px', borderStyle: 'solid' }}
         >
           <HelpCircle size={14} className="mr-1.5 flex-shrink-0 mt-px" />
-          <span>提示：可从下方历史记录中快速重复或复制条目。</span>
+          <span>提示：可从历史记录中快速重复或复制条目。</span>
         </div>
       )}
 

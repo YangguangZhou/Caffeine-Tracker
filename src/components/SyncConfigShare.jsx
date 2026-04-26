@@ -1,12 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Copy, QrCode, Shield } from 'lucide-react';
-import { Capacitor } from '@capacitor/core';
-import { COFFEE_COLORS, NIGHT_COLORS } from '../utils/constants';
+import { X, QrCode, Shield } from 'lucide-react';
+import { trackEvent } from '../utils/analytics';
 
 const SyncConfigShare = ({ webdavConfig, onClose, colors }) => {
   const [copied, setCopied] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
-  const [theme, setTheme] = useState('light');
 
   const shareUrl = useMemo(() => {
     if (!webdavConfig) return '';
@@ -23,23 +21,12 @@ const SyncConfigShare = ({ webdavConfig, onClose, colors }) => {
       const jsonStr = JSON.stringify(configData);
       const bytes = new TextEncoder().encode(jsonStr);
       const base64 = btoa(String.fromCharCode(...bytes));
-      const baseUrl = window.location.origin;
       return `https://ct.jerryz.com.cn/settings?config=${encodeURIComponent(base64)}`;
     } catch (error) {
       console.error('Failed to encode config:', error);
       return '';
     }
   }, [webdavConfig]);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const observer = new MutationObserver(() => {
-      setTheme(root.classList.contains('dark') ? 'dark' : 'light');
-    });
-    observer.observe(root, { attributes: true, attributeFilter: ['class'] });
-    setTheme(root.classList.contains('dark') ? 'dark' : 'light'); // Initial check
-    return () => observer.disconnect();
-  }, []);
 
   // 锁定背景滚动
   useEffect(() => {
@@ -71,10 +58,15 @@ const SyncConfigShare = ({ webdavConfig, onClose, colors }) => {
     }
   }, [webdavConfig, shareUrl]);
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      trackEvent('share', { target: 'webdav_config', method: 'copy' });
+    } catch (error) {
+      console.error('Failed to copy share url:', error);
+    }
   };
 
   return (

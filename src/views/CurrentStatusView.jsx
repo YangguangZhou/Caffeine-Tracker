@@ -6,12 +6,11 @@ import {
   AlertTriangle, Copy, Scale, Search, X
 } from 'lucide-react';
 import MetabolismChart from '../components/MetabolismChart';
-import IntakeForm from '../components/IntakeForm';
 import { formatTime, formatDate, getStartOfWeek, getEndOfWeek, getStartOfDay, getEndOfDay } from '../utils/timeUtils';
 import { getTotalCaffeineAtTime, estimateAmountFromConcentration, calculateHoursToReachTarget } from '../utils/caffeineCalculations';
 
 /**
- * 当前状态视图组件
+ * 状态视图组件
  * 显示当前咖啡因状态、清醒指数、睡眠影响分析和焦虑风险评估
  */
 const CurrentStatusView = ({
@@ -21,14 +20,13 @@ const CurrentStatusView = ({
   drinks,
   metabolismChartData,
   userSettings,
-  onAddRecord,
-  onEditRecord,
+  onAddRecordClick,
+  onEditRecordClick,
   onDeleteRecord,
   estimateAmountFromConcentration: estimateAmountFromConcentrationProp, // Renamed to avoid conflict
   colors
 }) => {
-  const [showForm, setShowForm] = useState(false);
-  const [editingRecord, setEditingRecord] = useState(null);
+  
   const [searchQuery, setSearchQuery] = useState('');
 
   // 计算今日总摄入量
@@ -202,7 +200,7 @@ const CurrentStatusView = ({
     // 计算焦虑风险等级
     let anxietyRisk = 'low';
     let anxietyLevel = '心情平静';
-    let anxietyAdvice = '保持当前状态，适合进行创造性工作';
+    let anxietyAdvice = '保持状态，适合进行创造性工作';
     let anxietyColor = colors.safe;
 
     if (conc > 5 || todayTotal > effectiveMaxDaily * 1.2) {
@@ -339,7 +337,7 @@ const CurrentStatusView = ({
 
       forecasts.push({
         hour,
-        label: hour === 0 ? '当前状态' : `${hour}小时后`,
+        label: hour === 0 ? '状态' : `${hour}小时后`,
         feeling,
         advice,
         icon,
@@ -417,28 +415,11 @@ const CurrentStatusView = ({
   }, [filteredRecords]);
 
   const handleAddRecordClick = () => {
-    setEditingRecord(null);
-    setShowForm(true);
+    if(onAddRecordClick) onAddRecordClick();
   };
 
   const handleEditRecord = (record) => {
-    setEditingRecord(record);
-    setShowForm(true);
-  };
-
-  const handleFormSubmit = (record) => {
-    if (editingRecord) {
-      onEditRecord(record);
-    } else {
-      onAddRecord(record);
-    }
-    setShowForm(false);
-    setEditingRecord(null);
-  };
-
-  const handleFormCancel = () => {
-    setShowForm(false);
-    setEditingRecord(null);
+    if(onEditRecordClick) onEditRecordClick(record);
   };
 
   // 根据健康建议类型确定样式
@@ -491,7 +472,7 @@ const CurrentStatusView = ({
     <div className="columns-1 sm:columns-2 xl:columns-3 gap-4 w-full">
       <section
         aria-labelledby="current-status-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -502,7 +483,7 @@ const CurrentStatusView = ({
           className="text-xl font-semibold mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
-          <Activity size={20} className="mr-2" /> 当前状态
+          <Activity size={20} className="mr-2" /> 状态
         </h2>
 
         {/* 半圆进度表 */}
@@ -573,7 +554,7 @@ const CurrentStatusView = ({
           </aside>
         </div>
 
-        {/* 核心数据统计 - 重新设计 */}
+        {/* 核心统计 - 重新设计 */}
         <div
           className="grid grid-cols-2 gap-2 text-xs mt-4 pt-4 border-t transition-colors"
           style={{
@@ -687,7 +668,7 @@ const CurrentStatusView = ({
       {/* 智能分析与预测卡片 */}
       <section
         aria-labelledby="intelligent-analysis-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-4 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -790,7 +771,7 @@ const CurrentStatusView = ({
       {/* 代谢曲线图卡片 */}
       <section
         aria-labelledby="metabolism-chart-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -813,40 +794,10 @@ const CurrentStatusView = ({
         />
       </section>
 
-      <section
-        aria-labelledby="intake-form-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
-        style={{
-          backgroundColor: colors.bgCard,
-          borderColor: colors.borderSubtle
-        }}
-      >
-        <h2 id="intake-form-heading" className="sr-only">添加或编辑摄入记录</h2>
-        {showForm ? (
-          <IntakeForm
-            drinks={drinks}
-            onSubmit={handleFormSubmit}
-            onCancel={handleFormCancel}
-            initialValues={editingRecord}
-            colors={colors}
-            lastRecord={records.length > 0 ? records[0] : null}
-          />
-        ) : (
-          <button
-            onClick={handleAddRecordClick}
-            className="w-full py-3 px-4 text-white rounded-lg transition-all duration-200 flex items-center justify-center shadow-md font-medium hover:opacity-90 transform hover:scale-[1.01] active:scale-[0.99]"
-            style={{ backgroundColor: colors.accent }}
-          >
-            <Coffee size={18} className="mr-2" />
-            添加摄入记录
-          </button>
-        )}
-      </section>
-
       {/* 摄入历史卡片 */}
       <section
         aria-labelledby="intake-history-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle

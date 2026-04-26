@@ -14,8 +14,8 @@ import { formatDatetimeLocal } from '../utils/timeUtils';
 import { initialPresetDrinks, DRINK_CATEGORIES, DEFAULT_CATEGORY, defaultSettings, getPresetIconColor } from '../utils/constants';
 import SyncConfigShare from '../components/SyncConfigShare';
 import ManualImportModal from '../components/ManualImportModal'; // 导入新组件
-import { extractConfigParam } from '../utils/syncConfigShare';
 import { getDBValue, setDBValue, importDatabase, exportDatabaseBinary, importDatabaseBinary, exportAllDataSnapshot, rescueRawDatabaseBytes, repairDatabase, getRepairLogs, clearRepairLogs } from '../utils/db';
+import { trackEvent } from '../utils/analytics';
 
 // 动态导入 WebDAVClient
 const WebDAVClientPromise = import('../utils/webdavSync');
@@ -34,7 +34,6 @@ const SettingsView = ({
     originalPresetDrinkIds,
     onManualSync,
     syncStatus,
-    records,
     setRecords,
     colors,
     appConfig,
@@ -99,7 +98,7 @@ const SettingsView = ({
             }
         };
         loadPersistedPassword();
-    }, []);
+    }, [onUpdateSettings, userSettings.webdavPassword]);
 
     // 处理设置变更
     const handleSettingChange = useCallback(async (key, value) => {
@@ -203,6 +202,7 @@ const SettingsView = ({
             setDrinks(prevDrinks => prevDrinks.map(drink => drink.id === editingDrink.id ? newDrinkData : drink));
         } else {
             setDrinks(prevDrinks => [...prevDrinks, newDrinkData]);
+            trackEvent('drink_create');
         }
         resetDrinkForm();
     }, [
@@ -414,7 +414,7 @@ const SettingsView = ({
             console.error("导出数据失败:", error);
             alert("导出数据时发生错误: " + error.message);
         }
-    }, [appConfig.latest_version, isNativePlatform]);
+    }, [isNativePlatform]);
 
     // 状态管理
     const [repairLogOpen, setRepairLogOpen] = useState(false);
@@ -596,20 +596,12 @@ const SettingsView = ({
         }
     }, [setRecords, onUpdateSettings, setDrinks]);
 
-    // 处理手动导入
-    const handleManualImport = useCallback(async (url) => {
-        if (!url) return;
-
-        // 直接导航到导入页面
-        window.location.href = url;
-    }, []);
-
     return (
         <div className="columns-1 sm:columns-2 xl:columns-3 gap-4 w-full">
             {/* 个人参数设置 */}
             <section
                 aria-labelledby="personal-settings-heading"
-                className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+                className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
                 style={{
                     backgroundColor: colors.bgCard,
                     borderColor: colors.borderSubtle
@@ -728,7 +720,7 @@ const SettingsView = ({
             {/* 代谢与睡眠设置 */}
             <section
                 aria-labelledby="metabolism-settings-heading"
-                className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+                className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
                 style={{
                     backgroundColor: colors.bgCard,
                     borderColor: colors.borderSubtle
@@ -878,7 +870,7 @@ const SettingsView = ({
             {/* WebDAV 同步设置 */}
             <section
                 aria-labelledby="webdav-settings-heading"
-                className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+                className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
                 style={{
                     backgroundColor: colors.bgCard,
                     borderColor: colors.borderSubtle
@@ -1180,6 +1172,7 @@ const SettingsView = ({
                                                         href={appConfig.download_url}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
+                                                        data-analytics-source="webdav_test_help"
                                                         className="inline-block mt-1 underline"
                                                         style={{ color: colors.infoText }}
                                                         onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
@@ -1255,6 +1248,7 @@ const SettingsView = ({
                                                 href={appConfig.download_url}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
+                                                data-analytics-source="webdav_sync_help"
                                                 className="underline"
                                                 style={{ color: colors.warningText }}
                                                 onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
@@ -1278,7 +1272,7 @@ const SettingsView = ({
             {/* 饮品管理 */}
             <section
                 aria-labelledby="drink-management-heading"
-                className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+                className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
                 style={{
                     backgroundColor: colors.bgCard,
                     borderColor: colors.borderSubtle
@@ -1648,7 +1642,7 @@ const SettingsView = ({
             {/* 数据管理 */}
             <section
                 aria-labelledby="data-management-heading"
-                className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+                className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
                 style={{
                     backgroundColor: colors.bgCard,
                     borderColor: colors.borderSubtle

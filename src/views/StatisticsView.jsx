@@ -693,7 +693,7 @@ const StatisticsView = ({
       {/* 摄入概览卡片 - 包含时间范围选择 */}
       <section
         aria-labelledby="intake-overview-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -966,7 +966,7 @@ const StatisticsView = ({
       {/* 摄入来源分析卡片 */}
       <section
         aria-labelledby="source-analysis-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -1030,7 +1030,7 @@ const StatisticsView = ({
       {/* 咖啡因生活方式画像 */}
       <section
         aria-labelledby="lifestyle-analysis-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -1131,7 +1131,7 @@ const StatisticsView = ({
       {/* 详细统计分析卡片 */}
       <section
         aria-labelledby="detailed-stats-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -1369,7 +1369,7 @@ const StatisticsView = ({
       {/* 健康分析报告卡片 */}
       <section
         aria-labelledby="health-analysis-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -1473,7 +1473,7 @@ const StatisticsView = ({
       {/* 咖啡因知识卡片 */}
       <section
         aria-labelledby="caffeine-knowledge-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle

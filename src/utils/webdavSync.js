@@ -689,7 +689,7 @@ export default class WebDAVClient {
     mergeData(localData, remoteData, initialPresetDrinks = [], originalPresetDrinkIds = new Set()) {
         this.log("正在合并本地和远程数据...", 'info');
         
-        // 打印合并前数据统计
+        // 打印合并前统计
         this.log(`本地数据状况: 记录=${localData?.records?.length || 0}, 饮品=${localData?.drinks?.length || 0}, 已删除=${localData?.deletedItems?.length || 0}`, 'info');
         this.log(`远程数据状况: 记录=${remoteData?.records?.length || 0}, 饮品=${remoteData?.drinks?.length || 0}, 已删除=${remoteData?.deletedItems?.length || 0}`, 'info');
 

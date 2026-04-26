@@ -1,7 +1,7 @@
 // 导入 React 相关模块
-import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
-import { Coffee, Sun, Moon, RefreshCw, Code, Laptop, Loader2, TrendingUp, BarChart2, Settings as SettingsIcon, Info, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
+import { Coffee, Sun, Moon, Plus, RefreshCw, Code, Laptop, Loader2, TrendingUp, BarChart2, Settings as SettingsIcon, Info, AlertTriangle, CheckCircle2, DownloadCloud, Smartphone, X, Home } from 'lucide-react';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar';
 import { Preferences } from '@capacitor/preferences';
 import { Capacitor } from '@capacitor/core';
@@ -9,16 +9,18 @@ import { SplashScreen } from '@capacitor/splash-screen';
 import { getDBValue, setDBValue, exportDatabase, importDatabase, addRecord, updateRecord, deleteRecord, saveAllDrinks, saveSettings } from './utils/db';
 
 // 导入工具函数
-import { getTotalCaffeineAtTime, estimateConcentration, estimateAmountFromConcentration, calculateHoursToReachTarget, generateMetabolismChartData } from './utils/caffeineCalculations';
-import { getStartOfDay, getEndOfDay, isToday, formatTime, formatDate } from './utils/timeUtils';
+import { getTotalCaffeineAtTime, estimateConcentration, estimateAmountFromConcentration, generateMetabolismChartData } from './utils/caffeineCalculations';
+import { isToday, formatTime, formatDate } from './utils/timeUtils';
 // 导入常量和预设
 import { defaultSettings, initialPresetDrinks, originalPresetDrinkIds, COFFEE_COLORS, NIGHT_COLORS, DRINK_CATEGORIES, DEFAULT_CATEGORY, ensureDrinkColors } from './utils/constants';
 // 导入WebDAV客户端
 import WebDAVClient from './utils/webdavSync';
+import { trackEvent, trackEventOnce } from './utils/analytics';
 // 导入错误弹窗组件
 import SyncErrorModal from './components/SyncErrorModal';
 // 导入同步日志弹窗组件
 import SyncLogModal from './components/SyncLogModal';
+import IntakeForm from './components/IntakeForm';
 
 // 懒加载视图组件
 const CurrentStatusView = lazy(() => import('./views/CurrentStatusView'));
@@ -33,6 +35,8 @@ const UMAMI_SRC = "https://umami.jerryz.com.cn/script.js";
 const UMAMI_WEBSITE_ID = "81f97aba-b11b-44f1-890a-9dc588a0d34d";
 const ADSENSE_SRC = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2597042766299857";
 const ADSENSE_CLIENT = "ca-pub-2597042766299857";
+const INSTALL_SUGGESTION_DISMISSED_PREFIX = 'caffeineTracker.installSuggestionDismissed.';
+const ACTIVE_RECORD_THRESHOLD = 3;
 
 const compareVersions = (v1, v2) => {
   const p1 = v1.split('.').map(Number);
@@ -72,6 +76,28 @@ const sanitizeDrinkList = (drinkList) => {
   return ensureDrinkColors(normalized);
 };
 
+const isStandaloneDisplay = () => {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
+};
+
+const getBrowserPlatform = () => {
+  if (typeof navigator === 'undefined') {
+    return { isAndroid: false, isIOS: false };
+  }
+
+  const userAgent = navigator.userAgent || '';
+  const isIOS = /iPad|iPhone|iPod/.test(userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  return {
+    isAndroid: /Android/i.test(userAgent),
+    isIOS
+  };
+};
+
+const getInstallDismissedKey = (type) => `${INSTALL_SUGGESTION_DISMISSED_PREFIX}${type}`;
+
 /**
  * 应用主组件
  */
@@ -87,7 +113,6 @@ const CaffeineTracker = () => {
  * 应用核心组件（包含路由逻辑）
  */
 const CaffeineTrackerApp = () => {
-  const navigate = useNavigate();
   const location = useLocation();
   // 状态变量
   const [userSettings, setUserSettings] = useState(defaultSettings);
@@ -113,6 +138,10 @@ const CaffeineTrackerApp = () => {
   const [updateInfo, setUpdateInfo] = useState({ available: false, forced: false, downloadUrl: '', latestVersion: '' });
   const [showLogModal, setShowLogModal] = useState(false); // 同步日志弹窗
   const [syncLogs, setSyncLogs] = useState([]); // 同步日志数据
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
+  const [installSuggestion, setInstallSuggestion] = useState({ visible: false, type: null });
+  const webdavConfigReadyForTrackingRef = useRef(false);
+  const browserPlatform = useMemo(() => getBrowserPlatform(), []);
 
   // 根据当前路径确定视图模式
   const viewMode = useMemo(() => {
@@ -120,7 +149,7 @@ const CaffeineTrackerApp = () => {
     if (path === '/statistics') return 'stats';
     if (path === '/settings') return 'settings';
     if (path === '/about') return 'about';
-    return 'current'; // 默认为当前状态
+    return 'current'; // 默认为状态
   }, [location.pathname]);
 
   // 检查平台类型
@@ -345,7 +374,8 @@ const CaffeineTrackerApp = () => {
 
         // 应用加载的数据
         if (settingsFromStore) {
-          const { themeMode, ...sanitizedSettings } = settingsFromStore;
+          const sanitizedSettings = { ...settingsFromStore };
+          delete sanitizedSettings.themeMode;
           const finalPassword = settingsFromStore.webdavPassword || persistedPassword || null;
           
           // 检查是否为本地开发环境
@@ -462,13 +492,13 @@ const CaffeineTrackerApp = () => {
     };
 
     saveData();
-  }, [records, userSettings, drinks, initialDataLoaded]);
+  }, [records, userSettings, drinks, initialDataLoaded, isNativePlatform]);
 
-  // 计算当前状态
+  // 计算状态
   useEffect(() => {
     const calculateCurrentStatus = () => {
       const now = Date.now();
-      const { caffeineHalfLifeHours, safeSleepThresholdConcentration, weight, volumeOfDistribution } = userSettings;
+      const { caffeineHalfLifeHours, weight, volumeOfDistribution } = userSettings;
       const totalAmount = getTotalCaffeineAtTime(records, now, caffeineHalfLifeHours);
       setCurrentCaffeineAmount(totalAmount);
       const concentration = estimateConcentration(totalAmount, weight, volumeOfDistribution);
@@ -515,25 +545,33 @@ const CaffeineTrackerApp = () => {
     if (isDevelopMode) {
       removeScript(UMAMI_SCRIPT_ID); removeScript(ADSENSE_SCRIPT_ID);
     } else {
-      addScript(UMAMI_SCRIPT_ID, UMAMI_SRC, { defer: true, 'data-website-id': UMAMI_WEBSITE_ID });
+      addScript(UMAMI_SCRIPT_ID, UMAMI_SRC, { defer: true, 'data-website-id': UMAMI_WEBSITE_ID, 'data-auto-track': 'true' });
       addScript(ADSENSE_SCRIPT_ID, ADSENSE_SRC, { crossorigin: 'anonymous', 'data-ad-client': ADSENSE_CLIENT });
     }
   }, [userSettings.develop, isNativePlatform]);
 
-  // 计算今日总摄入量
-  const getTodayTotal = useCallback(() => {
-    const today = new Date();
-    const todayStartTime = getStartOfDay(today); // Returns a number
-    const todayEndTime = getEndOfDay(today);     // Returns a number
+  useEffect(() => {
+    if (isNativePlatform) return undefined;
 
-    if (typeof todayStartTime !== 'number' || isNaN(todayStartTime) ||
-      typeof todayEndTime !== 'number' || isNaN(todayEndTime)) {
-      console.warn("Failed to get valid start/end of day for getTodayTotal calculation.");
-      return 0;
-    }
-    // todayStartTime and todayEndTime are already timestamps
-    return Math.round(records.filter(record => record && record.timestamp >= todayStartTime && record.timestamp <= todayEndTime).reduce((sum, record) => sum + record.amount, 0));
-  }, [records]);
+    const handleBeforeInstallPrompt = (event) => {
+      event.preventDefault();
+      setDeferredInstallPrompt(event);
+    };
+
+    const handleAppInstalled = () => {
+      window.localStorage.setItem(getInstallDismissedKey('pwa'), 'true');
+      setInstallSuggestion({ visible: false, type: null });
+      setDeferredInstallPrompt(null);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, [isNativePlatform]);
 
   // 计算有效每日最大摄入量
   const effectiveMaxDaily = useMemo(() => {
@@ -547,7 +585,69 @@ const CaffeineTrackerApp = () => {
     }
 
     return generalMax;
-  }, [userSettings.weight, userSettings.recommendedDosePerKg, userSettings.maxDailyCaffeine]);
+  }, [userSettings]);
+
+  const hasEnoughActivityForInstallSuggestion = useMemo(() => {
+    if (!initialDataLoaded) return false;
+
+    const validRecordCount = records.filter(record => record && typeof record.timestamp === 'number').length;
+    const customDrinkCount = drinks.filter(drink => (
+      drink &&
+      drink.id &&
+      !(drink.isPreset ?? originalPresetDrinkIds.has(drink.id))
+    )).length;
+
+    return validRecordCount >= ACTIVE_RECORD_THRESHOLD || customDrinkCount > 0;
+  }, [drinks, initialDataLoaded, records]);
+
+  useEffect(() => {
+    if (!initialDataLoaded || isNativePlatform || !hasEnoughActivityForInstallSuggestion || isStandaloneDisplay()) {
+      return undefined;
+    }
+
+    const { isAndroid } = getBrowserPlatform();
+    const suggestionType = isAndroid ? 'android' : 'pwa';
+    const dismissedKey = getInstallDismissedKey(suggestionType);
+
+    if (window.localStorage.getItem(dismissedKey) === 'true') {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      setInstallSuggestion({ visible: true, type: suggestionType });
+    }, suggestionType === 'pwa' && !deferredInstallPrompt ? 1600 : 400);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    deferredInstallPrompt,
+    hasEnoughActivityForInstallSuggestion,
+    initialDataLoaded,
+    isNativePlatform
+  ]);
+
+  useEffect(() => {
+    if (!initialDataLoaded || isNativePlatform === null) return undefined;
+
+    const handleAndroidDownloadClick = (event) => {
+      const target = event.target;
+      const link = target?.closest?.('a[href]');
+      if (!link) return;
+
+      const href = link.href || '';
+      const configuredDownloadUrl = appConfig.download_url
+        ? new URL(appConfig.download_url, window.location.href).href
+        : '';
+      const isAndroidDownload = /\.apk(?:[?#]|$)/i.test(href) ||
+        (configuredDownloadUrl && href === configuredDownloadUrl);
+
+      if (isAndroidDownload) {
+        trackEvent('android_download', { source: link.dataset.analyticsSource || 'link' });
+      }
+    };
+
+    document.addEventListener('click', handleAndroidDownloadClick, true);
+    return () => document.removeEventListener('click', handleAndroidDownloadClick, true);
+  }, [appConfig.download_url, initialDataLoaded, isNativePlatform]);
 
   // WebDAV同步功能
   const performWebDAVSync = useCallback(async (settingsToUse, currentRecords, currentDrinks, forceDownload = false) => {
@@ -714,7 +814,7 @@ const CaffeineTrackerApp = () => {
       setTimeout(() => { setShowSyncBadge(false); }, 5000);
       logger("=== performWebDAVSync 完成 ===", 'info');
     }
-  }, [appConfig.latest_version, isNativePlatform, initialDataLoaded]);
+  }, [appConfig.latest_version, initialDataLoaded]);
 
   // 隐藏启动画面
   useEffect(() => {
@@ -790,6 +890,7 @@ const CaffeineTrackerApp = () => {
 
     // Add to DB
     await addRecord(newRecord);
+    trackEvent('record_create');
 
     setRecords(prevRecords => {
       const newRecords = [...prevRecords, newRecord]
@@ -862,7 +963,7 @@ const CaffeineTrackerApp = () => {
         return prevSettings;
       }
 
-      if (!newSettings.hasOwnProperty('localLastModifiedTimestamp') || typeof keyOrSettingsObject === 'string') {
+      if (!Object.prototype.hasOwnProperty.call(newSettings, 'localLastModifiedTimestamp') || typeof keyOrSettingsObject === 'string') {
         newSettings.localLastModifiedTimestamp = Date.now();
       }
 
@@ -892,7 +993,7 @@ const CaffeineTrackerApp = () => {
 
   const handleManualSync = useCallback(() => {
     console.log("=== 手动同步被触发 ===");
-    performWebDAVSync(userSettings, records, drinks).catch(err => {
+    performWebDAVSync(userSettings, records, drinks).catch(() => {
       // 错误已在 performWebDAVSync 中处理，这里不需要额外处理
       console.log("同步失败，错误弹窗已显示");
     });
@@ -944,7 +1045,81 @@ const CaffeineTrackerApp = () => {
       userSettings.webdavUsername &&
       userSettings.webdavPassword;
     setWebdavConfigured(configured);
-  }, [userSettings.webdavEnabled, userSettings.webdavServer, userSettings.webdavUsername, userSettings.webdavPassword]);
+
+    if (!initialDataLoaded) {
+      return;
+    }
+
+    if (!webdavConfigReadyForTrackingRef.current) {
+      webdavConfigReadyForTrackingRef.current = true;
+      return;
+    }
+
+    if (configured) {
+      trackEventOnce('webdav_configure', 'webdav_configured');
+    }
+  }, [
+    initialDataLoaded,
+    userSettings.webdavEnabled,
+    userSettings.webdavServer,
+    userSettings.webdavUsername,
+    userSettings.webdavPassword
+  ]);
+
+  const dismissInstallSuggestion = useCallback(() => {
+    if (installSuggestion.type) {
+      window.localStorage.setItem(getInstallDismissedKey(installSuggestion.type), 'true');
+    }
+    setInstallSuggestion({ visible: false, type: null });
+  }, [installSuggestion.type]);
+
+  const handleInstallPwa = useCallback(async () => {
+    if (!deferredInstallPrompt) {
+      dismissInstallSuggestion();
+      return;
+    }
+
+    try {
+      await deferredInstallPrompt.prompt();
+      const choiceResult = await deferredInstallPrompt.userChoice;
+      if (choiceResult?.outcome === 'accepted') {
+        window.localStorage.setItem(getInstallDismissedKey('pwa'), 'true');
+        setInstallSuggestion({ visible: false, type: null });
+      }
+    } catch (error) {
+      console.warn('PWA install prompt failed:', error);
+    } finally {
+      setDeferredInstallPrompt(null);
+    }
+  }, [deferredInstallPrompt, dismissInstallSuggestion]);
+
+  // 全局表单状态
+  const [isGlobalIntakeFormOpen, setIsGlobalIntakeFormOpen] = useState(false);
+  const [globalEditingRecord, setGlobalEditingRecord] = useState(null);
+
+  const handleOpenAddIntake = useCallback(() => {
+    setGlobalEditingRecord(null);
+    setIsGlobalIntakeFormOpen(true);
+  }, []);
+
+  const handleOpenEditIntake = useCallback((record) => {
+    setGlobalEditingRecord(record);
+    setIsGlobalIntakeFormOpen(true);
+  }, []);
+
+  const handleCloseIntakeForm = useCallback(() => {
+    setIsGlobalIntakeFormOpen(false);
+    setGlobalEditingRecord(null);
+  }, []);
+
+  const handleGlobalFormSubmit = useCallback(async (record) => {
+    if (globalEditingRecord) {
+      await handleEditRecord(record);
+    } else {
+      await handleAddRecord(record);
+    }
+    handleCloseIntakeForm();
+  }, [globalEditingRecord, handleCloseIntakeForm, handleEditRecord, handleAddRecord]);
 
   // 渲染
   return (
@@ -1079,7 +1254,7 @@ const CaffeineTrackerApp = () => {
             }
             aria-current={viewMode === 'current' ? 'page' : undefined}
           >
-            <TrendingUp size={16} className="mr-1.5" aria-hidden="true" /> 当前状态
+            <TrendingUp size={16} className="mr-1.5" aria-hidden="true" /> 状态
           </Link>
           <Link
             to="/statistics"
@@ -1091,7 +1266,7 @@ const CaffeineTrackerApp = () => {
             }
             aria-current={viewMode === 'stats' ? 'page' : undefined}
           >
-            <BarChart2 size={16} className="mr-1.5" aria-hidden="true" /> 数据统计
+            <BarChart2 size={16} className="mr-1.5" aria-hidden="true" /> 统计
           </Link>
           <Link
             to="/settings"
@@ -1129,20 +1304,21 @@ const CaffeineTrackerApp = () => {
           <Routes>
             <Route path="/" element={
               <CurrentStatusView
-                currentCaffeineAmount={currentCaffeineAmount}
-                currentCaffeineConcentration={currentCaffeineConcentration}
-                records={records}
-                drinks={drinks}
-                metabolismChartData={metabolismChartData}
-                userSettings={userSettings}
-                onAddRecord={handleAddRecord}
-                onEditRecord={handleEditRecord}
-                onDeleteRecord={handleDeleteRecord}
-                estimateAmountFromConcentration={estimateAmountFromConcentration}
-                formatTime={formatTime}
-                formatDate={formatDate}
-                colors={colors}
-              />
+                  currentCaffeineAmount={currentCaffeineAmount}
+                  currentCaffeineConcentration={currentCaffeineConcentration}
+                  records={records}
+                  drinks={drinks}
+                  metabolismChartData={metabolismChartData}
+                  userSettings={userSettings}
+                  onAddRecord={handleAddRecord}
+                  onAddRecordClick={handleOpenAddIntake}
+                  onEditRecordClick={handleOpenEditIntake}
+                  onDeleteRecord={handleDeleteRecord}
+                  estimateAmountFromConcentration={estimateAmountFromConcentration}
+                  formatTime={formatTime}
+                  formatDate={formatDate}
+                  colors={colors}
+                />
             } />
 
             <Route path="/statistics" element={
@@ -1184,6 +1360,10 @@ const CaffeineTrackerApp = () => {
                 colors={colors}
                 appConfig={appConfig}
                 isNativePlatform={isNativePlatform}
+                canInstallPwa={!!deferredInstallPrompt}
+                isStandalonePwa={isStandaloneDisplay()}
+                browserPlatform={browserPlatform}
+                onInstallPwa={handleInstallPwa}
               />
             } />
 
@@ -1211,6 +1391,161 @@ const CaffeineTrackerApp = () => {
         </footer>
       </main>
 
+      {/* 添加摄入记录悬浮按钮 */}
+      {!isGlobalIntakeFormOpen && (
+        <div className="fixed bottom-6 right-6 z-40 sm:bottom-10 sm:right-10 flex flex-col items-center">
+          <button
+            onClick={handleOpenAddIntake}
+            className="flex items-center justify-center p-4 rounded-full shadow-lg text-white transition-transform hover:scale-105 active:scale-95 z-50 bg-opacity-95"
+            style={{ backgroundColor: colors.accent, boxShadow: '0 8px 30px rgba(0,0,0,0.3)', border: `1px solid ${colors.accent}` }}
+            aria-label="添加摄入记录"
+            title="添加摄入记录"
+          >
+            <Plus size={32} />
+          </button>
+        </div>
+      )}
+
+      {/* 全局摄入表单弹窗 */}
+      {isGlobalIntakeFormOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4 hover:cursor-pointer transition-opacity" onClick={(e) => { if(e.target === e.currentTarget) handleCloseIntakeForm(); }}>
+          <div 
+            className="w-full sm:max-w-md max-h-[90vh] sm:max-h-[85vh] sm:rounded-xl rounded-t-2xl shadow-2xl flex flex-col relative animate-slide-up sm:animate-fade-in hover:cursor-auto"
+            style={{ 
+              backgroundColor: colors.bgCard,
+              boxShadow: '0 -10px 40px rgba(0,0,0,0.2)'
+            }}
+          >
+            {/* 弹窗顶部拖动条装饰 */}
+            <div className="w-full flex justify-center py-3 sm:hidden" onClick={handleCloseIntakeForm}>
+              <div className="w-12 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600"></div>
+            </div>
+            <div className="overflow-y-auto w-full px-4 sm:px-6 pb-6 pt-2 sm:pt-6 no-scrollbar" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
+              <IntakeForm
+                drinks={drinks}
+                onSubmit={handleGlobalFormSubmit}
+                onCancel={handleCloseIntakeForm}
+                initialValues={globalEditingRecord}
+                colors={colors}
+                lastRecord={records.length > 0 ? records[0] : null}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 活跃用户安装/客户端下载建议 */}
+      {installSuggestion.visible && installSuggestion.type && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div
+            className="w-full max-w-sm rounded-2xl shadow-2xl border overflow-hidden"
+            style={{
+              backgroundColor: colors.bgCard,
+              borderColor: colors.borderSubtle
+            }}
+          >
+            <div className="p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div
+                  className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: colors.bgHighlight, color: colors.accent }}
+                >
+                  {installSuggestion.type === 'android' ? <Smartphone size={22} /> : <Home size={22} />}
+                </div>
+                <button
+                  type="button"
+                  onClick={dismissInstallSuggestion}
+                  className="p-1.5 rounded-full transition-colors"
+                  style={{ color: colors.textMuted }}
+                  aria-label="关闭安装建议"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {installSuggestion.type === 'android' ? (
+                <>
+                  <h3 className="mt-4 text-lg font-semibold" style={{ color: colors.espresso }}>
+                    使用 Android 客户端
+                  </h3>
+                  <p className="mt-2 text-sm leading-6" style={{ color: colors.textSecondary }}>
+                    您已经记录了一些数据。Android 客户端支持离线使用，也能避开浏览器同步限制。
+                  </p>
+                  <div className="mt-5 flex flex-col gap-2">
+                    <a
+                      href={appConfig.download_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      data-analytics-source="install_suggestion"
+                      onClick={dismissInstallSuggestion}
+                      className="w-full py-2.5 px-4 rounded-lg text-white text-center font-medium flex items-center justify-center"
+                      style={{ backgroundColor: colors.accent }}
+                    >
+                      <DownloadCloud size={16} className="mr-1.5" />
+                      下载 Android 客户端
+                    </a>
+                    <button
+                      type="button"
+                      onClick={dismissInstallSuggestion}
+                      className="w-full py-2.5 px-4 rounded-lg border text-sm"
+                      style={{ borderColor: colors.borderSubtle, color: colors.textSecondary }}
+                    >
+                      暂时不用
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3 className="mt-4 text-lg font-semibold" style={{ color: colors.espresso }}>
+                    安装网页版应用
+                  </h3>
+                  <p className="mt-2 text-sm leading-6" style={{ color: colors.textSecondary }}>
+                    安装到桌面或主屏幕后，可以像普通应用一样打开咖啡因追踪器。
+                  </p>
+                  {!deferredInstallPrompt && (
+                    <div className="mt-3 rounded-lg p-3 text-xs leading-5 border" style={{ backgroundColor: colors.bgBase, borderColor: colors.borderSubtle, color: colors.textSecondary }}>
+                      {getBrowserPlatform().isIOS
+                        ? '在 Safari 中点击分享按钮，然后选择“添加到主屏幕”。'
+                        : '请在浏览器地址栏或菜单中选择“安装应用”或“添加到主屏幕”。'}
+                    </div>
+                  )}
+                  <div className="mt-5 flex flex-col gap-2">
+                    {deferredInstallPrompt ? (
+                      <button
+                        type="button"
+                        onClick={handleInstallPwa}
+                        className="w-full py-2.5 px-4 rounded-lg text-white text-center font-medium flex items-center justify-center"
+                        style={{ backgroundColor: colors.accent }}
+                      >
+                        <Home size={16} className="mr-1.5" />
+                        安装 PWA
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={dismissInstallSuggestion}
+                        className="w-full py-2.5 px-4 rounded-lg text-white text-center font-medium"
+                        style={{ backgroundColor: colors.accent }}
+                      >
+                        我知道了
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={dismissInstallSuggestion}
+                      className="w-full py-2.5 px-4 rounded-lg border text-sm"
+                      style={{ borderColor: colors.borderSubtle, color: colors.textSecondary }}
+                    >
+                      暂时不用
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 更新提示弹窗 */}
       {updateInfo.available && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -1232,6 +1567,7 @@ const CaffeineTrackerApp = () => {
                   href={updateInfo.downloadUrl}
                   target="_blank"
                   rel="noopener noreferrer"
+                  data-analytics-source="update_prompt"
                   className="block w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white text-center font-medium rounded-lg transition-colors"
                 >
                   立即更新
