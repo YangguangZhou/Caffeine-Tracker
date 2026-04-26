@@ -34,8 +34,9 @@ const MetabolismChart = ({
   // 计算y轴最大值
   const yMax = useMemo(() => {
     // 找出图表数据中的最大咖啡因量
+    // Bolt: 优化性能，避免中间数组分配和扩展运算符带来的潜在栈溢出风险
     const maxCaffeineValue = metabolismChartData.length > 0
-      ? Math.max(...metabolismChartData.map(d => d.caffeine))
+      ? metabolismChartData.reduce((max, d) => Math.max(max, d.caffeine), -Infinity)
       : 50; // 如果没有数据，默认为50
 
     // 取最大咖啡因量和安全睡眠量中的较大值，并向上取整到10的倍数

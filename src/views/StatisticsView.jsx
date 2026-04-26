@@ -340,7 +340,8 @@ const StatisticsView = ({
     });
 
     // 找出高峰时段
-    const peakHour = hourlyDistribution.indexOf(Math.max(...hourlyDistribution));
+    // Bolt: 优化性能，避免使用 ... 带来的中间数组创建和调用栈溢出风险
+    const peakHour = hourlyDistribution.indexOf(hourlyDistribution.reduce((max, val) => Math.max(max, val), -Infinity));
     const peakAmount = hourlyDistribution[peakHour];
 
     // 计算摄入间隔
@@ -353,7 +354,8 @@ const StatisticsView = ({
     const avgInterval = intervals.length > 0 ? intervals.reduce((a, b) => a + b) / intervals.length : 0;
 
     // 最大单次摄入
-    const maxSingleIntake = Math.max(...records.map(r => r.amount));
+    // Bolt: 优化性能，避免使用 ...map 带来的中间数组创建和调用栈溢出风险
+    const maxSingleIntake = records.reduce((max, r) => Math.max(max, r.amount), -Infinity);
 
     // 1. 获取所有记录的日期，确保它们是当天的开始时间，并去重
     const uniqueDayTimestampsForStreak = [...new Set(
@@ -404,7 +406,8 @@ const StatisticsView = ({
       const weekday = new Date(record.timestamp).getDay();
       weekdayTotals[weekday] += record.amount;
     });
-    const maxWeekdayIndex = weekdayTotals.indexOf(Math.max(...weekdayTotals));
+    // Bolt: 优化性能，避免使用 ... 带来的中间数组创建和调用栈溢出风险
+    const maxWeekdayIndex = weekdayTotals.indexOf(weekdayTotals.reduce((max, val) => Math.max(max, val), -Infinity));
     const weekdayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
     const totalAmount = records.reduce((sum, r) => sum + r.amount, 0);
@@ -568,8 +571,9 @@ const StatisticsView = ({
     const values = statsChartData.map(d => d.value);
     const nonZeroValues = values.filter(v => v > 0);
 
-    const maxDay = Math.max(...values);
-    const minDay = nonZeroValues.length > 0 ? Math.min(...nonZeroValues) : 0;
+    // Bolt: 优化性能，避免使用 ... 带来的中间数组创建和调用栈溢出风险
+    const maxDay = values.reduce((max, val) => Math.max(max, val), -Infinity);
+    const minDay = nonZeroValues.length > 0 ? nonZeroValues.reduce((min, val) => Math.min(min, val), Infinity) : 0;
     const avgDay = nonZeroValues.length > 0 ? nonZeroValues.reduce((a, b) => a + b) / nonZeroValues.length : 0;
     const activeDays = nonZeroValues.length;
 
@@ -1183,7 +1187,8 @@ const StatisticsView = ({
                   // onClick handler removed from here, handled by parent div
                   >
                     {detailedStats.weekdayTotals.map((amount, index) => {
-                      const maxAmount = Math.max(...detailedStats.weekdayTotals);
+                      // Bolt: 优化性能，避免使用 ... 带来的中间数组创建和调用栈溢出风险
+                      const maxAmount = detailedStats.weekdayTotals.reduce((max, val) => Math.max(max, val), -Infinity);
                       const percentage = maxAmount > 0 ? (amount / maxAmount) * 100 : 0;
                       const isMax = index === detailedStats.maxWeekdayIndex;
                       const isSelected = selectedWeekday === index;
@@ -1253,7 +1258,8 @@ const StatisticsView = ({
                     className="grid grid-cols-12 gap-1 mb-2"
                   >
                     {detailedStats.hourlyDistribution.map((amount, hour) => {
-                      const maxAmount = Math.max(...detailedStats.hourlyDistribution);
+                      // Bolt: 优化性能，避免使用 ... 带来的中间数组创建和调用栈溢出风险
+                      const maxAmount = detailedStats.hourlyDistribution.reduce((max, val) => Math.max(max, val), -Infinity);
 
                       const heightRatio = maxAmount > 0 ? Math.sqrt(amount / maxAmount) : 0;
                       const height = heightRatio * 80;
