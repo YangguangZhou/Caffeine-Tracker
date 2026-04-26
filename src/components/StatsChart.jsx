@@ -47,7 +47,8 @@ const StatsChart = ({
   if (view === 'year') title = '每月摄入量 (mg)';
 
   // 找出数据中的最大值
-  const maxValue = Math.max(...data.map(d => d.value));
+  // Bolt: 优化性能，避免使用 ...map 带来的中间数组创建和调用栈溢出风险
+  const maxValue = data.reduce((max, d) => Math.max(max, d.value), -Infinity);
 
   // 根据视图类型确定Y轴最大值
   let yMax;
