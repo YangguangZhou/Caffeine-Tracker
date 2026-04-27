@@ -1,0 +1,3 @@
+## 2026-04-27 - Missing ARIA Labels on Icon-Only Buttons
+**Learning:** Discovered a consistent pattern across multiple components (IntakeForm, ManualImportModal, DrinkSelector, SyncLogModal) where icon-only buttons (like stepper plus/minus controls, modal close 'X' buttons, and action icons like download/copy) were missing aria-label attributes. This severely degrades accessibility for screen reader users as they receive no context about the button's action.
+**Action:** Always verify that every icon-only button includes a descriptive aria-label (e.g., 关闭, 增加容量) when reviewing or building new components in this codebase.

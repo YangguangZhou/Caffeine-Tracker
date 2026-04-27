@@ -161,6 +161,7 @@ const ManualImportModal = ({ onClose, colors, onImportConfig, initialConfigParam
                 onClick={onClose} 
                 className="transition-colors rounded-full p-1"
                 style={{ color: colors.textMuted }}
+                aria-label="关闭"
               >
                 <X size={24} />
               </button>
@@ -238,6 +239,7 @@ const ManualImportModal = ({ onClose, colors, onImportConfig, initialConfigParam
                 onClick={onClose} 
                 className="transition-colors rounded-full p-1"
                 style={{ color: colors.textMuted }}
+                aria-label="关闭"
               >
                 <X size={24} />
               </button>
@@ -299,6 +301,7 @@ const ManualImportModal = ({ onClose, colors, onImportConfig, initialConfigParam
                 onClick={onClose} 
                 className="transition-colors rounded-full p-1"
                 style={{ color: colors.textMuted }}
+                aria-label="关闭"
               >
                 <X size={24} />
               </button>

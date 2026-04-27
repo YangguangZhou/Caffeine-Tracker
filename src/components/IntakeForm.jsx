@@ -328,6 +328,7 @@ const IntakeForm = ({
               color: colors.textSecondary
             }}
             disabled={!drinkVolume || parseFloat(drinkVolume) <= 0}
+            aria-label="减少容量"
           >
             <Minus size={14} />
           </button>
@@ -369,6 +370,7 @@ const IntakeForm = ({
               backgroundColor: colors.bgBase,
               color: colors.textSecondary
             }}
+            aria-label="增加容量"
           >
             <Plus size={14} />
           </button>
@@ -468,6 +470,7 @@ const IntakeForm = ({
               color: colors.textSecondary
             }}
             disabled={!customAmount || parseFloat(customAmount) <= 0}
+            aria-label="减少剂量"
           >
             <Minus size={14} />
           </button>
@@ -502,6 +505,7 @@ const IntakeForm = ({
               backgroundColor: colors.bgBase,
               color: colors.textSecondary
             }}
+            aria-label="增加剂量"
           >
             <Plus size={14} />
           </button>
