@@ -1,0 +1,3 @@
+## 2025-05-18 - Array Iteration Optimization Learnings
+**Learning:** React components (especially stats/charts) often use `.filter().reduce()` and `Math.max(...array.map())`. This leads to excessive intermediate array allocations which can trigger "Maximum call stack size exceeded" exceptions on large datasets.
+**Action:** Consistently replace `.filter().reduce()` chains with a single `.reduce()` pass using conditional logic, and replace `Math.max/min(...array.map())` with `.reduce((max, obj) => Math.max(max, obj.prop), -Infinity)` to ensure $O(n)$ time complexity and minimal memory overhead. Always remember to add explicit comments in the code explaining *why* the optimization was made.

@@ -42,9 +42,14 @@ const CurrentStatusView = ({
     }
 
     return Math.round(
-      records
-        .filter(record => record && record.timestamp >= todayStartTime && record.timestamp <= todayEndTime)
-        .reduce((sum, record) => sum + record.amount, 0)
+      // Optimization: Using a single reduce pass instead of chained .filter().reduce()
+      // to avoid unnecessary intermediate array allocations
+      records.reduce((sum, record) => {
+        if (record && record.timestamp >= todayStartTime && record.timestamp <= todayEndTime) {
+          return sum + record.amount;
+        }
+        return sum;
+      }, 0)
     );
   }, [records]);
 
@@ -369,10 +374,13 @@ const CurrentStatusView = ({
       record.timestamp >= dayStartTime && record.timestamp <= dayEndTime
     );
 
+    // Optimization: Replaced Math.max/min(...array.map()) with a single reduce pass
+    // to prevent potential 'Maximum call stack size exceeded' errors on large datasets
+    // and reduce memory overhead from intermediate mapped arrays
     const firstIntake = todayRecords.length > 0 ?
-      formatTime(Math.max(...todayRecords.map(r => r.timestamp))) : null;
+      formatTime(todayRecords.reduce((max, r) => Math.max(max, r.timestamp), -Infinity)) : null;
     const lastIntake = todayRecords.length > 0 ?
-      formatTime(Math.min(...todayRecords.map(r => r.timestamp))) : null;
+      formatTime(todayRecords.reduce((min, r) => Math.min(min, r.timestamp), Infinity)) : null;
 
     return {
       recordCount: todayRecords.length,
