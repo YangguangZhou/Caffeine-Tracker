@@ -70,6 +70,7 @@ const SyncLogModal = ({ logs, onClose, colors }) => {
               onClick={handleDownloadLogs}
               className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               title="下载/分享日志"
+              aria-label="下载日志"
             >
               <Download size={18} />
             </button>
@@ -77,6 +78,7 @@ const SyncLogModal = ({ logs, onClose, colors }) => {
               onClick={handleCopyLogs}
               className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               title="复制日志"
+              aria-label="复制日志"
             >
               <Copy size={18} />
             </button>
