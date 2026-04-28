@@ -597,11 +597,11 @@ const SettingsView = ({
     }, [setRecords, onUpdateSettings, setDrinks]);
 
     return (
-        <div className="columns-1 sm:columns-2 xl:columns-3 gap-4 w-full">
+        <div className="columns-1 sm:columns-2 xl:columns-3 gap-3 sm:gap-4 w-full">
             {/* 个人参数设置 */}
             <section
                 aria-labelledby="personal-settings-heading"
-                className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+                className="max-w-md w-full mb-4 sm:mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
                 style={{
                     backgroundColor: colors.bgCard,
                     borderColor: colors.borderSubtle
@@ -609,12 +609,12 @@ const SettingsView = ({
             >
                 <h2
                     id="personal-settings-heading"
-                    className="text-xl font-semibold mb-4 flex items-center transition-colors"
+                    className="text-xl font-semibold mb-3 sm:mb-4 flex items-center transition-colors"
                     style={{ color: colors.espresso }}
                 >
                     <User size={20} className="mr-2" /> 个人参数
                 </h2>
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                     {/* 体重 */}
                     <div>
                         <label
@@ -720,7 +720,7 @@ const SettingsView = ({
             {/* 代谢与睡眠设置 */}
             <section
                 aria-labelledby="metabolism-settings-heading"
-                className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+                className="max-w-md w-full mb-4 sm:mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
                 style={{
                     backgroundColor: colors.bgCard,
                     borderColor: colors.borderSubtle
@@ -728,12 +728,12 @@ const SettingsView = ({
             >
                 <h2
                     id="metabolism-settings-heading"
-                    className="text-xl font-semibold mb-4 flex items-center transition-colors"
+                    className="text-xl font-semibold mb-3 sm:mb-4 flex items-center transition-colors"
                     style={{ color: colors.espresso }}
                 >
                     <Sliders size={20} className="mr-2" /> 代谢与睡眠设置
                 </h2>
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                     {/* 咖啡因半衰期 */}
                     <div>
                         <label
@@ -870,7 +870,7 @@ const SettingsView = ({
             {/* WebDAV 同步设置 */}
             <section
                 aria-labelledby="webdav-settings-heading"
-                className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+                className="max-w-md w-full mb-4 sm:mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
                 style={{
                     backgroundColor: colors.bgCard,
                     borderColor: colors.borderSubtle
@@ -878,12 +878,12 @@ const SettingsView = ({
             >
                 <h2
                     id="webdav-settings-heading"
-                    className="text-xl font-semibold mb-4 flex items-center transition-colors"
+                    className="text-xl font-semibold mb-3 sm:mb-4 flex items-center transition-colors"
                     style={{ color: colors.espresso }}
                 >
                     <CloudDownload size={20} className="mr-2" /> WebDAV 同步
                 </h2>
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                     {/* 启用WebDAV */}
                     <div className="flex items-center">
                         <input
@@ -1272,7 +1272,7 @@ const SettingsView = ({
             {/* 饮品管理 */}
             <section
                 aria-labelledby="drink-management-heading"
-                className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+                className="max-w-md w-full mb-4 sm:mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
                 style={{
                     backgroundColor: colors.bgCard,
                     borderColor: colors.borderSubtle
@@ -1280,7 +1280,7 @@ const SettingsView = ({
             >
                 <h2
                     id="drink-management-heading"
-                    className="text-xl font-semibold mb-4 flex items-center transition-colors"
+                    className="text-xl font-semibold mb-3 sm:mb-4 flex items-center transition-colors"
                     style={{ color: colors.espresso }}
                 >
                     <Coffee size={20} className="mr-2" /> 饮品管理
@@ -1289,7 +1289,7 @@ const SettingsView = ({
                 {showDrinkEditor ? (
                     <form
                         onSubmit={(e) => { e.preventDefault(); handleAddOrUpdateDrink(); }}
-                        className="mb-4 p-4 border rounded-lg transition-colors"
+                        className="mb-3 sm:mb-4 p-3 sm:p-4 border rounded-lg transition-colors"
                         style={{
                             backgroundColor: colors.bgBase,
                             borderColor: colors.borderSubtle
@@ -1442,7 +1442,7 @@ const SettingsView = ({
                         </div>
 
                         {/* 分类 */}
-                        <div className="mb-4">
+                        <div className="mb-3 sm:mb-4">
                             <label
                                 htmlFor="newDrinkCategory"
                                 className="block mb-1 text-sm font-medium transition-colors"
@@ -1505,7 +1505,7 @@ const SettingsView = ({
                 ) : (
                     <button
                         onClick={() => setShowDrinkEditor(true)}
-                        className="w-full py-2.5 mb-4 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors duration-200 flex items-center justify-center text-sm shadow font-medium"
+                        className="w-full py-2.5 mb-3 sm:mb-4 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors duration-200 flex items-center justify-center text-sm shadow font-medium"
                     >
                         <Plus size={16} className="mr-1.5" /> 添加自定义饮品
                     </button>
@@ -1642,7 +1642,7 @@ const SettingsView = ({
             {/* 数据管理 */}
             <section
                 aria-labelledby="data-management-heading"
-                className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+                className="max-w-md w-full mb-4 sm:mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
                 style={{
                     backgroundColor: colors.bgCard,
                     borderColor: colors.borderSubtle
@@ -1650,12 +1650,12 @@ const SettingsView = ({
             >
                 <h2
                     id="data-management-heading"
-                    className="text-xl font-semibold mb-4 flex items-center transition-colors"
+                    className="text-xl font-semibold mb-3 sm:mb-4 flex items-center transition-colors"
                     style={{ color: colors.espresso }}
                 >
                     <Database size={20} className="mr-2" /> 数据管理
                 </h2>
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                     {/* 导出数据 */}
                     <div>
                         <h3
@@ -1787,7 +1787,7 @@ const SettingsView = ({
                         className="w-full max-w-lg rounded-xl shadow-2xl overflow-hidden border flex flex-col max-h-[80vh]"
                         style={{ backgroundColor: colors.bgCard, borderColor: colors.borderSubtle }}
                     >
-                        <div className="p-4 border-b flex justify-between items-center" style={{ borderColor: colors.borderSubtle }}>
+                        <div className="p-3 sm:p-4 border-b flex justify-between items-center" style={{ borderColor: colors.borderSubtle }}>
                             <h3 className="font-bold flex items-center" style={{ color: colors.espresso }}>
                                 <FileText size={18} className="mr-2" /> 运行与修复日志
                             </h3>
@@ -1795,7 +1795,7 @@ const SettingsView = ({
                                 <X size={20} />
                             </button>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-4 space-y-2 font-mono text-xs">
+                        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2 font-mono text-xs">
                             {currentRepairLogs.length === 0 ? (
                                 <p className="text-center py-10 opacity-50">暂无日志记录</p>
                             ) : (
@@ -1814,7 +1814,7 @@ const SettingsView = ({
                                 ))
                             )}
                         </div>
-                        <div className="p-4 border-t bg-gray-50 dark:bg-black/10 flex flex-wrap justify-between items-center gap-2" style={{ borderColor: colors.borderSubtle }}>
+                        <div className="p-3 sm:p-4 border-t bg-gray-50 dark:bg-black/10 flex flex-wrap justify-between items-center gap-2" style={{ borderColor: colors.borderSubtle }}>
                            <button 
                                 onClick={copyLogsToClipboard}
                                 className="px-3 py-1.5 rounded-md text-xs font-medium border flex items-center transition-all bg-white dark:bg-zinc-800"

@@ -117,11 +117,11 @@ const AboutView = ({
     : '浏览器菜单或地址栏中选择“安装应用”。';
 
   return (
-    <div className="columns-1 sm:columns-2 xl:columns-3 gap-4 w-full">
+    <div className="columns-1 sm:columns-2 xl:columns-3 gap-3 sm:gap-4 w-full">
       {/* 关于应用卡片 - 调整到前面 */}
       <section
         aria-labelledby="about-app-heading"
-        className="max-w-md w-full mb-4 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-3 sm:mb-4 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -141,7 +141,7 @@ const AboutView = ({
             避免过量摄入对健康和睡眠造成不良影响。
           </p>
 
-          <div className="grid grid-cols-2 gap-2 sm:gap-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:gap-4">
             <div className="p-2 sm:p-3 rounded-lg flex items-start gap-2 transition-colors" style={{ backgroundColor: colors.bgBase }}>
               <Coffee size={18} className="mt-0.5 flex-shrink-0" style={{ color: colors.accent }} />
               <div>
@@ -179,7 +179,7 @@ const AboutView = ({
 
       <section
         aria-labelledby="app-access-heading"
-        className="max-w-md w-full mb-4 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-3 sm:mb-4 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -298,7 +298,7 @@ const AboutView = ({
       {/* 分享推荐卡片 */}
       <section
         aria-labelledby="share-heading"
-        className="max-w-md w-full mb-4 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-3 sm:mb-4 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -368,7 +368,7 @@ const AboutView = ({
       {/* 问题反馈卡片 */}
       <section
         aria-labelledby="feedback-heading"
-        className="max-w-md w-full mb-4 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-3 sm:mb-4 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -428,7 +428,7 @@ const AboutView = ({
       {/* 开发者信息卡片 - 移到后面 */}
       <section
         aria-labelledby="developer-info-heading"
-        className="max-w-md w-full mb-4 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-3 sm:mb-4 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -442,7 +442,7 @@ const AboutView = ({
           <User size={20} className="mr-2" /> 关于开发者
         </h2>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
           {/* 开发者头像 */}
           <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden border-2 shadow-md flex-shrink-0" style={{ borderColor: colors.accent }}>
             <img
@@ -507,7 +507,7 @@ const AboutView = ({
       {/* 计算与科学依据卡片 */}
       <section
         aria-labelledby="science-basis-heading"
-        className="max-w-md w-full mb-4 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-3 sm:mb-4 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -521,10 +521,10 @@ const AboutView = ({
           <Coffee size={20} className="mr-2" /> 计算与科学依据
         </h2>
 
-        <div className="space-y-4 text-sm transition-colors" style={{ color: colors.textSecondary }}>
+        <div className="space-y-3 sm:space-y-4 text-sm transition-colors" style={{ color: colors.textSecondary }}>
           {/* 预设数据提醒 */}
           <div
-            className="p-4 rounded-lg border"
+            className="p-3 sm:p-4 rounded-lg border"
             style={{
               backgroundColor: colors.warningBg,
               color: colors.warningText,
@@ -547,7 +547,7 @@ const AboutView = ({
 
           {/* 计算模型说明 */}
           <div
-            className="p-4 rounded-lg border"
+            className="p-3 sm:p-4 rounded-lg border"
             style={{
               backgroundColor: colors.warningBg,
               color: colors.warningText,
@@ -581,7 +581,7 @@ const AboutView = ({
 
           {/* 个性化调整建议 */}
           <div
-            className="p-4 rounded-lg border"
+            className="p-3 sm:p-4 rounded-lg border"
             style={{
               backgroundColor: colors.successBg,
               color: colors.successText,
@@ -616,7 +616,7 @@ const AboutView = ({
       {/* 免责声明卡片 */}
       <section
         aria-labelledby="disclaimer-heading"
-        className="max-w-md w-full mb-4 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-3 sm:mb-4 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle

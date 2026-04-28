@@ -5,7 +5,7 @@ import { Capacitor } from '@capacitor/core';
 import { decodeConfigFromUrl, isValidConfig, getServerDisplayName, extractConfigParam } from '../utils/syncConfigShare';
 
 const CustomModal = ({ children, colors }) => (
-  <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
+  <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-3 sm:p-4">
     <div 
       className="rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-100 p-6 border"
       style={{
@@ -100,7 +100,7 @@ const SyncImportView = ({ onImportConfig, isNativePlatform, colors }) => {
     if (scannedLink) {
       return (
         <CustomModal colors={colors}>
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex justify-between items-center mb-3 sm:mb-4">
             <h3 className="text-lg font-semibold" style={{ color: colors.espresso }}>扫描结果</h3>
             <button 
               onClick={() => { setShowConfirmation(false); setScannedLink(''); }} 
@@ -110,7 +110,7 @@ const SyncImportView = ({ onImportConfig, isNativePlatform, colors }) => {
               <X size={24} />
             </button>
           </div>
-          <div className="mb-4">
+          <div className="mb-3 sm:mb-4">
             <p className="text-sm mb-2" style={{ color: colors.textSecondary }}>
               扫描到的链接：
             </p>
@@ -147,7 +147,7 @@ const SyncImportView = ({ onImportConfig, isNativePlatform, colors }) => {
             </button>
           </div>
           <div 
-            className="p-3 border-l-4 rounded-md mb-4"
+            className="p-3 border-l-4 rounded-md mb-3 sm:mb-4"
             style={{
               backgroundColor: colors.infoBg,
               borderColor: colors.info
@@ -243,7 +243,7 @@ const SyncImportView = ({ onImportConfig, isNativePlatform, colors }) => {
           </p>
         </div>
         <div 
-          className="p-3 border-l-4 rounded-md mb-4"
+          className="p-3 border-l-4 rounded-md mb-3 sm:mb-4"
           style={{
             backgroundColor: colors.dangerBg,
             borderColor: colors.danger,
@@ -280,7 +280,7 @@ const SyncImportView = ({ onImportConfig, isNativePlatform, colors }) => {
   };
 
   return (
-    <div className="max-w-md mx-auto p-4">
+    <div className="max-w-md mx-auto p-3 sm:p-4">
       <div 
         className="rounded-2xl shadow-xl p-6 border"
         style={{
@@ -288,7 +288,7 @@ const SyncImportView = ({ onImportConfig, isNativePlatform, colors }) => {
           borderColor: colors.borderSubtle
         }}
       >
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-3 sm:mb-4">
           <h2 className="text-xl font-bold" style={{ color: colors.espresso }}>导入 WebDAV 配置</h2>
           <button 
             onClick={() => navigate('/settings')} 
@@ -304,7 +304,7 @@ const SyncImportView = ({ onImportConfig, isNativePlatform, colors }) => {
 
         {error && !showConfirmation && (
           <div 
-            className="p-3 border-l-4 rounded-md mb-4 text-sm"
+            className="p-3 border-l-4 rounded-md mb-3 sm:mb-4 text-sm"
             style={{
               backgroundColor: colors.dangerBg,
               borderColor: colors.danger,
@@ -320,7 +320,7 @@ const SyncImportView = ({ onImportConfig, isNativePlatform, colors }) => {
             <Loader2 size={32} className="animate-spin" style={{ color: colors.accent }} />
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             <div>
               <label 
                 htmlFor="manualUrl" 

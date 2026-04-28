@@ -20,6 +20,7 @@ const CurrentStatusView = ({
   drinks,
   metabolismChartData,
   userSettings,
+  onAddRecord,
   onAddRecordClick,
   onEditRecordClick,
   onDeleteRecord,
@@ -469,10 +470,10 @@ const CurrentStatusView = ({
   const enhancedStatus = getEnhancedStatusText();
 
   return (
-    <div className="columns-1 sm:columns-2 xl:columns-3 gap-4 w-full">
+    <div className="columns-1 sm:columns-2 xl:columns-3 gap-3 sm:gap-4 w-full">
       <section
         aria-labelledby="current-status-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-4 sm:mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -480,7 +481,7 @@ const CurrentStatusView = ({
       >
         <h2
           id="current-status-heading"
-          className="text-xl font-semibold mb-4 flex items-center transition-colors"
+          className="text-xl font-semibold mb-3 sm:mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
           <Activity size={20} className="mr-2" /> 状态
@@ -530,7 +531,7 @@ const CurrentStatusView = ({
           </svg>
         </div>
 
-        <div className="text-center mb-4 mt-2">
+        <div className="text-center mb-3 sm:mb-4 mt-2">
           <h3 className="text-lg font-semibold" style={{ color: intelligentAnalysis.alertnessColor }}>
             {enhancedStatus.status}
           </h3>
@@ -668,7 +669,7 @@ const CurrentStatusView = ({
       {/* 智能分析与预测卡片 */}
       <section
         aria-labelledby="intelligent-analysis-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-4 sm:mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -684,10 +685,10 @@ const CurrentStatusView = ({
 
         {records.length > 0 ? (
           <>
-            <div className="flex flex-col gap-4 mb-4">
+            <div className="flex flex-col gap-3 sm:gap-4 mb-3 sm:mb-4">
               {/* 睡眠质量预测（仅晚上显示） */}
               {sleepQualityPrediction && (
-                <div className="rounded-lg p-4 shadow transition-colors" style={{ backgroundColor: colors.bgBase }}>
+                <div className="rounded-lg p-3 sm:p-4 shadow transition-colors" style={{ backgroundColor: colors.bgBase }}>
                   <h4 className="font-semibold mb-3 text-sm flex items-center" style={{ color: colors.espresso }}>
                     <Moon size={14} className="mr-1" />
                     今晚睡眠质量预测
@@ -716,7 +717,7 @@ const CurrentStatusView = ({
               )}
               {/* 体感预报 */}
               {bodyFeelForecast.length > 0 && (
-                <div className="rounded-lg p-4 shadow transition-colors" style={{ backgroundColor: colors.bgBase }}>
+                <div className="rounded-lg p-3 sm:p-4 shadow transition-colors" style={{ backgroundColor: colors.bgBase }}>
                   <h4 className="font-semibold mb-3 text-sm flex items-center" style={{ color: colors.espresso }}>
                     <Sunrise size={16} className="mr-1.5" />
                     体感预报
@@ -771,7 +772,7 @@ const CurrentStatusView = ({
       {/* 代谢曲线图卡片 */}
       <section
         aria-labelledby="metabolism-chart-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-4 sm:mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -797,13 +798,13 @@ const CurrentStatusView = ({
       {/* 摄入历史卡片 */}
       <section
         aria-labelledby="intake-history-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-4 sm:mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
         }}
       >
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
           <h2
             id="intake-history-heading"
             className="text-xl font-semibold flex items-center transition-colors"
@@ -836,7 +837,7 @@ const CurrentStatusView = ({
         ) : (
           <>
             {/* 搜索栏 */}
-            <div className="mb-4">
+            <div className="mb-3 sm:mb-4">
               {/* 搜索输入框 */}
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">

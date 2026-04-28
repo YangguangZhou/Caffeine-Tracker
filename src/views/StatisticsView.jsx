@@ -689,11 +689,11 @@ const StatisticsView = ({
 
 
   return (
-    <div className="columns-1 sm:columns-2 xl:columns-3 gap-4 w-full">
+    <div className="columns-1 sm:columns-2 xl:columns-3 gap-3 sm:gap-4 w-full">
       {/* 摄入概览卡片 - 包含时间范围选择 */}
       <section
         aria-labelledby="intake-overview-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-4 sm:mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -701,14 +701,14 @@ const StatisticsView = ({
       >
         <h3
           id="intake-overview-heading"
-          className="text-xl font-semibold mb-4 flex items-center transition-colors"
+          className="text-xl font-semibold mb-3 sm:mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
           <BarChart2 size={20} className="mr-2" /> 摄入总览
         </h3>
 
         {/* 时间范围选择器 */}
-        <div className="mb-4">
+        <div className="mb-3 sm:mb-4">
           <div className="flex justify-between items-center mb-3">
             <button
               onClick={() => navigateStats(-1)}
@@ -808,7 +808,7 @@ const StatisticsView = ({
             </button>
           </nav>
         </div>
-        <div className="grid grid-cols-2 gap-3 mb-5">
+        <div className="grid grid-cols-2 gap-3 mb-4 sm:mb-5">
           {/* 总摄入量 */}
           <div
             className="p-3 rounded-lg text-center shadow-inner transition-colors"
@@ -950,7 +950,7 @@ const StatisticsView = ({
         </div>
         {/* 图表容器 */}
         <div
-          className="p-4 rounded-lg mt-4 min-h-[300px] transition-colors"
+          className="p-3 sm:p-4 rounded-lg mt-4 min-h-[300px] transition-colors"
           style={{ backgroundColor: colors.bgBase }}
         >
           <StatsChart
@@ -966,13 +966,13 @@ const StatisticsView = ({
       {/* 摄入来源分析卡片 */}
       <section
         aria-labelledby="source-analysis-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-4 sm:mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
         }}
       >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 sm:mb-4">
           <h3
             id="source-analysis-heading"
             className="text-xl font-semibold flex items-center transition-colors mb-2 sm:mb-0"
@@ -1030,7 +1030,7 @@ const StatisticsView = ({
       {/* 咖啡因生活方式画像 */}
       <section
         aria-labelledby="lifestyle-analysis-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-4 sm:mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -1038,7 +1038,7 @@ const StatisticsView = ({
       >
         <h3
           id="lifestyle-analysis-heading"
-          className="text-xl font-semibold mb-4 flex items-center transition-colors"
+          className="text-xl font-semibold mb-3 sm:mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
           <Users size={20} className="mr-2" /> 咖啡因生活方式画像
@@ -1061,7 +1061,7 @@ const StatisticsView = ({
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="grid grid-cols-2 gap-3 mb-3 sm:mb-4">
                   <div className="p-3 rounded-lg text-center shadow-inner" style={{ backgroundColor: colors.bgBase }}>
                     <p className="text-xs mb-1" style={{ color: colors.textMuted }}>日均摄入</p>
                     <p className="text-lg font-semibold" style={{ color: colors.espresso }}>
@@ -1113,7 +1113,7 @@ const StatisticsView = ({
                 colors={colors}
                 title="需要更多数据解锁咖啡因画像"
                 requiredDays={daysNeeded}
-                icon={<Users size={48} className="mx-auto mb-4 opacity-70" style={{ color: colors.accent }} />}
+                icon={<Users size={48} className="mx-auto mb-3 sm:mb-4 opacity-70" style={{ color: colors.accent }} />}
               />
             );
           } else { // records.length === 0
@@ -1131,7 +1131,7 @@ const StatisticsView = ({
       {/* 详细统计分析卡片 */}
       <section
         aria-labelledby="detailed-stats-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-4 sm:mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -1139,7 +1139,7 @@ const StatisticsView = ({
       >
         <h3
           id="detailed-stats-heading"
-          className="text-xl font-semibold mb-4 flex items-center transition-colors"
+          className="text-xl font-semibold mb-3 sm:mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
           <BarChart2 size={20} className="mr-2" /> 详细统计分析
@@ -1351,7 +1351,7 @@ const StatisticsView = ({
                 colors={colors}
                 title="需要更多数据解锁详细统计"
                 requiredDays={daysNeeded}
-                icon={<BarChart2 size={48} className="mx-auto mb-4 opacity-70" style={{ color: colors.accent }} />}
+                icon={<BarChart2 size={48} className="mx-auto mb-3 sm:mb-4 opacity-70" style={{ color: colors.accent }} />}
               />
             );
           } else { // records.length === 0
@@ -1369,7 +1369,7 @@ const StatisticsView = ({
       {/* 健康分析报告卡片 */}
       <section
         aria-labelledby="health-analysis-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-4 sm:mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -1388,7 +1388,7 @@ const StatisticsView = ({
             return (
               <div className="space-y-6">
                 {/* 仪表盘区域 */}
-                <div className="grid grid-cols-3 gap-2 sm:gap-4">
+                <div className="grid grid-cols-3 gap-2 sm:gap-3 sm:gap-4">
                   <Gauge
                     value={Math.round(getWeekTotal(new Date()) / ((new Date().getDay() === 0 ? 7 : new Date().getDay())) || 1)}
                     maxValue={effectiveMaxDaily}
@@ -1456,7 +1456,7 @@ const StatisticsView = ({
                 colors={colors}
                 title="需要更多数据解锁健康分析报告"
                 requiredDays={daysNeeded}
-                icon={<Heart size={48} className="mx-auto mb-4 opacity-70" style={{ color: colors.accent }} />}
+                icon={<Heart size={48} className="mx-auto mb-3 sm:mb-4 opacity-70" style={{ color: colors.accent }} />}
               />
             );
           } else { // records.length === 0
@@ -1473,7 +1473,7 @@ const StatisticsView = ({
       {/* 咖啡因知识卡片 */}
       <section
         aria-labelledby="caffeine-knowledge-heading"
-        className="max-w-md w-full mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
+        className="max-w-md w-full mb-4 sm:mb-5 rounded-xl p-5 sm:p-6 shadow-lg border transition-colors break-inside-avoid mx-auto"
         style={{
           backgroundColor: colors.bgCard,
           borderColor: colors.borderSubtle
@@ -1481,13 +1481,13 @@ const StatisticsView = ({
       >
         <h3
           id="caffeine-knowledge-heading"
-          className="text-xl font-semibold mb-4 flex items-center transition-colors"
+          className="text-xl font-semibold mb-3 sm:mb-4 flex items-center transition-colors"
           style={{ color: colors.espresso }}
         >
           <Info size={20} className="mr-2" /> 咖啡因知识库
         </h3>
         <ul
-          className="space-y-4 text-sm transition-colors"
+          className="space-y-3 sm:space-y-4 text-sm transition-colors"
           style={{ color: colors.textSecondary }}
         >
           <li className="leading-relaxed">
