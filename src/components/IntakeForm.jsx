@@ -321,13 +321,16 @@ const IntakeForm = ({
                 setCustomAmount('');
               }
             }}
-            className="p-1.5 border rounded-md transition-all duration-200 hover:shadow-sm"
+            className="p-1.5 border rounded-md transition-all duration-200 hover:shadow-sm focus:outline-none focus-visible:ring-2"
             style={{
               borderColor: colors.borderStrong,
               backgroundColor: colors.bgBase,
-              color: colors.textSecondary
+              color: colors.textSecondary,
+              '--tw-ring-color': colors.accent + '80'
             }}
             disabled={!drinkVolume || parseFloat(drinkVolume) <= 0}
+            aria-label="减少容量"
+            title="减少容量"
           >
             <Minus size={14} />
           </button>
@@ -363,12 +366,15 @@ const IntakeForm = ({
                 setCustomAmount('');
               }
             }}
-            className="p-1.5 border rounded-md transition-all duration-200 hover:shadow-sm"
+            className="p-1.5 border rounded-md transition-all duration-200 hover:shadow-sm focus:outline-none focus-visible:ring-2"
             style={{
               borderColor: colors.borderStrong,
               backgroundColor: colors.bgBase,
-              color: colors.textSecondary
+              color: colors.textSecondary,
+              '--tw-ring-color': colors.accent + '80'
             }}
+            aria-label="增加容量"
+            title="增加容量"
           >
             <Plus size={14} />
           </button>
@@ -461,13 +467,16 @@ const IntakeForm = ({
               const newValue = Math.max(0, current - step);
               setCustomAmount(newValue.toString());
             }}
-            className="p-1.5 border rounded-md transition-all duration-200 hover:shadow-sm"
+            className="p-1.5 border rounded-md transition-all duration-200 hover:shadow-sm focus:outline-none focus-visible:ring-2"
             style={{
               borderColor: colors.borderStrong,
               backgroundColor: colors.bgBase,
-              color: colors.textSecondary
+              color: colors.textSecondary,
+              '--tw-ring-color': colors.accent + '80'
             }}
             disabled={!customAmount || parseFloat(customAmount) <= 0}
+            aria-label="减少摄入量"
+            title="减少摄入量"
           >
             <Minus size={14} />
           </button>
@@ -496,12 +505,15 @@ const IntakeForm = ({
               const newValue = current + step;
               setCustomAmount(newValue.toString());
             }}
-            className="p-1.5 border rounded-md transition-all duration-200 hover:shadow-sm"
+            className="p-1.5 border rounded-md transition-all duration-200 hover:shadow-sm focus:outline-none focus-visible:ring-2"
             style={{
               borderColor: colors.borderStrong,
               backgroundColor: colors.bgBase,
-              color: colors.textSecondary
+              color: colors.textSecondary,
+              '--tw-ring-color': colors.accent + '80'
             }}
+            aria-label="增加摄入量"
+            title="增加摄入量"
           >
             <Plus size={14} />
           </button>

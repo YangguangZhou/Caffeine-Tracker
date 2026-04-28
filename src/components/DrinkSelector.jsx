@@ -162,7 +162,10 @@ const DrinkSelector = ({
           {searchTerm && (
             <button
               onClick={() => setSearchTerm('')}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 transition-colors"
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+              style={{ '--tw-ring-color': colors.accent + '80' }}
+              aria-label="清除搜索"
+              title="清除搜索"
             >
               <X size={12} style={{ color: colors.textMuted }} />
             </button>
