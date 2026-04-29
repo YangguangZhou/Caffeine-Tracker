@@ -311,6 +311,8 @@ const IntakeForm = ({
         <div className="flex items-center gap-2">
           <button
             type="button"
+            aria-label="减少用量"
+            title="减少用量"
             onClick={() => {
               const current = parseFloat(drinkVolume) || 0;
               const step = selectedDrink?.calculationMode === 'perGram' ? 1 : 10; // finer step for grams
@@ -353,6 +355,8 @@ const IntakeForm = ({
           />
           <button
             type="button"
+            aria-label="增加用量"
+            title="增加用量"
             onClick={() => {
               const current = parseFloat(drinkVolume) || 0;
               const step = selectedDrink?.calculationMode === 'perGram' ? 1 : 10; // finer step for grams
@@ -455,6 +459,8 @@ const IntakeForm = ({
         <div className="flex items-center gap-2">
           <button
             type="button"
+            aria-label="减少摄入量"
+            title="减少摄入量"
             onClick={() => {
               const current = parseFloat(customAmount) || 0;
               const step = current > 50 ? 10 : 5; // smaller step for smaller values
@@ -490,6 +496,8 @@ const IntakeForm = ({
           />
           <button
             type="button"
+            aria-label="增加摄入量"
+            title="增加摄入量"
             onClick={() => {
               const current = parseFloat(customAmount) || 0;
               const step = current >= 50 ? 10 : 5;
