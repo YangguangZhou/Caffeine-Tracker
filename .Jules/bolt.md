@@ -1,0 +1,2 @@
+
+## 2026-04-29 - Prevent Call Stack Errors with Spread on Mapped Arrays\n**Learning:** Using `Math.max(...array.map(fn))` creates an intermediate array and uses the spread operator, which can cause a 'Maximum call stack size exceeded' error if the initial array is too large. It is also less memory-efficient. This pattern was prevalent in the codebase.\n**Action:** Use a single-pass `.reduce((max, val) => val > max ? val : max, -Infinity)` to find the maximum value directly, avoiding call stack limits and unnecessary memory allocations.\n

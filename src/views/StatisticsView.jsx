@@ -106,6 +106,21 @@ const MotivationalMessage = ({ colors, title, requiredDays, icon }) => (
 );
 
 
+// 辅助组件：用于展示单个详细统计指标
+const StatItem = ({ icon, label, value, unit, colorClass = '', colors }) => (
+  <div className="p-2 rounded-lg text-center" style={{ backgroundColor: colors.bgBase }}>
+    <div className="flex items-center justify-center mb-1" style={{ color: colors.accent }}>
+      {icon}
+    </div>
+    <p className="text-xs font-medium truncate" style={{ color: colors.textSecondary }}>
+      {label}
+    </p>
+    <p className={`text-sm font-bold mt-1 ${colorClass}`} style={{ color: !colorClass ? colors.espresso : undefined }}>
+      {value} <span className="text-xs font-normal">{unit}</span>
+    </p>
+  </div>
+);
+
 /**
  * 统计数据视图组件
  * 显示咖啡因摄入的统计数据和分析
@@ -129,36 +144,52 @@ const StatisticsView = ({
   const getDayTotal = useCallback((date) => {
     const dayStart = getStartOfDay(date);
     const dayEnd = getEndOfDay(date);
-    return Math.round(records
-      .filter(record => record && record.timestamp >= dayStart && record.timestamp <= dayEnd)
-      .reduce((sum, record) => sum + record.amount, 0));
+    // ⚡ Bolt: Prefer single-pass reduce over filter + reduce
+    return Math.round(records.reduce((sum, record) => {
+      if (record && record.timestamp >= dayStart && record.timestamp <= dayEnd) {
+        return sum + record.amount;
+      }
+      return sum;
+    }, 0));
   }, [records]);
 
   // 获取特定日期所在周的总摄入量
   const getWeekTotal = useCallback((date) => {
     const weekStart = getStartOfWeek(date);
     const weekEnd = getEndOfWeek(date);
-    return Math.round(records
-      .filter(record => record && record.timestamp >= weekStart && record.timestamp <= weekEnd)
-      .reduce((sum, record) => sum + record.amount, 0));
+    // ⚡ Bolt: Prefer single-pass reduce over filter + reduce
+    return Math.round(records.reduce((sum, record) => {
+      if (record && record.timestamp >= weekStart && record.timestamp <= weekEnd) {
+        return sum + record.amount;
+      }
+      return sum;
+    }, 0));
   }, [records]);
 
   // 获取特定日期所在月的总摄入量
   const getMonthTotal = useCallback((date) => {
     const monthStart = getStartOfMonth(date);
     const monthEnd = getEndOfMonth(date);
-    return Math.round(records
-      .filter(record => record && record.timestamp >= monthStart && record.timestamp <= monthEnd)
-      .reduce((sum, record) => sum + record.amount, 0));
+    // ⚡ Bolt: Prefer single-pass reduce over filter + reduce
+    return Math.round(records.reduce((sum, record) => {
+      if (record && record.timestamp >= monthStart && record.timestamp <= monthEnd) {
+        return sum + record.amount;
+      }
+      return sum;
+    }, 0));
   }, [records]);
 
   // 获取特定日期所在年的总摄入量
   const getYearTotal = useCallback((date) => {
     const yearStart = getStartOfYear(date);
     const yearEnd = getEndOfYear(date);
-    return Math.round(records
-      .filter(record => record && record.timestamp >= yearStart && record.timestamp <= yearEnd)
-      .reduce((sum, record) => sum + record.amount, 0));
+    // ⚡ Bolt: Prefer single-pass reduce over filter + reduce
+    return Math.round(records.reduce((sum, record) => {
+      if (record && record.timestamp >= yearStart && record.timestamp <= yearEnd) {
+        return sum + record.amount;
+      }
+      return sum;
+    }, 0));
   }, [records]);
 
   // 获取每周每日总量
@@ -329,7 +360,8 @@ const StatisticsView = ({
 
     // 计算超标天数
     const totalDays = Object.keys(dailyTotals).length;
-    const exceedDays = Object.values(dailyTotals).filter(total => total > effectiveMaxDaily).length;
+    // ⚡ Bolt: Using reduce to count elements avoids filter intermediate array allocation
+    const exceedDays = Object.values(dailyTotals).reduce((c, total) => total > effectiveMaxDaily ? c + 1 : c, 0);
     const exceedRate = totalDays > 0 ? (exceedDays / totalDays) * 100 : 0;
 
     // 计算摄入时间分布
@@ -340,7 +372,9 @@ const StatisticsView = ({
     });
 
     // 找出高峰时段
-    const peakHour = hourlyDistribution.indexOf(Math.max(...hourlyDistribution));
+    // ⚡ Bolt: Use reduce instead of spread operator to prevent call stack issues on potentially large arrays
+    const maxHourlyAmount = hourlyDistribution.reduce((max, val) => val > max ? val : max, -Infinity);
+    const peakHour = hourlyDistribution.indexOf(maxHourlyAmount);
     const peakAmount = hourlyDistribution[peakHour];
 
     // 计算摄入间隔
@@ -353,7 +387,8 @@ const StatisticsView = ({
     const avgInterval = intervals.length > 0 ? intervals.reduce((a, b) => a + b) / intervals.length : 0;
 
     // 最大单次摄入
-    const maxSingleIntake = Math.max(...records.map(r => r.amount));
+    // ⚡ Bolt: Use reduce instead of spread operator with map to avoid max call stack error and intermediate arrays
+    const maxSingleIntake = records.reduce((max, r) => r.amount > max ? r.amount : max, -Infinity);
 
     // 1. 获取所有记录的日期，确保它们是当天的开始时间，并去重
     const uniqueDayTimestampsForStreak = [...new Set(
@@ -404,7 +439,9 @@ const StatisticsView = ({
       const weekday = new Date(record.timestamp).getDay();
       weekdayTotals[weekday] += record.amount;
     });
-    const maxWeekdayIndex = weekdayTotals.indexOf(Math.max(...weekdayTotals));
+    // ⚡ Bolt: Use reduce instead of spread operator for safety
+    const maxWeekdayVal = weekdayTotals.reduce((max, val) => val > max ? val : max, -Infinity);
+    const maxWeekdayIndex = weekdayTotals.indexOf(maxWeekdayVal);
     const weekdayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
     const totalAmount = records.reduce((sum, r) => sum + r.amount, 0);
@@ -568,8 +605,9 @@ const StatisticsView = ({
     const values = statsChartData.map(d => d.value);
     const nonZeroValues = values.filter(v => v > 0);
 
-    const maxDay = Math.max(...values);
-    const minDay = nonZeroValues.length > 0 ? Math.min(...nonZeroValues) : 0;
+    // ⚡ Bolt: Use reduce instead of spread operator to avoid max call stack error
+    const maxDay = values.reduce((max, v) => v > max ? v : max, -Infinity);
+    const minDay = nonZeroValues.length > 0 ? nonZeroValues.reduce((min, v) => v < min ? v : min, Infinity) : 0;
     const avgDay = nonZeroValues.length > 0 ? nonZeroValues.reduce((a, b) => a + b) / nonZeroValues.length : 0;
     const activeDays = nonZeroValues.length;
 
@@ -672,20 +710,6 @@ const StatisticsView = ({
     return `${String(plannedDate.getHours()).padStart(2, '0')}:${String(plannedDate.getMinutes()).padStart(2, '0')}`;
   };
 
-  // 辅助组件：用于展示单个详细统计指标
-  const StatItem = ({ icon, label, value, unit, colorClass = '' }) => (
-    <div className="p-2 rounded-lg text-center" style={{ backgroundColor: colors.bgBase }}>
-      <div className="flex items-center justify-center mb-1" style={{ color: colors.accent }}>
-        {icon}
-      </div>
-      <p className="text-xs font-medium truncate" style={{ color: colors.textSecondary }}>
-        {label}
-      </p>
-      <p className={`text-sm font-bold mt-1 ${colorClass}`} style={{ color: !colorClass ? colors.espresso : undefined }}>
-        {value} <span className="text-xs font-normal">{unit}</span>
-      </p>
-    </div>
-  );
 
 
   return (
@@ -847,7 +871,10 @@ const StatisticsView = ({
                   start = getStartOfYear(statsDate);
                   end = getEndOfYear(statsDate);
                 }
-                const count = records.filter(record => record && record.timestamp >= start && record.timestamp <= end).length;
+                // ⚡ Bolt: Using reduce to count elements within range, avoiding filter intermediate array allocation
+                const count = records.reduce((c, record) => {
+                  return (record && record.timestamp >= start && record.timestamp <= end) ? c + 1 : c;
+                }, 0);
                 return `共${count}次`;
               })()}
             </p>
@@ -1150,20 +1177,20 @@ const StatisticsView = ({
             return (
               <>
                 <div className="grid grid-cols-4 gap-2 text-sm mb-6">
-                  <StatItem icon={<Calendar size={16} />} label="记录天数" value={detailedStats.totalDays} unit="天" />
-                  <StatItem icon={<Coffee size={16} />} label="记录次数" value={records.length} unit="次" />
-                  <StatItem icon={<AlertCircle size={16} />} label="超标天数" value={detailedStats.exceedDays} unit="天" colorClass={detailedStats.exceedDays > 0 ? 'text-orange-500' : ''} />
-                  <StatItem icon={<Percent size={16} />} label="超标率" value={detailedStats.exceedRate} unit="%" colorClass={detailedStats.exceedRate > 20 ? 'text-red-500' : detailedStats.exceedRate > 10 ? 'text-orange-500' : ''} />
+                  <StatItem colors={colors} icon={<Calendar size={16} />} label="记录天数" value={detailedStats.totalDays} unit="天" />
+                  <StatItem colors={colors} icon={<Coffee size={16} />} label="记录次数" value={records.length} unit="次" />
+                  <StatItem colors={colors} icon={<AlertCircle size={16} />} label="超标天数" value={detailedStats.exceedDays} unit="天" colorClass={detailedStats.exceedDays > 0 ? 'text-orange-500' : ''} />
+                  <StatItem colors={colors} icon={<Percent size={16} />} label="超标率" value={detailedStats.exceedRate} unit="%" colorClass={detailedStats.exceedRate > 20 ? 'text-red-500' : detailedStats.exceedRate > 10 ? 'text-orange-500' : ''} />
 
-                  <StatItem icon={<Droplet size={16} />} label="平均单次" value={detailedStats.avgPerIntake} unit="mg" />
-                  <StatItem icon={<ActivityIcon size={16} />} label="平均每日" value={detailedStats.avgDailyAmount} unit="mg" />
-                  <StatItem icon={<Target size={16} />} label="最大单次" value={detailedStats.maxSingleIntake} unit="mg" />
-                  <StatItem icon={<Moon size={16} />} label="睡前残留" value={detailedStats.avgCaffeineAtSleep} unit="mg" colorClass={detailedStats.avgCaffeineAtSleep > 30 ? 'text-orange-500' : ''} />
+                  <StatItem colors={colors} icon={<Droplet size={16} />} label="平均单次" value={detailedStats.avgPerIntake} unit="mg" />
+                  <StatItem colors={colors} icon={<ActivityIcon size={16} />} label="平均每日" value={detailedStats.avgDailyAmount} unit="mg" />
+                  <StatItem colors={colors} icon={<Target size={16} />} label="最大单次" value={detailedStats.maxSingleIntake} unit="mg" />
+                  <StatItem colors={colors} icon={<Moon size={16} />} label="睡前残留" value={detailedStats.avgCaffeineAtSleep} unit="mg" colorClass={detailedStats.avgCaffeineAtSleep > 30 ? 'text-orange-500' : ''} />
                   
-                  <StatItem icon={<TrendingUp size={16} />} label="最长连续" value={detailedStats.maxStreak} unit="天" />
-                  <StatItem icon={<Zap size={16} />} label="当前连续" value={detailedStats.currentStreak} unit="天" />
-                  <StatItem icon={<Clock size={16} />} label="平均间隔" value={detailedStats.avgInterval} unit="h" />
-                  <StatItem icon={<Brain size={16} />} label="平均时间" value={`${Math.floor(detailedStats.avgIntakeTime)}:${String(Math.round((detailedStats.avgIntakeTime % 1) * 60)).padStart(2, '0')}`} unit="" />
+                  <StatItem colors={colors} icon={<TrendingUp size={16} />} label="最长连续" value={detailedStats.maxStreak} unit="天" />
+                  <StatItem colors={colors} icon={<Zap size={16} />} label="当前连续" value={detailedStats.currentStreak} unit="天" />
+                  <StatItem colors={colors} icon={<Clock size={16} />} label="平均间隔" value={detailedStats.avgInterval} unit="h" />
+                  <StatItem colors={colors} icon={<Brain size={16} />} label="平均时间" value={`${Math.floor(detailedStats.avgIntakeTime)}:${String(Math.round((detailedStats.avgIntakeTime % 1) * 60)).padStart(2, '0')}`} unit="" />
                 </div>
 
                 {/* 周度分析 */}
@@ -1183,7 +1210,8 @@ const StatisticsView = ({
                   // onClick handler removed from here, handled by parent div
                   >
                     {detailedStats.weekdayTotals.map((amount, index) => {
-                      const maxAmount = Math.max(...detailedStats.weekdayTotals);
+                      // ⚡ Bolt: Use reduce instead of spread operator for safety
+                      const maxAmount = detailedStats.weekdayTotals.reduce((max, val) => val > max ? val : max, -Infinity);
                       const percentage = maxAmount > 0 ? (amount / maxAmount) * 100 : 0;
                       const isMax = index === detailedStats.maxWeekdayIndex;
                       const isSelected = selectedWeekday === index;
@@ -1253,7 +1281,8 @@ const StatisticsView = ({
                     className="grid grid-cols-12 gap-1 mb-2"
                   >
                     {detailedStats.hourlyDistribution.map((amount, hour) => {
-                      const maxAmount = Math.max(...detailedStats.hourlyDistribution);
+                      // ⚡ Bolt: Use reduce instead of spread operator for safety
+                      const maxAmount = detailedStats.hourlyDistribution.reduce((max, val) => val > max ? val : max, -Infinity);
 
                       const heightRatio = maxAmount > 0 ? Math.sqrt(amount / maxAmount) : 0;
                       const height = heightRatio * 80;
