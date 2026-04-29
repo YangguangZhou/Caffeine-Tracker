@@ -370,10 +370,11 @@ const CurrentStatusView = ({
       record.timestamp >= dayStartTime && record.timestamp <= dayEndTime
     );
 
+    // ⚡ Bolt: Use reduce instead of spread operator with map to avoid max call stack error and improve performance
     const firstIntake = todayRecords.length > 0 ?
-      formatTime(Math.max(...todayRecords.map(r => r.timestamp))) : null;
+      formatTime(todayRecords.reduce((max, r) => r.timestamp > max ? r.timestamp : max, -Infinity)) : null;
     const lastIntake = todayRecords.length > 0 ?
-      formatTime(Math.min(...todayRecords.map(r => r.timestamp))) : null;
+      formatTime(todayRecords.reduce((min, r) => r.timestamp < min ? r.timestamp : min, Infinity)) : null;
 
     return {
       recordCount: todayRecords.length,
