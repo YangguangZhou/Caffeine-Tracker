@@ -858,6 +858,8 @@ const CurrentStatusView = ({
                 />
                 {searchQuery && (
                   <button
+                    aria-label="清除搜索"
+                    title="清除搜索"
                     onClick={() => setSearchQuery('')}
                     className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   >

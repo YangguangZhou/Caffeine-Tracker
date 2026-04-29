@@ -161,6 +161,8 @@ const DrinkSelector = ({
             style={{ color: searchTerm ? colors.accent : colors.textMuted }} />
           {searchTerm && (
             <button
+              aria-label="清除搜索"
+              title="清除搜索"
               onClick={() => setSearchTerm('')}
               className="absolute right-2 top-1/2 transform -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 transition-colors"
             >
@@ -171,6 +173,7 @@ const DrinkSelector = ({
         {/* 分类过滤器 */}
         <div className="relative flex-shrink-0">
           <select
+            aria-label="筛选饮品分类"
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
             className="w-full sm:w-auto p-2 pl-8 pr-6 border rounded-md focus:outline-none focus:ring-1 text-sm appearance-none transition-colors"
