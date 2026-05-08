@@ -129,36 +129,50 @@ const StatisticsView = ({
   const getDayTotal = useCallback((date) => {
     const dayStart = getStartOfDay(date);
     const dayEnd = getEndOfDay(date);
-    return Math.round(records
-      .filter(record => record && record.timestamp >= dayStart && record.timestamp <= dayEnd)
-      .reduce((sum, record) => sum + record.amount, 0));
+    // Optimization: Using a single reduce pass instead of chained .filter().reduce()
+    // to avoid unnecessary intermediate array allocations
+    return Math.round(records.reduce((sum, record) => {
+      if (record && record.timestamp >= dayStart && record.timestamp <= dayEnd) {
+        return sum + record.amount;
+      }
+      return sum;
+    }, 0));
   }, [records]);
 
   // 获取特定日期所在周的总摄入量
   const getWeekTotal = useCallback((date) => {
     const weekStart = getStartOfWeek(date);
     const weekEnd = getEndOfWeek(date);
-    return Math.round(records
-      .filter(record => record && record.timestamp >= weekStart && record.timestamp <= weekEnd)
-      .reduce((sum, record) => sum + record.amount, 0));
+    return Math.round(records.reduce((sum, record) => {
+      if (record && record.timestamp >= weekStart && record.timestamp <= weekEnd) {
+        return sum + record.amount;
+      }
+      return sum;
+    }, 0));
   }, [records]);
 
   // 获取特定日期所在月的总摄入量
   const getMonthTotal = useCallback((date) => {
     const monthStart = getStartOfMonth(date);
     const monthEnd = getEndOfMonth(date);
-    return Math.round(records
-      .filter(record => record && record.timestamp >= monthStart && record.timestamp <= monthEnd)
-      .reduce((sum, record) => sum + record.amount, 0));
+    return Math.round(records.reduce((sum, record) => {
+      if (record && record.timestamp >= monthStart && record.timestamp <= monthEnd) {
+        return sum + record.amount;
+      }
+      return sum;
+    }, 0));
   }, [records]);
 
   // 获取特定日期所在年的总摄入量
   const getYearTotal = useCallback((date) => {
     const yearStart = getStartOfYear(date);
     const yearEnd = getEndOfYear(date);
-    return Math.round(records
-      .filter(record => record && record.timestamp >= yearStart && record.timestamp <= yearEnd)
-      .reduce((sum, record) => sum + record.amount, 0));
+    return Math.round(records.reduce((sum, record) => {
+      if (record && record.timestamp >= yearStart && record.timestamp <= yearEnd) {
+        return sum + record.amount;
+      }
+      return sum;
+    }, 0));
   }, [records]);
 
   // 获取每周每日总量
@@ -353,7 +367,10 @@ const StatisticsView = ({
     const avgInterval = intervals.length > 0 ? intervals.reduce((a, b) => a + b) / intervals.length : 0;
 
     // 最大单次摄入
-    const maxSingleIntake = Math.max(...records.map(r => r.amount));
+    // Optimization: Replaced Math.max(...array.map()) with a single reduce pass
+    // to prevent potential 'Maximum call stack size exceeded' errors on large datasets
+    // and reduce memory overhead from intermediate mapped arrays
+    const maxSingleIntake = records.reduce((max, r) => Math.max(max, r.amount), -Infinity);
 
     // 1. 获取所有记录的日期，确保它们是当天的开始时间，并去重
     const uniqueDayTimestampsForStreak = [...new Set(
