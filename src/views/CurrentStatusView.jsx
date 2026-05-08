@@ -370,10 +370,11 @@ const CurrentStatusView = ({
       record.timestamp >= dayStartTime && record.timestamp <= dayEndTime
     );
 
+    // Bolt: 优化性能，避免使用 ...map 带来的中间数组创建和调用栈溢出风险
     const firstIntake = todayRecords.length > 0 ?
-      formatTime(Math.max(...todayRecords.map(r => r.timestamp))) : null;
+      formatTime(todayRecords.reduce((max, r) => Math.max(max, r.timestamp), -Infinity)) : null;
     const lastIntake = todayRecords.length > 0 ?
-      formatTime(Math.min(...todayRecords.map(r => r.timestamp))) : null;
+      formatTime(todayRecords.reduce((min, r) => Math.min(min, r.timestamp), Infinity)) : null;
 
     return {
       recordCount: todayRecords.length,
