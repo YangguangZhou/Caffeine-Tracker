@@ -43,9 +43,11 @@ const CurrentStatusView = ({
     }
 
     return Math.round(
-      records
-        .filter(record => record && record.timestamp >= todayStartTime && record.timestamp <= todayEndTime)
-        .reduce((sum, record) => sum + record.amount, 0)
+      records.reduce((sum, record) =>
+        (record && record.timestamp >= todayStartTime && record.timestamp <= todayEndTime)
+          ? sum + record.amount
+          : sum
+      , 0)
     );
   }, [records]);
 
