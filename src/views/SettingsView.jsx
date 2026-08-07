@@ -17,9 +17,6 @@ import ManualImportModal from '../components/ManualImportModal'; // 导入新组
 import { getDBValue, setDBValue, importDatabase, exportDatabaseBinary, importDatabaseBinary, exportAllDataSnapshot, rescueRawDatabaseBytes, repairDatabase, getRepairLogs, clearRepairLogs } from '../utils/db';
 import { trackEvent } from '../utils/analytics';
 
-// 动态导入 WebDAVClient
-const WebDAVClientPromise = import('../utils/webdavSync');
-
 const WEBDAV_PASSWORD_KEY = 'webdavPassword';
 
 /**
@@ -42,6 +39,7 @@ const SettingsView = ({
     onShowLogs
 }) => {
     const [searchParams, setSearchParams] = useSearchParams();
+    const initialConfigParam = searchParams.get('config') || '';
     
     // 饮品编辑状态
     const [showDrinkEditor, setShowDrinkEditor] = useState(false);
@@ -59,9 +57,23 @@ const SettingsView = ({
     
     // 配置分享状态
     const [showConfigShare, setShowConfigShare] = useState(false);
-    const [showManualImport, setShowManualImport] = useState(false); // 新状态
-    const [importConfigParam, setImportConfigParam] = useState(''); // 用于存储URL参数中的config
+    const [showManualImport, setShowManualImport] = useState(() => Boolean(initialConfigParam));
+    const [importConfigParam] = useState(initialConfigParam);
     const [scannedContent, setScannedContent] = useState(''); // 用于存储扫描到的内容
+    const sortedDrinks = useMemo(() => [...drinks].sort((a, b) => {
+        const categoryA = a.category || DEFAULT_CATEGORY;
+        const categoryB = b.category || DEFAULT_CATEGORY;
+        const categoryIndexA = DRINK_CATEGORIES.indexOf(categoryA);
+        const categoryIndexB = DRINK_CATEGORIES.indexOf(categoryB);
+        if (categoryIndexA !== categoryIndexB) {
+            if (categoryIndexA === -1) return 1;
+            if (categoryIndexB === -1) return -1;
+            return categoryIndexA - categoryIndexB;
+        }
+        if (!a.isPreset && b.isPreset) return -1;
+        if (a.isPreset && !b.isPreset) return 1;
+        return a.name.localeCompare(b.name);
+    }), [drinks]);
 
     // 包装手动同步函数，清除测试结果
     const handleManualSync = useCallback(() => {
@@ -71,14 +83,11 @@ const SettingsView = ({
 
     // 检测URL参数中的config，如果存在则自动打开手动导入弹窗
     useEffect(() => {
-        const configParam = searchParams.get('config');
-        if (configParam) {
-            setImportConfigParam(configParam);
-            setShowManualImport(true);
+        if (initialConfigParam) {
             // 清除URL参数，避免刷新后重复触发
             setSearchParams({});
         }
-    }, [searchParams, setSearchParams]);
+    }, [initialConfigParam, setSearchParams]);
 
     // 加载持久化的 WebDAV 密码
     useEffect(() => {
@@ -526,6 +535,12 @@ const SettingsView = ({
     const clearAllData = useCallback(async () => {
         if (window.confirm("您确定要清除所有本地数据吗？此操作不可撤销。")) {
             try {
+                await importDatabase({
+                    records: [],
+                    drinks: initialPresetDrinks,
+                    userSettings: defaultSettings,
+                    deletedItems: []
+                });
                 await Preferences.remove({ key: 'caffeineRecords' });
                 await Preferences.remove({ key: 'caffeineSettings' });
                 await Preferences.remove({ key: 'caffeineDrinks' });
@@ -1533,20 +1548,7 @@ const SettingsView = ({
                         className="pt-2 space-y-2 max-h-72 overflow-y-auto text-sm pr-1 scrollbar-thin scrollbar-thumb-rounded-full scrollbar-track-rounded-full"
                         style={{ scrollbarColor: `${colors.borderStrong} transparent` }}
                     >
-                        {drinks
-                            .sort((a, b) => {
-                                const catA = a.category || DEFAULT_CATEGORY;
-                                const catB = b.category || DEFAULT_CATEGORY;
-                                const indexA = DRINK_CATEGORIES.indexOf(catA);
-                                const indexB = DRINK_CATEGORIES.indexOf(catB);
-                                if (indexA !== indexB) {
-                                    if (indexA === -1) return 1; if (indexB === -1) return -1;
-                                    return indexA - indexB;
-                                }
-                                if (!a.isPreset && b.isPreset) return -1; if (a.isPreset && !b.isPreset) return 1;
-                                return a.name.localeCompare(b.name);
-                            })
-                            .map(drink => {
+                        {sortedDrinks.map(drink => {
                                 const isOriginalPreset = originalPresetDrinkIds.has(drink.id);
                                 return (
                                     <li
@@ -1554,7 +1556,9 @@ const SettingsView = ({
                                         className={`flex justify-between items-center p-3 rounded-lg border transition-colors`}
                                         style={{
                                             backgroundColor: !drink.isPreset ? colors.customDrinkBg : colors.bgBase,
-                                            borderColor: !drink.isPreset ? colors.customDrinkBorder : colors.borderSubtle
+                                            borderColor: !drink.isPreset ? colors.customDrinkBorder : colors.borderSubtle,
+                                            contentVisibility: 'auto',
+                                            containIntrinsicSize: '64px'
                                         }}
                                     >
                                         <div className="flex-1 overflow-hidden mr-2">
@@ -1870,7 +1874,6 @@ const SettingsView = ({
                     colors={colors}
                     onImportConfig={onImportConfig}
                     initialConfigParam={importConfigParam}
-                    isNativePlatform={isNativePlatform}
                     initialScannedContent={scannedContent}
                 />
             )}

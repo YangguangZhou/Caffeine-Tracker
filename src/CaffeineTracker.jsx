@@ -14,13 +14,11 @@ import { isToday, formatTime, formatDate } from './utils/timeUtils';
 // 导入常量和预设
 import { defaultSettings, initialPresetDrinks, originalPresetDrinkIds, COFFEE_COLORS, NIGHT_COLORS, DRINK_CATEGORIES, DEFAULT_CATEGORY, ensureDrinkColors } from './utils/constants';
 // 导入WebDAV客户端
-import WebDAVClient from './utils/webdavSync';
 import { trackEvent, trackEventOnce } from './utils/analytics';
 // 导入错误弹窗组件
 import SyncErrorModal from './components/SyncErrorModal';
 // 导入同步日志弹窗组件
 import SyncLogModal from './components/SyncLogModal';
-import IntakeForm from './components/IntakeForm';
 
 // 懒加载视图组件
 const CurrentStatusView = lazy(() => import('./views/CurrentStatusView'));
@@ -28,6 +26,7 @@ const StatisticsView = lazy(() => import('./views/StatisticsView'));
 const SettingsView = lazy(() => import('./views/SettingsView'));
 const AboutView = lazy(() => import('./views/AboutView'));
 const SyncImportView = lazy(() => import('./views/SyncImportView'));
+const IntakeForm = lazy(() => import('./components/IntakeForm'));
 
 const UMAMI_SCRIPT_ID = 'umami-analytics-script';
 const ADSENSE_SCRIPT_ID = 'google-adsense-script';
@@ -118,12 +117,10 @@ const CaffeineTrackerApp = () => {
   const [userSettings, setUserSettings] = useState(defaultSettings);
   const [effectiveTheme, setEffectiveTheme] = useState('light');
   const [records, setRecords] = useState([]);
-  const [currentCaffeineAmount, setCurrentCaffeineAmount] = useState(0);
-  const [currentCaffeineConcentration, setCurrentCaffeineConcentration] = useState(0);
+  const [calculationTimestamp, setCalculationTimestamp] = useState(() => Date.now());
   const [drinks, setDrinks] = useState([]);
   const [statsView, setStatsView] = useState('week');
   const [statsDate, setStatsDate] = useState(new Date());
-  const [metabolismChartData, setMetabolismChartData] = useState([]);
   const [syncStatus, setSyncStatus] = useState({
     inProgress: false,
     lastSyncTime: null,
@@ -131,9 +128,8 @@ const CaffeineTrackerApp = () => {
   });
   const [showSyncBadge, setShowSyncBadge] = useState(false);
   const [appConfig, setAppConfig] = useState({ latest_version: "loading...", download_url: "#" });
-  const [isNativePlatform, setIsNativePlatform] = useState(null);
+  const [isNativePlatform] = useState(() => Capacitor.isNativePlatform());
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
-  const [webdavConfigured, setWebdavConfigured] = useState(false);
   const [syncError, setSyncError] = useState(null); // 同步错误弹窗
   const [updateInfo, setUpdateInfo] = useState({ available: false, forced: false, downloadUrl: '', latestVersion: '' });
   const [showLogModal, setShowLogModal] = useState(false); // 同步日志弹窗
@@ -151,11 +147,6 @@ const CaffeineTrackerApp = () => {
     if (path === '/about') return 'about';
     return 'current'; // 默认为状态
   }, [location.pathname]);
-
-  // 检查平台类型
-  useEffect(() => {
-    setIsNativePlatform(Capacitor.isNativePlatform());
-  }, []);
 
   // 获取应用配置和版本检查
   useEffect(() => {
@@ -442,78 +433,77 @@ const CaffeineTrackerApp = () => {
     loadData();
   }, [isNativePlatform]);
 
-  // 保存数据到 Preferences
+  // Persist each data domain independently. Record handlers already update
+  // SQLite, so record changes should not rewrite the complete drinks table.
   useEffect(() => {
-    if (!initialDataLoaded) {
-      return;
-    }
+    if (!initialDataLoaded) return;
 
-    const saveData = async () => {
+    const saveSettingsData = async () => {
       try {
         const settingsToPersist = { ...userSettings };
         delete settingsToPersist.webdavPassword;
         delete settingsToPersist.themeMode;
-        
-        // 如果是本地开发环境，且 develop 为 true，我们需要判断这是否是用户手动开启的。
-        // 由于无法区分是“环境强制”还是“用户手动”，为了满足“数据库中依然保持原有的状态”的需求，
-        // 我们在保存时，如果当前是本地环境，且 develop 为 true，我们应该尝试恢复数据库中原有的 develop 值。
-        // 但这比较复杂，因为我们需要读取旧值。
-        // 简化的逻辑：如果是本地开发环境，我们在保存时强制将 develop 设为 false (或者不保存该字段，但这会依赖默认值)。
-        // 更好的方式：在加载时，我们把“真实的”develop状态存在另一个变量里？或者我们接受这样一个事实：
-        // 在本地开发时，我们看到的 develop 是 true，但保存到数据库时，我们希望它是 false (除非用户真的想改)。
-        // 鉴于需求是“本地调试的时候开发模式为true...但是不会对数据库中进行改变”，
-        // 我们可以在保存前，检查环境。如果是本地环境，强制将 settingsToPersist.develop 设为 false (或者从数据库读取原值，但这太慢)。
-        // 假设：用户在本地调试时不需要手动去开关 develop 模式，因为它已经自动开启了。
-        // 所以，在本地调试环境下，我们保存时总是将 develop 设为 false (或者保留原有的逻辑，即如果用户没动过，它就是 false？不对，userSettings.develop 已经是 true 了)。
-        
+
         const isLocalDev = !isNativePlatform && (
-            window.location.hostname === 'localhost' || 
-            window.location.hostname === '127.0.0.1'
+          window.location.hostname === 'localhost' ||
+          window.location.hostname === '127.0.0.1'
         );
+        if (isLocalDev) settingsToPersist.develop = false;
 
-        if (isLocalDev) {
-            // 在本地开发环境，不保存 develop: true 到数据库，保持数据库干净
-            // 如果用户真的想在数据库里开启，需要使用 Python 工具
-            settingsToPersist.develop = false; 
-        }
-
-        // Save Settings and Drinks to DB (Records are handled individually)
         await saveSettings(settingsToPersist);
-        await saveAllDrinks(drinks);
-
-        // Save to Preferences (Backup/Legacy)
         await Preferences.set({ key: 'caffeineSettings', value: JSON.stringify(settingsToPersist) });
-        await Preferences.set({ key: 'caffeineRecords', value: JSON.stringify(records) });
-        await Preferences.set({ key: 'caffeineDrinks', value: JSON.stringify(drinks) });
-
       } catch (error) {
-        console.error('Error saving data:', error);
+        console.error('Error saving settings:', error);
       }
     };
+    saveSettingsData();
+  }, [userSettings, initialDataLoaded, isNativePlatform]);
 
-    saveData();
-  }, [records, userSettings, drinks, initialDataLoaded, isNativePlatform]);
-
-  // 计算状态
   useEffect(() => {
-    const calculateCurrentStatus = () => {
-      const now = Date.now();
-      const { caffeineHalfLifeHours, weight, volumeOfDistribution } = userSettings;
-      const totalAmount = getTotalCaffeineAtTime(records, now, caffeineHalfLifeHours);
-      setCurrentCaffeineAmount(totalAmount);
-      const concentration = estimateConcentration(totalAmount, weight, volumeOfDistribution);
-      setCurrentCaffeineConcentration(concentration ?? 0);
+    if (!initialDataLoaded) return;
+    const saveDrinksData = async () => {
+      try {
+        await saveAllDrinks(drinks);
+        await Preferences.set({ key: 'caffeineDrinks', value: JSON.stringify(drinks) });
+      } catch (error) {
+        console.error('Error saving drinks:', error);
+      }
     };
-    calculateCurrentStatus();
-    const timer = setInterval(calculateCurrentStatus, 60000);
-    return () => clearInterval(timer);
-  }, [records, userSettings]);
+    saveDrinksData();
+  }, [drinks, initialDataLoaded]);
 
-  // 生成代谢图表数据
   useEffect(() => {
-    const chartData = generateMetabolismChartData(records, userSettings.caffeineHalfLifeHours);
-    setMetabolismChartData(chartData);
-  }, [records, userSettings.caffeineHalfLifeHours]);
+    if (!initialDataLoaded) return;
+    Preferences.set({ key: 'caffeineRecords', value: JSON.stringify(records) })
+      .catch(error => console.error('Error backing up records:', error));
+  }, [records, initialDataLoaded]);
+
+  // Refresh all time-dependent values with a single render per minute.
+  useEffect(() => {
+    const timer = setInterval(() => setCalculationTimestamp(Date.now()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const currentCaffeineAmount = useMemo(() => getTotalCaffeineAtTime(
+    records,
+    calculationTimestamp,
+    userSettings.caffeineHalfLifeHours
+  ), [records, calculationTimestamp, userSettings.caffeineHalfLifeHours]);
+
+  const currentCaffeineConcentration = useMemo(() => estimateConcentration(
+    currentCaffeineAmount,
+    userSettings.weight,
+    userSettings.volumeOfDistribution
+  ) ?? 0, [currentCaffeineAmount, userSettings.weight, userSettings.volumeOfDistribution]);
+
+  const metabolismChartData = useMemo(() => generateMetabolismChartData(
+    records,
+    userSettings.caffeineHalfLifeHours,
+    6,
+    18,
+    4,
+    calculationTimestamp
+  ), [records, calculationTimestamp, userSettings.caffeineHalfLifeHours]);
 
   // 脚本管理（统计和广告）
   useEffect(() => {
@@ -697,6 +687,7 @@ const CaffeineTrackerApp = () => {
     setShowSyncBadge(true);
 
     try {
+      const { default: WebDAVClient } = await import('./utils/webdavSync');
       const webdavClient = new WebDAVClient(
         settingsToUse.webdavServer,
         settingsToUse.webdavUsername,
@@ -838,12 +829,14 @@ const CaffeineTrackerApp = () => {
         if (!startupSyncAttempted && !syncStatus.inProgress) {
           console.log("启动时同步条件满足，尝试同步。");
           sessionStorage.setItem('startupSyncAttempted', 'true');
-          performWebDAVSync(userSettings, records, drinks);
+          dailyCheckTimeout = window.setTimeout(() => {
+            performWebDAVSync(userSettings, records, drinks).catch(() => undefined);
+          }, 0);
         }
       } else if (userSettings.webdavSyncFrequency === 'hourly') {
         syncTimer = setInterval(() => {
           if (!syncStatus.inProgress) {
-            performWebDAVSync(userSettings, records, drinks);
+            performWebDAVSync(userSettings, records, drinks).catch(() => undefined);
           }
         }, 3600000);
       } else if (userSettings.webdavSyncFrequency === 'daily') {
@@ -851,12 +844,12 @@ const CaffeineTrackerApp = () => {
           const lastSync = userSettings.lastSyncTimestamp ? new Date(userSettings.lastSyncTimestamp) : null;
           if (!lastSync || !isToday(lastSync)) {
             if (!syncStatus.inProgress) {
-              performWebDAVSync(userSettings, records, drinks);
+              performWebDAVSync(userSettings, records, drinks).catch(() => undefined);
             }
           }
           dailyCheckTimeout = setTimeout(checkDailySync, 3600000);
         };
-        checkDailySync();
+        dailyCheckTimeout = setTimeout(checkDailySync, 0);
       }
     }
     return () => clearTimers();
@@ -871,7 +864,8 @@ const CaffeineTrackerApp = () => {
     records,
     drinks,
     performWebDAVSync,
-    syncStatus.inProgress
+    syncStatus.inProgress,
+    userSettings
   ]);
 
   // 事件处理
@@ -1038,14 +1032,15 @@ const CaffeineTrackerApp = () => {
     }
   }, [userSettings, records, drinks, performWebDAVSync]);
 
+  const webdavConfigured = Boolean(
+    userSettings.webdavEnabled &&
+    userSettings.webdavServer &&
+    userSettings.webdavUsername &&
+    userSettings.webdavPassword
+  );
+
   // 监听WebDAV配置状态
   useEffect(() => {
-    const configured = userSettings.webdavEnabled &&
-      userSettings.webdavServer &&
-      userSettings.webdavUsername &&
-      userSettings.webdavPassword;
-    setWebdavConfigured(configured);
-
     if (!initialDataLoaded) {
       return;
     }
@@ -1055,7 +1050,7 @@ const CaffeineTrackerApp = () => {
       return;
     }
 
-    if (configured) {
+    if (webdavConfigured) {
       trackEventOnce('webdav_configure', 'webdav_configured');
     }
   }, [
@@ -1063,7 +1058,8 @@ const CaffeineTrackerApp = () => {
     userSettings.webdavEnabled,
     userSettings.webdavServer,
     userSettings.webdavUsername,
-    userSettings.webdavPassword
+    userSettings.webdavPassword,
+    webdavConfigured
   ]);
 
   const dismissInstallSuggestion = useCallback(() => {
@@ -1306,6 +1302,7 @@ const CaffeineTrackerApp = () => {
               <CurrentStatusView
                   currentCaffeineAmount={currentCaffeineAmount}
                   currentCaffeineConcentration={currentCaffeineConcentration}
+                  calculationTimestamp={calculationTimestamp}
                   records={records}
                   drinks={drinks}
                   metabolismChartData={metabolismChartData}
@@ -1324,6 +1321,7 @@ const CaffeineTrackerApp = () => {
             <Route path="/statistics" element={
               <StatisticsView
                 records={records}
+                calculationTimestamp={calculationTimestamp}
                 statsView={statsView}
                 setStatsView={setStatsView}
                 statsDate={statsDate}
@@ -1371,7 +1369,6 @@ const CaffeineTrackerApp = () => {
               <SyncImportView
                 colors={colors}
                 onImportConfig={handleImportConfig}
-                isNativePlatform={isNativePlatform}
               />
             } />
           </Routes>
@@ -1421,14 +1418,16 @@ const CaffeineTrackerApp = () => {
               <div className="w-12 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600"></div>
             </div>
             <div className="overflow-y-auto w-full px-4 sm:px-6 pb-6 pt-2 sm:pt-6 no-scrollbar" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
-              <IntakeForm
-                drinks={drinks}
-                onSubmit={handleGlobalFormSubmit}
-                onCancel={handleCloseIntakeForm}
-                initialValues={globalEditingRecord}
-                colors={colors}
-                lastRecord={records.length > 0 ? records[0] : null}
-              />
+              <Suspense fallback={<div className="flex justify-center py-8"><Loader2 className="animate-spin" style={{ color: colors.accent }} /></div>}>
+                <IntakeForm
+                  drinks={drinks}
+                  onSubmit={handleGlobalFormSubmit}
+                  onCancel={handleCloseIntakeForm}
+                  initialValues={globalEditingRecord}
+                  colors={colors}
+                  lastRecord={records.length > 0 ? records[0] : null}
+                />
+              </Suspense>
             </div>
           </div>
         </div>

@@ -44,9 +44,6 @@ export const COFFEE_COLORS = {
   textMuted: '#a16207',   // Amber-700
   borderSubtle: '#f3eade', // 较浅的米色边框
   borderStrong: '#d2b48c', // 棕褐色边框
-  customDrinkBg: '#f0fdf4', // 自定义饮品的浅绿色背景
-  customDrinkBorder: '#bbf7d0', // 自定义饮品边框
-  customDrinkText: '#166534', // 自定义饮品文本
   chartLine: '#8b4513', // 代谢线的马鞍棕色
   chartNowLine: '#dc2626', // 当前时间的红线
   chartSleepLine: '#3b82f6', // 睡眠阈值的蓝线
@@ -67,7 +64,6 @@ export const COFFEE_COLORS = {
 
 // 夜间模式颜色方案
 export const NIGHT_COLORS = {
-  espresso: '#d4c0a1', // 浅棕色（主要文本/强调元素）
   latte: '#8c7b5c',     // 深米色（次要元素）
   cappuccino: '#a07455', // 棕色（强调/图表柱）
   accent: '#c39065',    // 浅棕色（按钮/高亮）

@@ -157,8 +157,8 @@ export const calculateCaffeineAmount = (drink, inputValue) => {
  */
 export const generateMetabolismChartData = (records, halfLifeHours,
   hoursBefore = 6, hoursAfter = 18,
-  pointsPerHour = 4) => {
-  const now = Date.now();
+  pointsPerHour = 4, calculationTimestamp = Date.now()) => {
+  const now = calculationTimestamp;
   const data = [];
 
   const startTime = now - hoursBefore * 60 * 60 * 1000;

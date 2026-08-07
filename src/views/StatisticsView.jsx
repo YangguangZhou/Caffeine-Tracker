@@ -105,6 +105,20 @@ const MotivationalMessage = ({ colors, title, requiredDays, icon }) => (
   </div>
 );
 
+const StatItem = ({ icon, label, value, unit, colorClass = '', colors }) => (
+  <div className="p-2 rounded-lg text-center" style={{ backgroundColor: colors.bgBase }}>
+    <div className="flex items-center justify-center mb-1" style={{ color: colors.accent }}>
+      {icon}
+    </div>
+    <p className="text-xs font-medium truncate" style={{ color: colors.textSecondary }}>
+      {label}
+    </p>
+    <p className={`text-sm font-bold mt-1 ${colorClass}`} style={{ color: !colorClass ? colors.espresso : undefined }}>
+      {value} <span className="text-xs font-normal">{unit}</span>
+    </p>
+  </div>
+);
+
 
 /**
  * 统计数据视图组件
@@ -112,6 +126,7 @@ const MotivationalMessage = ({ colors, title, requiredDays, icon }) => (
  */
 const StatisticsView = ({
   records,
+  calculationTimestamp,
   statsView,
   setStatsView,
   statsDate,
@@ -478,7 +493,6 @@ const StatisticsView = ({
 
     // 计算周末vs工作日模式
     let weekdayTotal = 0, weekendTotal = 0;
-    let weekdayRecordCount = 0, weekendRecordCount = 0; // 用于计算平均值，而非天数
     const weekdayDays = new Set();
     const weekendDays = new Set();
 
@@ -489,11 +503,9 @@ const StatisticsView = ({
 
       if (day === 0 || day === 6) { // 周日或周六
         weekendTotal += record.amount;
-        weekendRecordCount++;
         weekendDays.add(dateString);
       } else { // 工作日
         weekdayTotal += record.amount;
-        weekdayRecordCount++;
         weekdayDays.add(dateString);
       }
     });
@@ -627,7 +639,7 @@ const StatisticsView = ({
       maxDayData,
       minDayData
     };
-  }, [statsChartData]);
+  }, [statsChartData, statsDate, statsView]);
 
   // 修改咖啡因分布，支持多种排序方式
   const caffeineDistribution = useMemo(
@@ -650,8 +662,8 @@ const StatisticsView = ({
     else if (statsView === 'month') startOfNextPeriod = getStartOfMonth(nextDate);
     else startOfNextPeriod = getStartOfYear(nextDate);
 
-    return startOfNextPeriod > Date.now();
-  }, [statsDate, statsView]);
+    return startOfNextPeriod > calculationTimestamp;
+  }, [statsDate, statsView, calculationTimestamp]);
 
   // 辅助函数：计算建议停止摄入时间
   const calculateStopTime = (plannedSleepTimeStr, hoursBefore) => {
@@ -666,27 +678,11 @@ const StatisticsView = ({
 
     if (isNaN(hours) || isNaN(minutes)) return "特定时间";
 
-    const plannedDate = new Date();
+    const plannedDate = new Date(calculationTimestamp);
     plannedDate.setHours(hours, minutes, 0, 0);
     plannedDate.setHours(plannedDate.getHours() - hoursBefore);
     return `${String(plannedDate.getHours()).padStart(2, '0')}:${String(plannedDate.getMinutes()).padStart(2, '0')}`;
   };
-
-  // 辅助组件：用于展示单个详细统计指标
-  const StatItem = ({ icon, label, value, unit, colorClass = '' }) => (
-    <div className="p-2 rounded-lg text-center" style={{ backgroundColor: colors.bgBase }}>
-      <div className="flex items-center justify-center mb-1" style={{ color: colors.accent }}>
-        {icon}
-      </div>
-      <p className="text-xs font-medium truncate" style={{ color: colors.textSecondary }}>
-        {label}
-      </p>
-      <p className={`text-sm font-bold mt-1 ${colorClass}`} style={{ color: !colorClass ? colors.espresso : undefined }}>
-        {value} <span className="text-xs font-normal">{unit}</span>
-      </p>
-    </div>
-  );
-
 
   return (
     <div className="columns-1 sm:columns-2 xl:columns-3 gap-3 sm:gap-4 w-full">
@@ -870,7 +866,7 @@ const StatisticsView = ({
               {(() => {
                 let total = 0;
                 let days = 0;
-                const now = Date.now();
+                const now = calculationTimestamp;
                 
                 if (statsView === 'week') {
                   total = getWeekTotal(statsDate);
@@ -1150,20 +1146,20 @@ const StatisticsView = ({
             return (
               <>
                 <div className="grid grid-cols-4 gap-2 text-sm mb-6">
-                  <StatItem icon={<Calendar size={16} />} label="记录天数" value={detailedStats.totalDays} unit="天" />
-                  <StatItem icon={<Coffee size={16} />} label="记录次数" value={records.length} unit="次" />
-                  <StatItem icon={<AlertCircle size={16} />} label="超标天数" value={detailedStats.exceedDays} unit="天" colorClass={detailedStats.exceedDays > 0 ? 'text-orange-500' : ''} />
-                  <StatItem icon={<Percent size={16} />} label="超标率" value={detailedStats.exceedRate} unit="%" colorClass={detailedStats.exceedRate > 20 ? 'text-red-500' : detailedStats.exceedRate > 10 ? 'text-orange-500' : ''} />
+                  <StatItem colors={colors} icon={<Calendar size={16} />} label="记录天数" value={detailedStats.totalDays} unit="天" />
+                  <StatItem colors={colors} icon={<Coffee size={16} />} label="记录次数" value={records.length} unit="次" />
+                  <StatItem colors={colors} icon={<AlertCircle size={16} />} label="超标天数" value={detailedStats.exceedDays} unit="天" colorClass={detailedStats.exceedDays > 0 ? 'text-orange-500' : ''} />
+                  <StatItem colors={colors} icon={<Percent size={16} />} label="超标率" value={detailedStats.exceedRate} unit="%" colorClass={detailedStats.exceedRate > 20 ? 'text-red-500' : detailedStats.exceedRate > 10 ? 'text-orange-500' : ''} />
 
-                  <StatItem icon={<Droplet size={16} />} label="平均单次" value={detailedStats.avgPerIntake} unit="mg" />
-                  <StatItem icon={<ActivityIcon size={16} />} label="平均每日" value={detailedStats.avgDailyAmount} unit="mg" />
-                  <StatItem icon={<Target size={16} />} label="最大单次" value={detailedStats.maxSingleIntake} unit="mg" />
-                  <StatItem icon={<Moon size={16} />} label="睡前残留" value={detailedStats.avgCaffeineAtSleep} unit="mg" colorClass={detailedStats.avgCaffeineAtSleep > 30 ? 'text-orange-500' : ''} />
+                  <StatItem colors={colors} icon={<Droplet size={16} />} label="平均单次" value={detailedStats.avgPerIntake} unit="mg" />
+                  <StatItem colors={colors} icon={<ActivityIcon size={16} />} label="平均每日" value={detailedStats.avgDailyAmount} unit="mg" />
+                  <StatItem colors={colors} icon={<Target size={16} />} label="最大单次" value={detailedStats.maxSingleIntake} unit="mg" />
+                  <StatItem colors={colors} icon={<Moon size={16} />} label="睡前残留" value={detailedStats.avgCaffeineAtSleep} unit="mg" colorClass={detailedStats.avgCaffeineAtSleep > 30 ? 'text-orange-500' : ''} />
                   
-                  <StatItem icon={<TrendingUp size={16} />} label="最长连续" value={detailedStats.maxStreak} unit="天" />
-                  <StatItem icon={<Zap size={16} />} label="当前连续" value={detailedStats.currentStreak} unit="天" />
-                  <StatItem icon={<Clock size={16} />} label="平均间隔" value={detailedStats.avgInterval} unit="h" />
-                  <StatItem icon={<Brain size={16} />} label="平均时间" value={`${Math.floor(detailedStats.avgIntakeTime)}:${String(Math.round((detailedStats.avgIntakeTime % 1) * 60)).padStart(2, '0')}`} unit="" />
+                  <StatItem colors={colors} icon={<TrendingUp size={16} />} label="最长连续" value={detailedStats.maxStreak} unit="天" />
+                  <StatItem colors={colors} icon={<Zap size={16} />} label="当前连续" value={detailedStats.currentStreak} unit="天" />
+                  <StatItem colors={colors} icon={<Clock size={16} />} label="平均间隔" value={detailedStats.avgInterval} unit="h" />
+                  <StatItem colors={colors} icon={<Brain size={16} />} label="平均时间" value={`${Math.floor(detailedStats.avgIntakeTime)}:${String(Math.round((detailedStats.avgIntakeTime % 1) * 60)).padStart(2, '0')}`} unit="" />
                 </div>
 
                 {/* 周度分析 */}

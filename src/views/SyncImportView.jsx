@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ShieldCheck, Server, User, KeyRound, Download, Camera, X, Loader2, Copy, Check } from 'lucide-react';
-import { Capacitor } from '@capacitor/core';
+import { ShieldCheck, Server, User, KeyRound, Download, X, Loader2, Copy, Check } from 'lucide-react';
 import { decodeConfigFromUrl, isValidConfig, getServerDisplayName, extractConfigParam } from '../utils/syncConfigShare';
 
 const CustomModal = ({ children, colors }) => (
@@ -18,13 +17,12 @@ const CustomModal = ({ children, colors }) => (
   </div>
 );
 
-const SyncImportView = ({ onImportConfig, isNativePlatform, colors }) => {
+const SyncImportView = ({ onImportConfig, colors }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
   const [configData, setConfigData] = useState(null);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [manualUrl, setManualUrl] = useState('');
@@ -39,8 +37,9 @@ const SyncImportView = ({ onImportConfig, isNativePlatform, colors }) => {
       navigate(`/settings?config=${configParam}`, { replace: true });
       return;
     }
-    setLoading(false);
   }, [searchParams, navigate]);
+
+  const loading = Boolean(searchParams.get('config'));
 
   const handleManualUrlParse = () => {
     if (!manualUrl) return;
@@ -61,7 +60,7 @@ const SyncImportView = ({ onImportConfig, isNativePlatform, colors }) => {
         return;
       }
       setError('链接中未找到配置参数。');
-    } catch (err) {
+    } catch {
       setError('无法解析输入的内容，请确保是有效的URL。');
     }
   };
@@ -352,27 +351,6 @@ const SyncImportView = ({ onImportConfig, isNativePlatform, colors }) => {
                 </button>
               </div>
             </div>
-            {isNativePlatform && (
-              <>
-                <div className="relative flex items-center">
-                  <div className="flex-grow border-t" style={{ borderColor: colors.borderSubtle }}></div>
-                  <span className="flex-shrink mx-4 text-xs" style={{ color: colors.textMuted }}>或</span>
-                  <div className="flex-grow border-t" style={{ borderColor: colors.borderSubtle }}></div>
-                </div>
-                <button
-                  onClick={handleScan}
-                  className="w-full flex justify-center items-center py-2.5 px-5 text-sm font-medium rounded-lg border focus:z-10 focus:ring-2 transition-colors"
-                  style={{
-                    color: colors.textPrimary,
-                    backgroundColor: colors.bgBase,
-                    borderColor: colors.borderStrong
-                  }}
-                >
-                  <Camera size={20} className="mr-2" />
-                  扫描二维码
-                </button>
-              </>
-            )}
           </div>
         )}
       </div>

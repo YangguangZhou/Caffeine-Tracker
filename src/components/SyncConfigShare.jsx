@@ -5,6 +5,7 @@ import { trackEvent } from '../utils/analytics';
 const SyncConfigShare = ({ webdavConfig, onClose, colors }) => {
   const [copied, setCopied] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [shareTimestamp] = useState(() => Date.now());
 
   const shareUrl = useMemo(() => {
     if (!webdavConfig) return '';
@@ -14,7 +15,7 @@ const SyncConfigShare = ({ webdavConfig, onClose, colors }) => {
         s: webdavConfig.server,
         u: webdavConfig.username,
         p: webdavConfig.password,
-        t: Date.now()
+        t: shareTimestamp
       };
       
       // 使用 TextEncoder 和 base64 编码
@@ -26,7 +27,7 @@ const SyncConfigShare = ({ webdavConfig, onClose, colors }) => {
       console.error('Failed to encode config:', error);
       return '';
     }
-  }, [webdavConfig]);
+  }, [webdavConfig, shareTimestamp]);
 
   // 锁定背景滚动
   useEffect(() => {

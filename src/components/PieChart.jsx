@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 
 /**
  * 饼状图组件
@@ -6,18 +6,7 @@ import React, { useState, useRef, useEffect } from 'react';
  */
 const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => {
   const [selectedSectorId, setSelectedSectorId] = useState(null);
-  const [isTransitioning, setIsTransitioning] = useState(false);
   const chartRef = useRef(null);
-
-  // 当排序方式改变时触发动画
-  useEffect(() => {
-    setIsTransitioning(true);
-    const timer = setTimeout(() => {
-      setIsTransitioning(false);
-    }, 200); // 与CSS transition时间保持一致
-
-    return () => clearTimeout(timer);
-  }, [sortBy]);
 
   // 提供默认颜色值以防止 undefined 错误
   const defaultColors = {
@@ -151,17 +140,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
     setSelectedSectorId(selectedSectorId === sector.id ? null : sector.id);
   };
 
-  const handleChartClick = (e) => {
-    // 检查点击是否在图表容器内但不是扇形
-    if (chartRef.current && chartRef.current.contains(e.target)) {
-      // 如果点击的不是路径元素，清空选中状态
-      if (e.target.tagName !== 'path') {
-        setSelectedSectorId(null);
-      }
-    }
-  };
-
-  const handleContainerClick = (e) => {
+  const handleContainerClick = () => {
     // 点击组件根容器的空白处时，清除选中状态
     setSelectedSectorId(null);
   };
@@ -179,8 +158,8 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
         ref={chartRef}
         onClick={(e) => e.stopPropagation()}
         style={{
-          opacity: isTransitioning ? 0.3 : 1,
-          transform: isTransitioning ? 'scale(0.95)' : 'scale(1)',
+          opacity: 1,
+          transform: 'scale(1)',
           transition: 'opacity 0.2s ease-in-out, transform 0.2s ease-in-out'
         }}
       >
@@ -197,7 +176,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
             fill="transparent"
             onClick={() => setSelectedSectorId(null)}
           />
-          {sectors.map((sector, index) => (
+          {sectors.map((sector) => (
             <g key={sector.id + '-' + sortBy}>
               <path
                 d={createPath(sector.startAngle, sector.endAngle)}
@@ -238,7 +217,7 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
               backgroundColor: currentSelectedSectorData.color + '20',
               borderColor: currentSelectedSectorData.color,
               color: defaultColors.textPrimary,
-              opacity: isTransitioning ? 0.3 : 1,
+              opacity: 1,
               transition: 'opacity 0.2s ease-in-out'
             }}
             onClick={(e) => e.stopPropagation()} // 阻止冒泡
@@ -264,8 +243,8 @@ const PieChart = ({ data, colors = {}, sortBy = 'count', totalRecords = 0 }) => 
         className="flex-1 min-w-0"
         onClick={(e) => e.stopPropagation()} // 阻止事件冒泡到根容器
         style={{
-          opacity: isTransitioning ? 0.3 : 1,
-          transform: isTransitioning ? 'translateY(10px)' : 'translateY(0)',
+          opacity: 1,
+          transform: 'translateY(0)',
           transition: 'opacity 0.2s ease-in-out, transform 0.2s ease-in-out'
         }}
       >

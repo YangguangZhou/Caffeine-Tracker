@@ -1,31 +1,12 @@
 // WebDAV 同步实用工具
 
-import { Capacitor, CapacitorHttp } from '@capacitor/core';
+import { Capacitor } from '@capacitor/core';
 import JSZip from 'jszip';
 import { getPresetIconColor, DEFAULT_CATEGORY } from './constants';
 import { deserializeSQLiteBytes, serializeDataToSQLiteBytes } from './db';
 
-// 将 ArrayBuffer 转为 Base64，供原生 HTTP 上传使用
-const arrayBufferToBase64 = (buffer) => {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-};
-
 const SIZE_MISMATCH_TOLERANCE_BYTES = 1024;
 const SIZE_MISMATCH_TOLERANCE_RATIO = 0.01;
-
-const knownSettingKeys = [
-    'weight', 'maxDailyCaffeine', 'recommendedDosePerKg',
-    'safeSleepThresholdConcentration', 'volumeOfDistribution',
-    'caffeineHalfLifeHours',
-    'webdavSyncFrequency', 'lastSyncTimestamp', 'develop', 'plannedSleepTime',
-    'localLastModifiedTimestamp'
-];
 
 /**
  * WebDAV 同步客户端
@@ -425,7 +406,10 @@ export default class WebDAVClient {
                     // 记录详细的错误信息和文件头，以便调试
                     const headerBytes = bytes.slice(0, 16);
                     const headerHex = Array.from(headerBytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
-                    const headerText = new TextDecoder().decode(headerBytes).replace(/[\x00-\x1F\x7F-\x9F]/g, '.'); // Replace non-printable chars
+                    const headerText = Array.from(new TextDecoder().decode(headerBytes), character => {
+                        const code = character.charCodeAt(0);
+                        return code <= 31 || (code >= 127 && code <= 159) ? '.' : character;
+                    }).join('');
                     
                     this.log(`SQLite解析失败: ${sqliteError.message}`, 'warn');
                     this.log(`文件头(Hex): ${headerHex}`, 'warn');
@@ -574,90 +558,46 @@ export default class WebDAVClient {
                 'Content-Type': 'application/zip'
             };
 
-            // 尝试显式禁用 Chunked 和 Expect: 100-continue
-            if (this.isNative) {
-                uploadHeaders['Content-Length'] = `${expectedSize}`;
-                uploadHeaders['Expect'] = '';
-                uploadHeaders['Transfer-Encoding'] = 'identity';
-                this.log('已显式设置 Content-Length 并禁用 Chunked/Expect 以避免截断问题 (原生)', 'info');
-            } else {
-                this.log('浏览器环境将自动设置 Content-Length，默认不发送 Expect/Chunked', 'info');
+            // CapacitorHttp 已在 capacitor.config.json 中启用，因此原生端的 fetch
+            // 会由 Capacitor 接管。不要手动设置 Content-Length、Transfer-Encoding
+            // 或 Expect：桥接层可能会转换 Blob，请求体的线上长度应由它计算。
+            // 原生端使用 File 可让 patched fetch 明确走 binary file 分支：JS 侧
+            // Base64 编码仅用于跨桥，Android/iOS 会在写入请求体前还原为原始 ZIP。
+            const uploadBody = this.isNative
+                ? new File([zipBlob], this.zipFileName, { type: 'application/zip' })
+                : zipBlob;
+            const fetchOptions = this.createFetchOptions('PUT', uploadHeaders, uploadBody);
+            const response = await this.executeRequest(url, fetchOptions, 'PUT上传数据(ZIP)');
+
+            if (response.status === 401) {
+                throw new Error("认证失败 (401): 用户名或密码错误");
             }
 
-            // 原生环境使用 CapacitorHttp，避免 WKWebView 对 PUT + Blob 的兼容性问题
-            if (this.isNative) {
-                const headers = this.createFetchOptions('PUT', uploadHeaders).headers;
+            if (response.status === 403) {
+                throw new Error("权限被拒绝 (403): 用户没有写入权限");
+            }
 
-                const base64Zip = arrayBufferToBase64(await zipBlob.arrayBuffer());
-                const nativeResponse = await CapacitorHttp.request({
-                    url: url.toString(),
-                    method: 'PUT',
-                    headers,
-                    data: base64Zip,
-                    dataType: 'base64',
-                    responseType: 'text'
-                });
+            if (response.status === 507) {
+                throw new Error("存储空间不足 (507): 服务器空间已满");
+            }
 
-                const status = nativeResponse.status ?? 0;
-                const statusText = nativeResponse?.data && typeof nativeResponse.data === 'string'
-                    ? nativeResponse.data.substring(0, 120)
-                    : '';
+            if (!response.ok) {
+                const error = `上传数据失败: ${response.status} ${response.statusText}`;
+                this.log(error, 'error');
 
-                this.log(`原生上传响应: ${status} ${statusText || ''}`.trim(), status >= 200 && status < 300 ? 'info' : 'warn');
-
-                if (status === 401) {
-                    throw new Error("认证失败 (401): 用户名或密码错误");
-                }
-
-                if (status === 403) {
-                    throw new Error("权限被拒绝 (403): 用户没有写入权限");
-                }
-
-                if (status === 507) {
-                    throw new Error("存储空间不足 (507): 服务器空间已满");
-                }
-
-                if (!(status >= 200 && status < 300)) {
-                    throw new Error(`上传数据失败: ${status} ${statusText || ''}`.trim());
-                }
-
-                this.log("数据上传成功 (ZIP, 原生)", 'success');
-            } else {
-                // Web 环境沿用 fetch
-                const fetchOptions = this.createFetchOptions('PUT', uploadHeaders, zipBlob);
-
-                const response = await this.executeRequest(url, fetchOptions, 'PUT上传数据(ZIP)');
-
-                if (response.status === 401) {
-                    throw new Error("认证失败 (401): 用户名或密码错误");
-                }
-
-                if (response.status === 403) {
-                    throw new Error("权限被拒绝 (403): 用户没有写入权限");
-                }
-
-                if (response.status === 507) {
-                    throw new Error("存储空间不足 (507): 服务器空间已满");
-                }
-
-                if (!response.ok) {
-                    const error = `上传数据失败: ${response.status} ${response.statusText}`;
-                    this.log(error, 'error');
-
-                    try {
-                        const responseText = await response.text();
-                        if (responseText) {
-                            this.log(`服务器错误详情: ${responseText}`, 'error');
-                        }
-                    } catch (textError) {
-                        console.warn("无法读取错误响应:", textError.message);
+                try {
+                    const responseText = await response.text();
+                    if (responseText) {
+                        this.log(`服务器错误详情: ${responseText}`, 'error');
                     }
-
-                    throw new Error(error);
+                } catch (textError) {
+                    console.warn("无法读取错误响应:", textError.message);
                 }
 
-                this.log("数据上传成功 (ZIP)", 'success');
+                throw new Error(error);
             }
+
+            this.log(`数据上传成功 (ZIP${this.isNative ? ', 原生' : ''})`, 'success');
 
             const verifyResult = await this.verifyRemoteSize(url, expectedSize);
             if (verifyResult.supported && verifyResult.mismatch) {
@@ -867,10 +807,10 @@ export default class WebDAVClient {
             }
 
             // 优先使用主要来源（较新）的设置
-            if (settingsPrimary.hasOwnProperty(key)) {
+            if (Object.hasOwn(settingsPrimary, key)) {
                 // 特殊处理 develop 标志，确保它是布尔值
                 if (key === 'develop' && typeof settingsPrimary[key] !== 'boolean') {
-                    if (settingsSecondary.hasOwnProperty(key) && typeof settingsSecondary[key] === 'boolean') {
+                    if (Object.hasOwn(settingsSecondary, key) && typeof settingsSecondary[key] === 'boolean') {
                         mergedSettings[key] = settingsSecondary[key];
                     } else {
                         mergedSettings[key] = false;
@@ -880,7 +820,7 @@ export default class WebDAVClient {
                 }
             }
             // 如果主要来源没有，使用次要来源的
-            else if (settingsSecondary.hasOwnProperty(key)) {
+            else if (Object.hasOwn(settingsSecondary, key)) {
                 if (key === 'develop' && typeof settingsSecondary[key] !== 'boolean') {
                     mergedSettings[key] = false;
                 } else {
@@ -1127,7 +1067,7 @@ export default class WebDAVClient {
                     break;
 
                 case 'remote_newer':
-                case 'only_remote':
+                case 'only_remote': {
                     action = "merge";
                     this.log("执行操作: 合并本地和远程数据（远程较新或仅远程存在）", 'info');
                     finalData = this.mergeData(currentLocalData, remoteData, initialPresetDrinks, originalPresetDrinkIds);
@@ -1140,8 +1080,9 @@ export default class WebDAVClient {
                         message = "同步成功：已下载远程数据";
                     }
                     break;
+                }
 
-                case 'equal':
+                case 'equal': {
                     action = "merge";
                     this.log("执行操作: 时间戳相等，执行合并以确保数据一致性", 'info');
                     finalData = this.mergeData(currentLocalData, remoteData, initialPresetDrinks, originalPresetDrinkIds);
@@ -1154,6 +1095,7 @@ export default class WebDAVClient {
                         message = "同步完成：无数据需要同步";
                     }
                     break;
+                }
 
                 case 'no_timestamps':
                     // 无时间戳时，优先保留有数据的一方

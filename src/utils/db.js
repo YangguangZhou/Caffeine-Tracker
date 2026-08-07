@@ -75,11 +75,6 @@ const saveWebFile = async (bytes) => {
   });
 };
 
-const locateSqlWasm = (file) => {
-  if (file === 'sql-wasm.wasm') return wasmUrl;
-  return file;
-};
-
 const getSql = () => {
   if (!sqlPromise) {
     sqlPromise = (async () => {
@@ -159,7 +154,7 @@ export const repairDatabase = async () => {
   // 3. 尝试重新打开
   try {
     addRepairLog('Attempting to re-open database...', 'info');
-    const db = await getDatabase();
+    await getDatabase();
     addRepairLog('Database engine successfully re-initialized and data loaded.', 'success');
     return { success: true, backup };
   } catch (err) {
@@ -212,7 +207,7 @@ const loadExistingBytes = async () => {
     try {
       const { data } = await Filesystem.readFile({ path: DB_FILE_NAME, directory: Directory.Data });
       return toBytes(data);
-    } catch (err) {
+    } catch {
       return null;
     }
   }
@@ -274,15 +269,20 @@ const selectAll = (db, sql, params = []) => {
   }
 };
 
-const persistDb = async (db) => {
+let persistQueue = Promise.resolve();
+
+const persistDb = (db) => {
   const bytes = db.export();
-  await persistBytes(bytes);
+  // Keep snapshots ordered so an older, slower native write cannot overwrite
+  // a newer mutation that completed first.
+  persistQueue = persistQueue
+    .catch(() => undefined)
+    .then(() => persistBytes(bytes));
+  return persistQueue;
 };
 
-const trackDeletion = async (id, type) => {
-  const db = await getDatabase();
+const trackDeletion = (db, id, type) => {
   run(db, 'INSERT OR REPLACE INTO deleted_items (id, type, deletedAt) VALUES (?, ?, ?)', [id, type, Date.now()]);
-  await persistDb(db);
 };
 
 const hydrateRecord = (row) => ({
@@ -331,7 +331,7 @@ export const updateRecord = addRecord;
 
 export const deleteRecord = async (id) => {
   const db = await getDatabase();
-  await trackDeletion(id, 'record');
+  trackDeletion(db, id, 'record');
   run(db, 'DELETE FROM records WHERE id = ?', [id]);
   await persistDb(db);
 };
@@ -361,7 +361,7 @@ export const saveDrink = async (drink) => {
 
 export const deleteDrink = async (id) => {
   const db = await getDatabase();
-  await trackDeletion(id, 'drink');
+  trackDeletion(db, id, 'drink');
   run(db, 'DELETE FROM drinks WHERE id = ?', [id]);
   await persistDb(db);
 };
@@ -550,7 +550,7 @@ const readAllFromInstance = (db) => {
   if (settingsRow.length) {
     try {
       userSettings = JSON.parse(settingsRow[0].value);
-    } catch (err) {
+    } catch {
       userSettings = {};
     }
   }

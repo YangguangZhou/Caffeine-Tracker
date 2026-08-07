@@ -6,8 +6,8 @@ import {
   AlertTriangle, Copy, Scale, Search, X
 } from 'lucide-react';
 import MetabolismChart from '../components/MetabolismChart';
-import { formatTime, formatDate, getStartOfWeek, getEndOfWeek, getStartOfDay, getEndOfDay } from '../utils/timeUtils';
-import { getTotalCaffeineAtTime, estimateAmountFromConcentration, calculateHoursToReachTarget } from '../utils/caffeineCalculations';
+import { formatTime, formatDate, getStartOfDay, getEndOfDay } from '../utils/timeUtils';
+import { calculateHoursToReachTarget } from '../utils/caffeineCalculations';
 
 /**
  * 状态视图组件
@@ -16,6 +16,7 @@ import { getTotalCaffeineAtTime, estimateAmountFromConcentration, calculateHours
 const CurrentStatusView = ({
   currentCaffeineAmount,
   currentCaffeineConcentration,
+  calculationTimestamp,
   records,
   drinks,
   metabolismChartData,
@@ -29,10 +30,11 @@ const CurrentStatusView = ({
 }) => {
   
   const [searchQuery, setSearchQuery] = useState('');
+  const drinkLookup = useMemo(() => new Map(drinks.map(drink => [drink.id, drink])), [drinks]);
 
   // 计算今日总摄入量
   const todayTotal = useMemo(() => {
-    const today = new Date();
+    const today = new Date(calculationTimestamp);
     const todayStartTime = getStartOfDay(today); // Returns a number
     const todayEndTime = getEndOfDay(today);     // Returns a number
 
@@ -47,14 +49,14 @@ const CurrentStatusView = ({
         .filter(record => record && record.timestamp >= todayStartTime && record.timestamp <= todayEndTime)
         .reduce((sum, record) => sum + record.amount, 0)
     );
-  }, [records]);
+  }, [records, calculationTimestamp]);
 
   // 计算个性化推荐摄入量
   const personalizedRecommendation = useMemo(() => {
     const { weight, recommendedDosePerKg } = userSettings;
     if (weight > 0 && recommendedDosePerKg > 0) return Math.round(weight * recommendedDosePerKg);
     return null;
-  }, [userSettings.weight, userSettings.recommendedDosePerKg]);
+  }, [userSettings]);
 
   // 计算有效每日最大摄入量
   const effectiveMaxDaily = useMemo(() => {
@@ -65,7 +67,7 @@ const CurrentStatusView = ({
 
   // 计算达到安全睡眠阈值所需小时数和最佳睡眠时间
   const { hoursUntilSafeSleep, optimalSleepTime } = useMemo(() => {
-    const now = Date.now();
+    const now = calculationTimestamp;
     const { caffeineHalfLifeHours, safeSleepThresholdConcentration, weight, volumeOfDistribution } = userSettings;
 
     // currentCaffeineAmount is a prop
@@ -84,22 +86,12 @@ const CurrentStatusView = ({
       }
     }
     return { hoursUntilSafeSleep: hoursNeeded, optimalSleepTime: sleepTimeStr };
-  }, [currentCaffeineAmount, userSettings, estimateAmountFromConcentrationProp]);
+  }, [calculationTimestamp, currentCaffeineAmount, userSettings, estimateAmountFromConcentrationProp]);
 
   // 计算进度条百分比
   const percentFilled = useMemo(() => {
     if (effectiveMaxDaily <= 0) return 0;
     return Math.min(Math.max(0, (currentCaffeineAmount / effectiveMaxDaily) * 100), 100);
-  }, [currentCaffeineAmount, effectiveMaxDaily]);
-
-  // 计算用户状态
-  const userStatus = useMemo(() => {
-    const currentRounded = Math.round(currentCaffeineAmount);
-    const maxDaily = effectiveMaxDaily;
-    if (currentRounded < maxDaily * 0.1) return { status: '咖啡因含量极低', recommendation: '可以安全地摄入咖啡因。', color: `text-emerald-600` };
-    if (currentRounded < maxDaily * 0.5) return { status: '咖啡因含量低', recommendation: '如有需要，可以适量摄入更多。', color: `text-emerald-500` };
-    if (currentRounded < maxDaily) return { status: '咖啡因含量中等', recommendation: '请注意避免避免过量摄入。', color: `text-amber-500` };
-    return { status: '咖啡因含量高', recommendation: '建议暂时避免摄入更多咖啡因。', color: `text-red-500` };
   }, [currentCaffeineAmount, effectiveMaxDaily]);
 
   // 计算健康建议
@@ -112,7 +104,7 @@ const CurrentStatusView = ({
         type: 'danger'
       };
     }
-    if (currentRounded > 100 && new Date().getHours() >= 16) {
+    if (currentRounded > 100 && new Date(calculationTimestamp).getHours() >= 16) {
       return {
         advice: '下午体内咖啡因含量较高可能影响睡眠，建议限制晚间摄入。',
         type: 'warning'
@@ -122,49 +114,11 @@ const CurrentStatusView = ({
       advice: '您的咖啡因摄入量处于健康范围内，继续保持良好习惯。',
       type: 'success'
     };
-  }, [todayTotal, effectiveMaxDaily, currentCaffeineAmount]);
+  }, [todayTotal, effectiveMaxDaily, currentCaffeineAmount, calculationTimestamp]);
 
-
-  // 计算本周数据
-  const weekData = useMemo(() => {
-    const now = new Date();
-    const weekStart = getStartOfWeek(now);
-    const weekEnd = getEndOfWeek(now);
-
-    const weekRecords = records.filter(record =>
-      record.timestamp >= weekStart && record.timestamp <= weekEnd
-    );
-
-    const weekTotal = weekRecords.reduce((sum, record) => sum + record.amount, 0);
-    const weekAverage = weekRecords.length > 0 ? weekTotal / 7 : 0;
-
-    // 计算趋势（与上周比较）
-    const lastWeekStart = new Date(weekStart);
-    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
-    const lastWeekEnd = new Date(weekEnd);
-    lastWeekEnd.setDate(lastWeekEnd.getDate() - 7);
-
-    const lastWeekRecords = records.filter(record =>
-      record.timestamp >= lastWeekStart && record.timestamp <= lastWeekEnd
-    );
-    const lastWeekTotal = lastWeekRecords.reduce((sum, record) => sum + record.amount, 0);
-    const lastWeekAverage = lastWeekRecords.length > 0 ? lastWeekTotal / 7 : 0;
-
-    const trend = weekAverage - lastWeekAverage;
-
-    return {
-      total: Math.round(weekTotal),
-      average: Math.round(weekAverage),
-      trend: Math.round(trend),
-      recordCount: weekRecords.length
-    };
-  }, [records]);
 
   // 计算清醒指数和智能分析
   const intelligentAnalysis = useMemo(() => {
-    const now = new Date();
-    const currentHour = now.getHours();
-
     // 计算清醒指数 (0-100)
     let alertnessScore = 0;
     let alertnessLevel = '';
@@ -261,7 +215,7 @@ const CurrentStatusView = ({
 
   // 计算睡眠质量预测（仅在晚上显示）
   const sleepQualityPrediction = useMemo(() => {
-    const currentHour = new Date().getHours();
+    const currentHour = new Date(calculationTimestamp).getHours();
     const isEvening = currentHour >= 18 || currentHour <= 6;
 
     if (!isEvening) return null;
@@ -287,7 +241,7 @@ const CurrentStatusView = ({
       deepSleepReduction: Math.round(deepSleepReduction),
       isEvening
     };
-  }, [currentCaffeineConcentration]);
+  }, [currentCaffeineConcentration, calculationTimestamp]);
 
   // 计算体感预报
   const bodyFeelForecast = useMemo(() => {
@@ -351,7 +305,7 @@ const CurrentStatusView = ({
 
   // 计算今日详细数据
   const todayData = useMemo(() => {
-    const today = new Date();
+    const today = new Date(calculationTimestamp);
     const dayStartTime = getStartOfDay(today); // Returns a number
     const dayEndTime = getEndOfDay(today);   // Returns a number
 
@@ -371,9 +325,9 @@ const CurrentStatusView = ({
     );
 
     const firstIntake = todayRecords.length > 0 ?
-      formatTime(Math.max(...todayRecords.map(r => r.timestamp))) : null;
-    const lastIntake = todayRecords.length > 0 ?
       formatTime(Math.min(...todayRecords.map(r => r.timestamp))) : null;
+    const lastIntake = todayRecords.length > 0 ?
+      formatTime(Math.max(...todayRecords.map(r => r.timestamp))) : null;
 
     return {
       recordCount: todayRecords.length,
@@ -381,7 +335,7 @@ const CurrentStatusView = ({
       lastIntake,
       percentOfLimit: Math.round((todayTotal / effectiveMaxDaily) * 100)
     };
-  }, [records, todayTotal, effectiveMaxDaily]);
+  }, [records, todayTotal, effectiveMaxDaily, calculationTimestamp]);
 
   // 过滤后的记录
   const filteredRecords = useMemo(() => {
@@ -391,7 +345,7 @@ const CurrentStatusView = ({
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       filtered = filtered.filter(record => {
-        const drink = drinks.find(d => d.id === record.drinkId);
+        const drink = drinkLookup.get(record.drinkId);
         const drinkName = (record.name || drink?.name || '').toLowerCase();
         const category = drink?.category || '';
         
@@ -400,7 +354,7 @@ const CurrentStatusView = ({
     }
 
     return filtered;
-  }, [records, searchQuery, drinks]);
+  }, [records, searchQuery, drinkLookup]);
 
   // 计算过滤后的统计数据
   const filteredStats = useMemo(() => {
@@ -788,6 +742,7 @@ const CurrentStatusView = ({
         </h2>
         <MetabolismChart
           metabolismChartData={metabolismChartData}
+          calculationTimestamp={calculationTimestamp}
           userSettings={userSettings}
           formatTime={formatTime}
           estimateAmountFromConcentration={estimateAmountFromConcentrationProp}
@@ -926,7 +881,7 @@ const CurrentStatusView = ({
               >
                 {filteredRecords.map(record => {
               // 获取饮品信息以确定计算模式
-              const drink = drinks.find(d => d.id === record.drinkId);
+              const drink = drinkLookup.get(record.drinkId);
               const isPerGram = drink?.calculationMode === 'perGram';
 
               return (
@@ -1065,11 +1020,11 @@ const CurrentStatusView = ({
                       {(record.customName && record.drinkId) && (
                         <span
                           className="flex items-center flex-shrink-0"
-                          title={`来源: ${drinks.find(d => d.id === record.drinkId)?.name ?? '未知饮品'}`}
+                          title={`来源: ${drinkLookup.get(record.drinkId)?.name ?? '未知饮品'}`}
                         >
                           <Coffee size={10} className="mr-1 flex-shrink-0" />
                           <span className="whitespace-nowrap">
-                            来源: {drinks.find(d => d.id === record.drinkId)?.name ?? '未知饮品'}
+                            来源: {drinkLookup.get(record.drinkId)?.name ?? '未知饮品'}
                           </span>
                         </span>
                       )}

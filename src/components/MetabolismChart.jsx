@@ -13,14 +13,12 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, R
  */
 const MetabolismChart = ({
   metabolismChartData,
+  calculationTimestamp,
   userSettings,
   formatTime,
   estimateAmountFromConcentration,
   colors
 }) => {
-  // 获取当前时间戳
-  const now = useMemo(() => Date.now(), []);
-
   // 计算睡眠安全目标咖啡因量
   const safeTargetAmount = useMemo(() => {
     const { safeSleepThresholdConcentration, weight, volumeOfDistribution } = userSettings;
@@ -42,6 +40,11 @@ const MetabolismChart = ({
     return Math.ceil(Math.max(maxCaffeineValue, safeTargetAmount ?? 0) * 1.1 / 10) * 10;
   }, [metabolismChartData, safeTargetAmount]);
 
+  const hasCaffeineData = useMemo(
+    () => metabolismChartData.some(point => point.caffeine > 0),
+    [metabolismChartData]
+  );
+
   // 格式化tooltip标签
   const formatTooltipLabel = (unixTime) => formatTime(unixTime);
 
@@ -57,7 +60,7 @@ const MetabolismChart = ({
         咖啡因代谢曲线 (mg)
       </h3>
 
-      {metabolismChartData.length > 1 ? (
+      {hasCaffeineData ? (
         <ResponsiveContainer width="100%" height={250}>
           <LineChart
             data={metabolismChartData}
@@ -131,7 +134,7 @@ const MetabolismChart = ({
 
             {/* 当前时间参考线 */}
             <ReferenceLine
-              x={now}
+              x={calculationTimestamp}
               stroke={colors.chartNowLine}
               strokeWidth={1.5}
               strokeDasharray="4 2"
@@ -165,7 +168,7 @@ const MetabolismChart = ({
         </ResponsiveContainer>
       ) : (
         <div className="flex items-center justify-center h-60 text-sm transition-colors" style={{ color: colors.textMuted }}>
-          {metabolismChartData.length > 0 ? "正在生成图表..." : "添加摄入记录以查看代谢曲线。"}
+          添加摄入记录以查看代谢曲线。
         </div>
       )}
 

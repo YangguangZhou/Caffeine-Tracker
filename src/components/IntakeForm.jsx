@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Save, X, Clock, Coffee, Calculator, Zap, Plus, Minus, HelpCircle, PlusCircle, Edit2 } from 'lucide-react'; // Added HelpCircle, PlusCircle, Edit2
 import DrinkSelector from './DrinkSelector';
 import { formatDatetimeLocal } from '../utils/timeUtils';
@@ -25,11 +25,11 @@ const IntakeForm = ({
   lastRecord = null
 }) => {
   // 表单状态
-  const [selectedDrinkId, setSelectedDrinkId] = useState('');
-  const [drinkVolume, setDrinkVolume] = useState('');
-  const [customAmount, setCustomAmount] = useState('');
-  const [entryName, setEntryName] = useState('');
-  const [intakeTime, setIntakeTime] = useState(formatDatetimeLocal(new Date()));
+  const [selectedDrinkId, setSelectedDrinkId] = useState(() => initialValues?.drinkId || '');
+  const [drinkVolume, setDrinkVolume] = useState(() => initialValues?.volume != null ? initialValues.volume.toString() : '');
+  const [customAmount, setCustomAmount] = useState(() => initialValues?.customAmount != null ? initialValues.customAmount.toString() : '');
+  const [entryName, setEntryName] = useState(() => initialValues?.name || '');
+  const [intakeTime, setIntakeTime] = useState(() => formatDatetimeLocal(new Date(initialValues?.timestamp || Date.now())));
 
   // 选中的饮品
   const selectedDrink = drinks.find(d => d.id === selectedDrinkId);
@@ -38,30 +38,6 @@ const IntakeForm = ({
   const calculatedAmount = selectedDrink && drinkVolume
     ? calculateCaffeineAmount(selectedDrink, parseFloat(drinkVolume))
     : null;
-
-  // 加载初始值（用于编辑模式）
-  useEffect(() => {
-    if (initialValues) {
-      setSelectedDrinkId(initialValues.drinkId || '');
-      setDrinkVolume(initialValues.volume !== null ? initialValues.volume.toString() : '');
-      setCustomAmount(initialValues.customAmount ? initialValues.customAmount.toString() : '');
-      setEntryName(initialValues.name || '');
-      setIntakeTime(formatDatetimeLocal(new Date(initialValues.timestamp || Date.now())));
-    }
-  }, [initialValues]);
-
-  // 当选中饮品变化时，更新饮品体积和名称
-  useEffect(() => {
-    if (selectedDrinkId && !initialValues) {
-      const drink = drinks.find(d => d.id === selectedDrinkId);
-      if (drink) {
-        setDrinkVolume(drink.defaultVolume?.toString() ?? '');
-        setEntryName(drink.name);
-        // 清除自定义量，因为选择了预设饮品，其计算方式已确定
-        setCustomAmount('');
-      }
-    }
-  }, [selectedDrinkId, drinks, initialValues]);
 
   // 清除饮品选择
   const handleClearSelection = () => {
@@ -147,7 +123,7 @@ const IntakeForm = ({
     try {
       timestamp = new Date(intakeTime).getTime();
       if (isNaN(timestamp)) throw new Error("Invalid date format");
-    } catch (e) {
+    } catch {
       alert("请输入有效的摄入时间。");
       console.error("Invalid date/time value:", intakeTime);
       return;
@@ -169,7 +145,6 @@ const IntakeForm = ({
     onSubmit(record);
   };
 
-  const volumeInputLabel = selectedDrink?.calculationMode === 'perGram' ? "咖啡豆用量 (g):" : "容量 (ml):";
   const volumeInputPlaceholder = selectedDrink?.calculationMode === 'perGram'
     ? `例如: ${selectedDrink?.defaultVolume ?? '15'}`
     : `例如: ${selectedDrink?.defaultVolume ?? '250'}`;
@@ -237,6 +212,11 @@ const IntakeForm = ({
             setSelectedDrinkId('');
           } else {
             setSelectedDrinkId(id);
+            const drink = drinks.find(item => item.id === id);
+            if (!initialValues && drink) {
+              setDrinkVolume(drink.defaultVolume?.toString() ?? '');
+              setEntryName(drink.name);
+            }
             setCustomAmount('');
           }
         }}

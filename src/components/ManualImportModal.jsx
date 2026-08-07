@@ -1,15 +1,27 @@
 import { useState, useEffect } from 'react';
-import { X, Link, ShieldCheck, Server, User, KeyRound, Download, Loader2, Camera, Copy, Check } from 'lucide-react';
-import { Capacitor } from '@capacitor/core';
+import { X, Link, ShieldCheck, Server, User, KeyRound, Download, Loader2, Copy, Check } from 'lucide-react';
 import { decodeConfigFromUrl, isValidConfig, getServerDisplayName, extractConfigParam } from '../utils/syncConfigShare';
 
-const ManualImportModal = ({ onClose, colors, onImportConfig, initialConfigParam, isNativePlatform, initialScannedContent }) => {
+const parseInitialConfig = (configParam, scannedContent) => {
+  if (!configParam || scannedContent) return { config: null, error: '' };
+  try {
+    const decoded = decodeConfigFromUrl(configParam);
+    return decoded && isValidConfig(decoded)
+      ? { config: decoded, error: '' }
+      : { config: null, error: '链接中的配置数据无效。' };
+  } catch {
+    return { config: null, error: '无法解析配置链接。' };
+  }
+};
+
+const ManualImportModal = ({ onClose, colors, onImportConfig, initialConfigParam, initialScannedContent }) => {
+  const [initialState] = useState(() => parseInitialConfig(initialConfigParam, initialScannedContent));
   const [url, setUrl] = useState('');
-  const [configData, setConfigData] = useState(null);
-  const [error, setError] = useState('');
+  const [configData, setConfigData] = useState(initialState.config);
+  const [error, setError] = useState(initialState.error);
   const [importing, setImporting] = useState(false);
   const [importStatus, setImportStatus] = useState(''); // '', 'syncing', 'success', 'failed'
-  const [scannedLink, setScannedLink] = useState(initialScannedContent || '');
+  const scannedLink = initialScannedContent || '';
   const [copied, setCopied] = useState(false);
 
   // 锁定背景滚动
@@ -19,23 +31,6 @@ const ManualImportModal = ({ onClose, colors, onImportConfig, initialConfigParam
       document.body.style.overflow = 'unset';
     };
   }, []);
-
-  // 如果有 initialConfigParam，自动解析
-  useEffect(() => {
-    if (initialConfigParam && !scannedLink) {
-      try {
-        const decoded = decodeConfigFromUrl(initialConfigParam);
-        if (decoded && isValidConfig(decoded)) {
-          setConfigData(decoded);
-          setError('');
-        } else {
-          setError('链接中的配置数据无效。');
-        }
-      } catch (err) {
-        setError('无法解析配置链接。');
-      }
-    }
-  }, [initialConfigParam]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -56,7 +51,7 @@ const ManualImportModal = ({ onClose, colors, onImportConfig, initialConfigParam
         return;
       }
       setError('提供的URL中未找到配置信息。');
-    } catch (error) {
+    } catch {
       setError('无效的URL格式。');
     }
   };
